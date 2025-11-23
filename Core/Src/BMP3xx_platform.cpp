@@ -78,3 +78,25 @@ void bmp3_delay_us(uint32_t period, void *intf_ptr)
     //
     // For now this is empty.
 }
+
+
+extern "C"{
+    int8_t bmp3_interface_init(struct bmp3_dev *dev, unit8_t intf){
+        static bmp3_spi_intf spi_intf;   // Stays in memory
+        if(intf == BMP3_SPI_INTF){
+            spi_intf.spi_handle = nullptr;  // SET SPI HAL HANDLE!!!!!
+            spi_intf.cs_port = nullptr;     // SET GPIO PORT FOR CS!!!!!
+            spi_intf.cs_pin = 0;            // SET GPIO PIN FOR CS!!!!!
+            
+            dev -> intf = BMP3_SPI_INTF;
+            dev->read     = bmp3_spi_read;
+            dev->write    = bmp3_spi_write;
+            dev->delay_us = bmp3_delay_us;
+            dev->intf_ptr = &spi_intf;
+
+            return BMP3_OK;
+        }
+
+        return BMP3_E_INVALID_ODR_OSR_SETTINGS;
+    }
+}
