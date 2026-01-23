@@ -1,0 +1,8 @@
+{
+	"InstallScripts" : 
+	[
+		"/Users/jasonz/Documents/LRI/Kingfisher-SW/build/Debug/cmake_install.cmake",
+		"/Users/jasonz/Documents/LRI/Kingfisher-SW/build/Debug/cmake/stm32cubemx/cmake_install.cmake"
+	],
+	"Parallel" : false
+}
