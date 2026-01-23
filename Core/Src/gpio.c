@@ -34,13 +34,8 @@
 
 /** Configure pins
      PH0-OSC_IN (PH0)   ------> RCC_OSC_IN
-     PA0   ------> UART4_TX
-     PA1   ------> UART4_RX
      PA13 (JTMS/SWDIO)   ------> DEBUG_JTMS-SWDIO
      PA14 (JTCK/SWCLK)   ------> DEBUG_JTCK-SWCLK
-     PD7   ------> SPI1_MOSI
-     PB3 (JTDO/TRACESWO)   ------> SPI1_SCK
-     PB4 (NJTRST)   ------> SPI1_MISO
 */
 void MX_GPIO_Init(void)
 {
@@ -80,14 +75,6 @@ void MX_GPIO_Init(void)
   GPIO_InitStruct.Pull = GPIO_NOPULL;
   GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
   HAL_GPIO_Init(GPIOE, &GPIO_InitStruct);
-
-  /*Configure GPIO pins : PA0 PA1 */
-  GPIO_InitStruct.Pin = GPIO_PIN_0|GPIO_PIN_1;
-  GPIO_InitStruct.Mode = GPIO_MODE_AF_PP;
-  GPIO_InitStruct.Pull = GPIO_NOPULL;
-  GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
-  GPIO_InitStruct.Alternate = GPIO_AF8_UART4;
-  HAL_GPIO_Init(GPIOA, &GPIO_InitStruct);
 
   /*Configure GPIO pin : SD_DET_Pin */
   GPIO_InitStruct.Pin = SD_DET_Pin;
@@ -147,22 +134,6 @@ void MX_GPIO_Init(void)
   GPIO_InitStruct.Mode = GPIO_MODE_IT_RISING;
   GPIO_InitStruct.Pull = GPIO_NOPULL;
   HAL_GPIO_Init(ISM_INT_GPIO_Port, &GPIO_InitStruct);
-
-  /*Configure GPIO pin : MOSI1_Pin */
-  GPIO_InitStruct.Pin = MOSI1_Pin;
-  GPIO_InitStruct.Mode = GPIO_MODE_AF_PP;
-  GPIO_InitStruct.Pull = GPIO_NOPULL;
-  GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
-  GPIO_InitStruct.Alternate = GPIO_AF5_SPI1;
-  HAL_GPIO_Init(MOSI1_GPIO_Port, &GPIO_InitStruct);
-
-  /*Configure GPIO pins : SCK1_Pin MISO1_Pin */
-  GPIO_InitStruct.Pin = SCK1_Pin|MISO1_Pin;
-  GPIO_InitStruct.Mode = GPIO_MODE_AF_PP;
-  GPIO_InitStruct.Pull = GPIO_NOPULL;
-  GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
-  GPIO_InitStruct.Alternate = GPIO_AF5_SPI1;
-  HAL_GPIO_Init(GPIOB, &GPIO_InitStruct);
 
   /*Configure GPIO pin : GPS_RST_Pin */
   GPIO_InitStruct.Pin = GPS_RST_Pin;

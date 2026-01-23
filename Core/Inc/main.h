@@ -123,8 +123,8 @@ void Error_Handler(void);
 #define USR_LED_GPIO_Port GPIOD
 #define USR_BUTTON_Pin GPIO_PIN_15
 #define USR_BUTTON_GPIO_Port GPIOD
-#define SERVO2_PWM_Pin GPIO_PIN_6
-#define SERVO2_PWM_GPIO_Port GPIOC
+#define SERVO_CHAINTX_Pin GPIO_PIN_6
+#define SERVO_CHAINTX_GPIO_Port GPIOC
 #define SERVO1_PWM_Pin GPIO_PIN_7
 #define SERVO1_PWM_GPIO_Port GPIOC
 #define BUZZER_Pin GPIO_PIN_8
