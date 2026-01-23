@@ -29,10 +29,10 @@
  * POSSIBILITY OF SUCH DAMAGE.
  */
 
-#include "sensirion_arch_config.h"
-#include "sensirion_common.h"
-#include "sensirion_i2c.h"
-#include "sensirion_sw_i2c_gpio.h"
+#include "/Users/jasonz/Documents/LRI/Kingfisher-SW/Core/Inc/sht4x-5.3.0/sensirion_arch_config.h"
+#include "/Users/jasonz/Documents/LRI/Kingfisher-SW/Core/Inc/sht4x-5.3.0/sensirion_common.h"
+#include "/Users/jasonz/Documents/LRI/Kingfisher-SW/Core/Inc/sht4x-5.3.0/sensirion_i2c.h"
+#include "/Users/jasonz/Documents/LRI/Kingfisher-SW/Core/Inc/sht4x-5.3.0/sw_i2c/sensirion_sw_i2c_gpio.h"
 
 #define DELAY_USEC (SENSIRION_I2C_CLOCK_PERIOD_USEC / 2)
 

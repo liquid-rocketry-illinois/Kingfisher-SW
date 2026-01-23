@@ -32,14 +32,16 @@
 #ifndef SENSIRION_SW_I2C_GPIO_H
 #define SENSIRION_SW_I2C_GPIO_H
 
-#include "sensirion_arch_config.h"
+#include "/Users/jasonz/Documents/LRI/Kingfisher-SW/Core/Inc/sht4x-5.3.0/sensirion_arch_config.h"
 
 #ifdef __cplusplus
 extern "C" {
 #endif
 
 void sensirion_init_pins(void);
-
+    __GPIOB_CLK_ENABLE();
+    sensirion_SDA_in();
+    sensirion_SCL_in();
 void sensirion_release_pins(void);
 
 void sensirion_SDA_in(void);

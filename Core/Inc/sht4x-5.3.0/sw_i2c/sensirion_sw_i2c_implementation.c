@@ -53,6 +53,7 @@
  */
 void sensirion_init_pins(void) {
     // IMPLEMENT
+    
 }
 
 /**
