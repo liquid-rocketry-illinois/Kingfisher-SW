@@ -76,6 +76,7 @@ int main(void)
 
   /* USER CODE BEGIN 1 */
 
+
   /* USER CODE END 1 */
 
   /* MPU Configuration--------------------------------------------------------*/
@@ -120,6 +121,8 @@ int main(void)
   /* Init scheduler */
   osKernelInitialize();  /* Call init function for freertos objects (in cmsis_os2.c) */
   MX_FREERTOS_Init();
+  HAL_TIM_PWM_Start(&htim3, TIM_CHANNEL_1);
+  TIM1->CCR1 = 30;
 
   /* Start scheduler */
   osKernelStart();
@@ -131,7 +134,11 @@ int main(void)
   while (1)
   {
     /* USER CODE END WHILE */
-
+    for (int duty = 0; duty <= 99; duty += 10)
+    {
+      __HAL_TIM_SET_COMPARE(&htim3, TIM_CHANNEL_1, duty);  // TIM1->CCR1 = duty;
+      HAL_Delay(500);  // Wait 500ms before changing duty cycle
+    }
     /* USER CODE BEGIN 3 */
   }
   /* USER CODE END 3 */

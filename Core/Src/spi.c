@@ -18,7 +18,7 @@
   */
 /* USER CODE END Header */
 /* Includes ------------------------------------------------------------------*/
-#include "spi.h"
+#include "../inc/spi.h"
 
 /* USER CODE BEGIN 0 */
 
