@@ -25,7 +25,7 @@
 
 /* Private includes ----------------------------------------------------------*/
 /* USER CODE BEGIN Includes */
-
+#include "tim.h"
 /* USER CODE END Includes */
 
 /* Private typedef -----------------------------------------------------------*/
@@ -118,6 +118,12 @@ void StartDefaultTask(void *argument)
   for(;;)
   {
     osDelay(1);
+    HAL_GPIO_TogglePin(USR_LED_GPIO_Port, USR_LED_Pin);
+    HAL_Delay(1000L);
+
+    TIM3->ARR = 57141L;
+    TIM3->CCR2 = 28571L;
+    HAL_TIM_PWM_Start(&htim3, TIM_CHANNEL_2);
   }
   /* USER CODE END StartDefaultTask */
 }
