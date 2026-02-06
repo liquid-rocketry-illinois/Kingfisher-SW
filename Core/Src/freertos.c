@@ -26,6 +26,8 @@
 /* Private includes ----------------------------------------------------------*/
 /* USER CODE BEGIN Includes */
 #include "tim.h"
+#include "ism6hg256x_reg.h"
+#include "usart.h"
 /* USER CODE END Includes */
 
 /* Private typedef -----------------------------------------------------------*/
@@ -45,6 +47,18 @@
 
 /* Private variables ---------------------------------------------------------*/
 /* USER CODE BEGIN Variables */
+struct IMU_Data {
+  int16_t linAX;
+  int16_t linAY;
+  int16_t linAZ;
+  int16_t angAX;
+  int16_t angAY;
+  int16_t angAZ;
+};
+
+extern SPI_HandleTypeDef hspi1; //TODO: Figure out which handle I'm supposed to use
+stmdev_ctx_t dev_ctx;
+struct IMU_Data main_imu_data;
 
 /* USER CODE END Variables */
 /* Definitions for defaultTask */
@@ -57,7 +71,13 @@ const osThreadAttr_t defaultTask_attributes = {
 
 /* Private function prototypes -----------------------------------------------*/
 /* USER CODE BEGIN FunctionPrototypes */
-
+static int32_t platform_write(void *handle, uint8_t reg, const uint8_t *bufp,
+                              uint16_t len);
+static int32_t platform_read(void *handle, uint8_t reg, uint8_t *bufp,
+                             uint16_t len);
+static void tx_com( uint8_t *tx_buffer, uint16_t len );
+static void platform_delay(uint32_t ms);
+static void platform_init(void);
 /* USER CODE END FunctionPrototypes */
 
 void StartDefaultTask(void *argument);
@@ -114,12 +134,55 @@ void MX_FREERTOS_Init(void) {
 void StartDefaultTask(void *argument)
 {
   /* USER CODE BEGIN StartDefaultTask */
+  // TODO: Check if we are polling, DMA, or data interrupt
+  // 1: Sensor initialisation
+  dev_ctx.write_reg = platform_write;
+  dev_ctx.read_reg = platform_read;
+  dev_ctx.handle = &hspi1;
+  dev_ctx.mdelay = platform_delay;
+
+  // 2: HAL CS Pin to High
+  HAL_GPIO_WritePin(CS_ISM_GPIO_Port, CS_ISM_Pin, 1);
+  osDelay(20);
+
+  // 3: Check sensor identity
+  uint8_t id;
+  ism6hg256x_device_id_get(&dev_ctx, &id);
+  if (id != ISM6HG256X_ID) {
+    while (1) {
+      // Wrong SPI handle signal: flashing LED for 1 second
+      HAL_GPIO_WritePin(USR_LED_GPIO_Port, USR_LED_Pin, GPIO_PIN_SET);
+      osDelay(1000);
+      HAL_GPIO_WritePin(USR_LED_GPIO_Port, USR_LED_Pin, GPIO_PIN_RESET);
+      osDelay(1000);
+    }
+  }
+
+  // 4: Sensor correct, initiate sensor
+  ism6hg256x_sh_reset_set(&dev_ctx, PROPERTY_ENABLE);
+  osDelay(20);
+  ism6hg256x_block_data_update_set(&dev_ctx, PROPERTY_ENABLE);
+  ism6hg256x_xl_setup(&dev_ctx, ISM6, ISM6HG256X_XL_HIGH_PERFORMANCE_MD);
+  ism6hg256x_gy_setup(&dev_ctx, ISM6HG256X_ODR_AT_104Hz, ISM6HG256X_GY_HIGH_PERFORMANCE_MD);
+  ism6hg256x_haodr_set(&dev_ctx, PROPERTY_ENABLE);
+
+
+
   /* Infinite loop */
   for(;;)
   {
-    osDelay(1);
-    HAL_GPIO_TogglePin(USR_LED_GPIO_Port, USR_LED_Pin);
-    HAL_Delay(1000L);
+
+    int j = 10;
+    while (j > 0) {
+      HAL_GPIO_WritePin(USR_LED_GPIO_Port, USR_LED_Pin, GPIO_PIN_SET);
+      HAL_Delay(20*j);
+      HAL_GPIO_WritePin(USR_LED_GPIO_Port, USR_LED_Pin, GPIO_PIN_RESET);
+      HAL_Delay(20*j);
+      j--;
+    }
+
+
+
 
     TIM3->ARR = 57141L;
     TIM3->CCR2 = 28571L;
@@ -130,6 +193,48 @@ void StartDefaultTask(void *argument)
 
 /* Private application code --------------------------------------------------*/
 /* USER CODE BEGIN Application */
+/* USER CODE BEGIN 4 */
+static int32_t platform_write(void *handle, uint8_t reg, const uint8_t *bufp, uint16_t len){
+  HAL_GPIO_WritePin(CS_ISM_GPIO_Port, CS_ISM_Pin, GPIO_PIN_RESET); // Chip selection!!
+  HAL_SPI_Transmit((SPI_HandleTypeDef*)handle, &reg, 1, 1000); // Send register address
+  HAL_SPI_Transmit((SPI_HandleTypeDef*)handle, (uint8_t*)bufp, len, 1000); // Send data
+  HAL_GPIO_WritePin(CS_ISM_GPIO_Port, CS_ISM_Pin, GPIO_PIN_SET); // Unselect chip
+  return 0;
+}
 
+static int32_t platform_read(void *handle, uint8_t reg, uint8_t *bufp, uint16_t len){
+  reg |= 0x80; // Set the MSB of the register address to 1 to indicate a read
+  HAL_GPIO_WritePin(CS_ISM_GPIO_Port, CS_ISM_Pin, GPIO_PIN_RESET); // Chip selection
+  HAL_SPI_Transmit((SPI_HandleTypeDef*)handle, &reg, 1, 1000); // Send register address
+  HAL_SPI_Receive((SPI_HandleTypeDef*)handle, (uint8_t*)bufp, len, 1000); // Recieve data from sensor
+  HAL_GPIO_WritePin(CS_ISM_GPIO_Port, CS_ISM_Pin, GPIO_PIN_SET);
+  return 0;
+}
+
+void platform_init(void){
+  HAL_GPIO_WritePin(CS_ISM_GPIO_Port, CS_ISM_Pin, GPIO_PIN_SET);
+}
+
+static void tx_com(uint8_t *tx_buffer, uint16_t len){
+  HAL_UART_Transmit(&huart4, tx_buffer, len, 1000);
+}
+
+static void platform_delay(uint32_t ms){
+  HAL_Delay(ms);
+}
+
+int8_t IMU_read_data(stmdev_ctx_t *ctx, struct IMU_Data *data){
+  ism6hg256x_data_ready_t drdy;
+  ism6hg256x_flag_data_ready_get(ctx, &drdy); // Check if both accelerometer and gyroscope have data
+  if(drdy.drdy_xl && drdy.drdy_gy){
+    ism6hg256x_acceleration_raw_get(ctx, (int16_t*)&data -> linAX); // Implicit data dump into ay and az
+    ism6hg256x_angular_rate_raw_get(ctx, (int16_t*)&data -> angAX); // Same as above
+    return 0; // Succcess
+  }
+  else{
+    return 1; // Failure
+  }
+
+}
 /* USER CODE END Application */
 
