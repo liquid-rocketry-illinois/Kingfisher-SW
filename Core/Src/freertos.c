@@ -78,6 +78,7 @@ static int32_t platform_read(void *handle, uint8_t reg, uint8_t *bufp,
 static void tx_com( uint8_t *tx_buffer, uint16_t len );
 static void platform_delay(uint32_t ms);
 static void platform_init(void);
+int8_t IMU_read_data(stmdev_ctx_t *ctx, struct IMU_Data *data);
 /* USER CODE END FunctionPrototypes */
 
 void StartDefaultTask(void *argument);
@@ -162,31 +163,26 @@ void StartDefaultTask(void *argument)
   ism6hg256x_sh_reset_set(&dev_ctx, PROPERTY_ENABLE);
   osDelay(20);
   ism6hg256x_block_data_update_set(&dev_ctx, PROPERTY_ENABLE);
-  ism6hg256x_xl_setup(&dev_ctx, ISM6, ISM6HG256X_XL_HIGH_PERFORMANCE_MD);
-  ism6hg256x_gy_setup(&dev_ctx, ISM6HG256X_ODR_AT_104Hz, ISM6HG256X_GY_HIGH_PERFORMANCE_MD);
-  ism6hg256x_haodr_set(&dev_ctx, PROPERTY_ENABLE);
+  //TODO: Check if this is actually 240 Hz or if we need something else
+  ism6hg256x_xl_setup(&dev_ctx, ISM6HG256X_ODR_AT_240Hz, ISM6HG256X_XL_HIGH_PERFORMANCE_MD);
+  ism6hg256x_gy_setup(&dev_ctx, ISM6HG256X_ODR_AT_240Hz, ISM6HG256X_GY_HIGH_PERFORMANCE_MD);
 
-
+  TIM3->ARR = 57141L;
+  TIM3->CCR2 = 28571L;
+  HAL_TIM_PWM_Start(&htim3, TIM_CHANNEL_2);
 
   /* Infinite loop */
   for(;;)
   {
 
-    int j = 10;
-    while (j > 0) {
-      HAL_GPIO_WritePin(USR_LED_GPIO_Port, USR_LED_Pin, GPIO_PIN_SET);
-      HAL_Delay(20*j);
-      HAL_GPIO_WritePin(USR_LED_GPIO_Port, USR_LED_Pin, GPIO_PIN_RESET);
-      HAL_Delay(20*j);
-      j--;
-    }
+  if (IMU_read_data(&dev_ctx, &main_imu_data) == 0) {
+    // Run code that does things
+  }
 
 
 
 
-    TIM3->ARR = 57141L;
-    TIM3->CCR2 = 28571L;
-    HAL_TIM_PWM_Start(&htim3, TIM_CHANNEL_2);
+
   }
   /* USER CODE END StartDefaultTask */
 }

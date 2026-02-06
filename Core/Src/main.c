@@ -261,19 +261,7 @@ static void platform_delay(uint32_t ms){
   HAL_Delay(ms);
 }
 
-int8_t IMU_read_data(stmdev_ctx_t *ctx, struct IMU_Data *data){
-ism6hg256x_data_ready_t drdy;
-ism6hg256x_flag_data_ready_get(ctx, &drdy); // Check if both accelerometer and gyroscope have data
-if(drdy.drdy_xl && drdy.drdy_gy){
-  ism6hg256x_acceleration_raw_get(ctx, (int16_t*)&data -> linAX); // Implicit data dump into ay and az
-  ism6hg256x_angular_rate_raw_get(ctx, (int16_t*)&data -> angAX); // Same as above
-  return 0; // Succcess
-}
-else{
-  return 1; // Failure
-}
 
-}
 
 /* USER CODE END 4 */
 
