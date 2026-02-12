@@ -25,6 +25,8 @@
 
 /* Private includes ----------------------------------------------------------*/
 /* USER CODE BEGIN Includes */
+#include <string.h>
+
 #include "tim.h"
 #include "ism6hg256x_reg.h"
 #include "usart.h"
@@ -56,7 +58,7 @@ struct IMU_Data {
   int16_t angAZ;
 };
 
-extern SPI_HandleTypeDef hspi1; //TODO: Figure out which handle I'm supposed to use
+extern SPI_HandleTypeDef hspi3;
 stmdev_ctx_t dev_ctx;
 struct IMU_Data main_imu_data;
 
@@ -135,22 +137,30 @@ void MX_FREERTOS_Init(void) {
 void StartDefaultTask(void *argument)
 {
   /* USER CODE BEGIN StartDefaultTask */
+
+
+
   // TODO: Check if we are polling, DMA, or data interrupt
   // 1: Sensor initialisation
   dev_ctx.write_reg = platform_write;
   dev_ctx.read_reg = platform_read;
-  dev_ctx.handle = &hspi1;
+  dev_ctx.handle = &hspi3;
   dev_ctx.mdelay = platform_delay;
 
-  // 2: HAL CS Pin to High
-  HAL_GPIO_WritePin(CS_ISM_GPIO_Port, CS_ISM_Pin, 1);
+
+  platform_init();
   osDelay(20);
+
+
+
 
   // 3: Check sensor identity
   uint8_t id;
   ism6hg256x_device_id_get(&dev_ctx, &id);
   if (id != ISM6HG256X_ID) {
-    while (1) {
+    while (id != ISM6HG256X_ID) {
+      // Retry
+      ism6hg256x_device_id_get(&dev_ctx, &id);
       // Wrong SPI handle signal: flashing LED for 1 second
       HAL_GPIO_WritePin(USR_LED_GPIO_Port, USR_LED_Pin, GPIO_PIN_SET);
       osDelay(1000);
@@ -177,6 +187,10 @@ void StartDefaultTask(void *argument)
 
   if (IMU_read_data(&dev_ctx, &main_imu_data) == 0) {
     // Run code that does things
+    HAL_GPIO_WritePin(USR_LED_GPIO_Port, USR_LED_Pin, GPIO_PIN_SET);
+    osDelay(100);
+    HAL_GPIO_WritePin(USR_LED_GPIO_Port, USR_LED_Pin, GPIO_PIN_RESET);
+    osDelay(100);
   }
 
 
@@ -198,14 +212,32 @@ static int32_t platform_write(void *handle, uint8_t reg, const uint8_t *bufp, ui
   return 0;
 }
 
-static int32_t platform_read(void *handle, uint8_t reg, uint8_t *bufp, uint16_t len){
-  reg |= 0x80; // Set the MSB of the register address to 1 to indicate a read
-  HAL_GPIO_WritePin(CS_ISM_GPIO_Port, CS_ISM_Pin, GPIO_PIN_RESET); // Chip selection
-  HAL_SPI_Transmit((SPI_HandleTypeDef*)handle, &reg, 1, 1000); // Send register address
-  HAL_SPI_Receive((SPI_HandleTypeDef*)handle, (uint8_t*)bufp, len, 1000); // Recieve data from sensor
+static int32_t platform_read(void *handle,
+                             uint8_t reg,
+                             uint8_t *bufp,
+                             uint16_t len)
+{
+  SPI_HandleTypeDef *hspi = (SPI_HandleTypeDef*)handle;
+
+  // Set MSB to indicate read
+  reg |= 0xC0;
+
+  // Pull CS low to start transaction
+  HAL_GPIO_WritePin(CS_ISM_GPIO_Port, CS_ISM_Pin, GPIO_PIN_RESET);
+
+  // 1. Send the register address
+  HAL_SPI_Transmit(hspi, &reg, 1, HAL_MAX_DELAY);
+
+  // 2. Receive the data bytes
+  HAL_SPI_Receive(hspi, bufp, len, HAL_MAX_DELAY);
+
+  // Pull CS high to end transaction
   HAL_GPIO_WritePin(CS_ISM_GPIO_Port, CS_ISM_Pin, GPIO_PIN_SET);
+
   return 0;
 }
+
+
 
 void platform_init(void){
   HAL_GPIO_WritePin(CS_ISM_GPIO_Port, CS_ISM_Pin, GPIO_PIN_SET);

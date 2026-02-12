@@ -49,32 +49,13 @@
 
 /* Private macro -------------------------------------------------------------*/
 /* USER CODE BEGIN PM */
-// TODO: Redefine these
-#define CS_PORT 0
-#define CS_PIN 0
+
 /* USER CODE END PM */
 
 /* Private variables ---------------------------------------------------------*/
 
 /* USER CODE BEGIN PV */
-static int16_t data_raw_motion[3];
-static int16_t data_raw_temperature;
-static float_t acceleration_mg[3];
-static float_t angular_rate_mdps[3];
-static float_t temperature_degC;
-static uint8_t whoamI;
-static uint8_t tx_buffer[1000];
 
-struct IMU_Data {
-  int16_t linAX;
-  int16_t linAY;
-  int16_t linAZ;
-  int16_t angAX;
-  int16_t angAY;
-  int16_t angAZ;
-};
-
-static ism6hg256x_filt_settling_mask_t filt_settling_mask;
 /* USER CODE END PV */
 
 /* Private function prototypes -----------------------------------------------*/
@@ -83,13 +64,6 @@ static void MPU_Config(void);
 void MX_FREERTOS_Init(void);
 
 // NOTE: These must be PLATFORM-DEPENDENT!
-static int32_t platform_write(void *handle, uint8_t reg, const uint8_t *bufp,
-                              uint16_t len);
-static int32_t platform_read(void *handle, uint8_t reg, uint8_t *bufp,
-                             uint16_t len);
-static void tx_com( uint8_t *tx_buffer, uint16_t len );
-static void platform_delay(uint32_t ms);
-static void platform_init(void);
 
 /* USER CODE BEGIN PFP */
 
@@ -232,36 +206,6 @@ void SystemClock_Config(void)
 }
 
 /* USER CODE BEGIN 4 */
-static int32_t platform_write(void *handle, uint8_t reg, const uint8_t *bufp, uint16_t len){
-HAL_GPIO_WritePin(CS_PORT, CS_PIN, GPIO_PIN_RESET); // Chip selection!!
-HAL_SPI_Transmit((SPI_HandleTypeDef*)handle, &reg, 1, 1000); // Send register address
-HAL_SPI_Transmit((SPI_HandleTypeDef*)handle, (uint8_t*)bufp, len, 1000); // Send data
-HAL_GPIO_WritePin(CS_PORT, CS_PIN, GPIO_PIN_SET); // Unselect chip
-return 0;
-}
-
-static int32_t platform_read(void *handle, uint8_t reg, uint8_t *bufp, uint16_t len){
-reg |= 0x80; // Set the MSB of the register address to 1 to indicate a read
-HAL_GPIO_WritePin(CS_PORT, CS_PIN, GPIO_PIN_RESET); // Chip selection
-HAL_SPI_Transmit((SPI_HandleTypeDef*)handle, &reg, 1, 1000); // Send register address
-HAL_SPI_Transmit((SPI_HandleTypeDef*)handle, (uint8_t*)bufp, len, 1000); // Recieve data from sensor
-HAL_GPIO_WritePin(CS_PORT, CS_PIN, GPIO_PIN_SET);
-return 0;
-}
-
-void platform_init(void){
-  HAL_GPIO_WritePin(CS_PORT, CS_PIN, GPIO_PIN_SET);
-}
-
-static void tx_com(uint8_t *tx_buffer, uint16_t len){
-  HAL_UART_Transmit(&huart4, tx_buffer, len, 1000);
-}
-
-static void platform_delay(uint32_t ms){
-  HAL_Delay(ms);
-}
-
-
 
 /* USER CODE END 4 */
 
