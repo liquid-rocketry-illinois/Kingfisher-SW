@@ -64,9 +64,6 @@ void MX_GPIO_Init(void)
   /*Configure GPIO pin Output Level */
   HAL_GPIO_WritePin(MAIN_GPIO_Port, MAIN_Pin, GPIO_PIN_RESET);
 
-  /*Configure GPIO pin Output Level */
-  HAL_GPIO_WritePin(GPS_RST_GPIO_Port, GPS_RST_Pin, GPIO_PIN_RESET);
-
   /*Configure GPIO pins : RADIO_RST_Pin RADIO_AUX_Pin M0_Radio_Pin M1_Radio_Pin
                            CS3_Pin CS2_Pin CS1E11_Pin */
   GPIO_InitStruct.Pin = RADIO_RST_Pin|RADIO_AUX_Pin|M0_Radio_Pin|M1_Radio_Pin
@@ -137,9 +134,8 @@ void MX_GPIO_Init(void)
 
   /*Configure GPIO pin : GPS_RST_Pin */
   GPIO_InitStruct.Pin = GPS_RST_Pin;
-  GPIO_InitStruct.Mode = GPIO_MODE_OUTPUT_PP;
+  GPIO_InitStruct.Mode = GPIO_MODE_INPUT;
   GPIO_InitStruct.Pull = GPIO_NOPULL;
-  GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
   HAL_GPIO_Init(GPS_RST_GPIO_Port, &GPIO_InitStruct);
 
 }

@@ -3,8 +3,10 @@
 //
 
 #include "tim.h"
-#include "Buzzer.h"
 #include "cmsis_os.h"
+
+#include "Buzzer.h"
+#include "GPS.h"
 
 void buzzerTOGGLE() {}
 

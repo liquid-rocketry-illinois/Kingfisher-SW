@@ -32,7 +32,17 @@ message("Build type: " ${CMAKE_BUILD_TYPE})
 enable_language(C CXX ASM)
 
 # Create an executable object type
-add_executable(${CMAKE_PROJECT_NAME})
+add_executable(${CMAKE_PROJECT_NAME}
+        Core/Inc/GPS.h
+#        Core/Inc/ubxlib-master/common/device/api/u_device.h
+#        Core/Inc/ubxlib-master/gnss/api/u_gnss.h
+#        Core/Inc/ubxlib-master/port/api/u_port.h
+#        Core/Inc/ubxlib-master/port/api/u_port_i2c.h
+#        Core/Inc/ubxlib-master/common/error/api/u_error_common.h
+#        Core/Inc/ubxlib-master/common/device/api/u_device_serial.h
+#        Core/Inc/ubxlib-master/common/type/api/u_common_spi.h
+#        Core/Inc/ubxlib-master/common/device/api/u_device_handle.h
+)
 
 # Add STM32CubeMX generated sources
 add_subdirectory(cmake/stm32cubemx)
@@ -47,11 +57,28 @@ target_sources(${CMAKE_PROJECT_NAME} PRIVATE
     # Add user sources here
         Core/Src/Buzzer.cpp
         Core/Src/main.cpp
+        Core/Src/GPS.cpp
 )
+
+# Link all subfolders in ublox library
+file(GLOB_RECURSE UBXLIB_INCLUDE_DIRS
+        LIST_DIRECTORIES true
+        ${CMAKE_SOURCE_DIR}/Core/Inc/ubxlib-master/*
+)
+
+# Filter only directories
+set(UBXLIB_DIRS "")
+foreach(dir ${UBXLIB_INCLUDE_DIRS})
+    if(IS_DIRECTORY ${dir})
+        list(APPEND UBXLIB_DIRS ${dir})
+    endif()
+endforeach()
 
 # Add include paths
 target_include_directories(${CMAKE_PROJECT_NAME} PRIVATE
     # Add user defined include paths
+        Core/Inc/ubxlib-master
+        ${UBXLIB_DIRS}
 )
 
 # Add project symbols (macros)
@@ -64,7 +91,6 @@ list(REMOVE_ITEM CMAKE_C_IMPLICIT_LINK_LIBRARIES ob)
 
 # Add linked libraries
 target_link_libraries(${CMAKE_PROJECT_NAME}
-    stm32cubemx
-
     # Add user defined libraries
+        stm32cubemx
 )
