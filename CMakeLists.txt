@@ -34,14 +34,8 @@ enable_language(C CXX ASM)
 # Create an executable object type
 add_executable(${CMAKE_PROJECT_NAME}
         Core/Inc/GPS.h
-#        Core/Inc/ubxlib-master/common/device/api/u_device.h
-#        Core/Inc/ubxlib-master/gnss/api/u_gnss.h
-#        Core/Inc/ubxlib-master/port/api/u_port.h
-#        Core/Inc/ubxlib-master/port/api/u_port_i2c.h
-#        Core/Inc/ubxlib-master/common/error/api/u_error_common.h
-#        Core/Inc/ubxlib-master/common/device/api/u_device_serial.h
-#        Core/Inc/ubxlib-master/common/type/api/u_common_spi.h
-#        Core/Inc/ubxlib-master/common/device/api/u_device_handle.h
+        Core/Inc/u_cfg_override.h
+        Core/Inc/ubxlib-master/port/platform/stm32cube/src/u_port.c
 )
 
 # Add STM32CubeMX generated sources
@@ -58,19 +52,19 @@ target_sources(${CMAKE_PROJECT_NAME} PRIVATE
         Core/Src/Buzzer.cpp
         Core/Src/main.cpp
         Core/Src/GPS.cpp
+        Core/Inc/ubxlib-master/gnss/src/u_gnss_pos.c
 )
 
-# Link all subfolders in ublox library
-file(GLOB_RECURSE UBXLIB_INCLUDE_DIRS
+# Find all directories named "api" inside ubxlib
+file(GLOB_RECURSE UBXLIB_API_DIRS
         LIST_DIRECTORIES true
-        ${CMAKE_SOURCE_DIR}/Core/Inc/ubxlib-master/*
-)
+        ${CMAKE_SOURCE_DIR}/Core/Inc/ubxlib-master/*/api)
 
-# Filter only directories
-set(UBXLIB_DIRS "")
-foreach(dir ${UBXLIB_INCLUDE_DIRS})
+# Keep only directories (GLOB can return files)
+set(UBXLIB_API_DIRS_FILTERED "")
+foreach(dir ${UBXLIB_API_DIRS})
     if(IS_DIRECTORY ${dir})
-        list(APPEND UBXLIB_DIRS ${dir})
+        list(APPEND UBXLIB_API_DIRS_FILTERED ${dir})
     endif()
 endforeach()
 
@@ -78,12 +72,15 @@ endforeach()
 target_include_directories(${CMAKE_PROJECT_NAME} PRIVATE
     # Add user defined include paths
         Core/Inc/ubxlib-master
-        ${UBXLIB_DIRS}
+        ${UBXLIB_API_DIRS_FILTERED}
+        Core/Inc/ubxlib-master/port/platform/stm32cube
+        Core/Inc/ubxlib-master/cfg
 )
 
 # Add project symbols (macros)
 target_compile_definitions(${CMAKE_PROJECT_NAME} PRIVATE
     # Add user defined symbols
+        U_CFG_OVERRIDE
 )
 
 # Remove wrong libob.a library dependency when using cpp files

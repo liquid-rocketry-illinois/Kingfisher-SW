@@ -3,19 +3,13 @@
 //
 #define U_CFG_GNSS_ENABLE 1
 #define U_CFG_ENABLE_LOGGING 0
+#define U_CFG_OVERRIDE
+#define GNSS_I2C_INSTANCE 3
 
 #include "GPS.h"
-
 extern "C" {
-#include "u_device.h"
-#include "u_gnss.h"
-#include "u_port.h"
-#include "u_port_i2c.h"
-#include "u_error_common.h"
+#include "ubxlib.h"
 }
-
-#define GNSS_I2C_INSTANCE   1
-#define GNSS_I2C_CLOCK      400000
 
 GnssSensor::GnssSensor()
     : gnssHandle(nullptr),
@@ -48,13 +42,12 @@ bool GnssSensor::Init()
     uDeviceCfg_t devCfg = {};
     devCfg.deviceType = U_DEVICE_TYPE_GNSS;
     devCfg.deviceCfg.cfgGnss.moduleType = U_GNSS_MODULE_TYPE_M10;
-    devCfg.deviceCfg.cfgGnss.transportType = U_GNSS_TRANSPORT_I2C;
+    devCfg.transportType = uDeviceTransportType_t::U_DEVICE_TRANSPORT_TYPE_I2C;
 
-    devCfg.deviceCfg.cfgGnss.transportCfg.cfgI2c.i2c = GNSS_I2C_INSTANCE;
-    devCfg.deviceCfg.cfgGnss.transportCfg.cfgI2c.pinSda = -1;
-    devCfg.deviceCfg.cfgGnss.transportCfg.cfgI2c.pinScl = -1;
-    devCfg.deviceCfg.cfgGnss.transportCfg.cfgI2c.clockHertz = GNSS_I2C_CLOCK;
-    devCfg.deviceCfg.cfgGnss.transportCfg.cfgI2c.alreadyOpen = false;
+    devCfg.transportCfg.cfgI2c.i2c = GNSS_I2C_INSTANCE;
+    devCfg.transportCfg.cfgI2c.pinSda = -1;
+    devCfg.transportCfg.cfgI2c.pinScl = -1;
+    devCfg.transportCfg.cfgI2c.alreadyOpen = true;
 
     if (uDeviceOpen(&devCfg, (uDeviceHandle_t*)&gnssHandle) != 0)
         return false;
@@ -68,11 +61,11 @@ bool GnssSensor::Init()
                            U_GNSS_PROTOCOL_UBX,
                            true);
 
-    // Set 1 Hz update rate
+    // Set 0.5 Hz update rate. 2s in between readings is enough, doesn't need to be pinpoint accurate
     uGnssCfgSetRate((uDeviceHandle_t)gnssHandle,
-                    1000,  // ms
-                    1,
-                    0);
+                    2000,  // ms
+                    -1,
+                    uGnssTimeSystem_t::U_GNSS_TIME_SYSTEM_UTC);
 
     initialized = true;
     return true;
@@ -87,12 +80,17 @@ bool GnssSensor::Update()
     int32_t lonX1e7 = 0;
     int32_t alt = 0;
     int32_t radius = 0;
+    int32_t speedMMperS = 0;
+    int32_t pSvc = 0;
+    int64_t pTimeUTC = 0;
 
     int32_t result = uGnssPosGet((uDeviceHandle_t)gnssHandle,
-                                 &latX1e7,
-                                 &lonX1e7,
+                                 &latX1e7,&lonX1e7,
                                  &alt,
-                                 &radius);
+                                 &radius,
+                                 &speedMMperS,
+                                 &pSvc, &pTimeUTC,
+                                 nullptr);
 
     if (result != 0)
         return false;
