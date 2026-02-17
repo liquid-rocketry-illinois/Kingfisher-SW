@@ -48,8 +48,8 @@
 #include "u_compiler.h"
 #include "u_cfg_app_platform_specific.h"
 #include "u_at_client.h"
-#include "u_cell_module_type.h"
-#include "u_cell.h"
+//#include "u_cell_module_type.h"
+//#include "u_cell.h"
 #include "u_short_range.h"
 #include "u_gnss_module_type.h"
 #include "u_gnss_type.h"
@@ -192,7 +192,8 @@ int32_t uDeviceGetDefaults(uDeviceType_t deviceType,
                 pDeviceCfg->deviceCfg.cfgCell.pinVInt = U_CFG_APP_PIN_CELL_VINT;
 
                 pDeviceCfg->transportCfg.cfgUart.uart = U_CFG_APP_CELL_UART;
-                pDeviceCfg->transportCfg.cfgUart.baudRate = U_CELL_UART_BAUD_RATE;
+                //pDeviceCfg->transportCfg.cfgUart.baudRate = U_CELL_UART_BAUD_RATE;
+                // Should never need this here, we aren't using cell
                 pDeviceCfg->transportCfg.cfgUart.pinCts = U_CFG_APP_PIN_CELL_CTS;
                 pDeviceCfg->transportCfg.cfgUart.pinRts = U_CFG_APP_PIN_CELL_RTS;
                 pDeviceCfg->transportCfg.cfgUart.pinRxd = U_CFG_APP_PIN_CELL_RXD;

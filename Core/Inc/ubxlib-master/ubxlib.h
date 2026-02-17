@@ -66,10 +66,10 @@
 #include <u_port_named_pipe.h>
 
 // Module types: used in common APIs hence must come first
-#include <u_ble_module_type.h>
-#include <u_cell_module_type.h>
+//#include <u_ble_module_type.h>
+//#include <u_cell_module_type.h>
 #include <u_gnss_module_type.h>
-#include <u_wifi_module_type.h>
+//#include <u_wifi_module_type.h>
 
 // Other common APIs
 #include <u_timeout.h>
@@ -113,31 +113,31 @@
 #include <u_geofence.h>
 
 // BLE/cellular/GNSS/Wi-Fi APIs
-#include <u_ble.h>
-#include <u_ble_gap.h>
-#include <u_ble_gatt.h>
-#include <u_ble_cfg.h>
-#include <u_ble_sps.h>
-#include <u_ble_nus.h>
-#include <u_cell_net.h>
-#include <u_cell.h>
-#include <u_cell_cfg.h>
-#include <u_cell_file.h>
-#include <u_cell_gpio.h>
-#include <u_cell_info.h>
-#include <u_cell_loc.h>
-#include <u_cell_time.h>
-#include <u_cell_mqtt.h>
-#include <u_cell_http.h>
-#include <u_cell_pwr.h>
-#include <u_cell_sec.h>
-#include <u_cell_sec_tls.h>
-#include <u_cell_sock.h>
-#include <u_cell_fota.h>
-#include <u_cell_mux.h>
-#include <u_cell_ppp.h>
-#include <u_cell_sim.h>
-#include <u_cell_geofence.h>
+// #include <u_ble.h>
+// #include <u_ble_gap.h>
+// #include <u_ble_gatt.h>
+// #include <u_ble_cfg.h>
+// #include <u_ble_sps.h>
+// #include <u_ble_nus.h>
+// #include <u_cell_net.h>
+// #include <u_cell.h>
+// #include <u_cell_cfg.h>
+// #include <u_cell_file.h>
+// #include <u_cell_gpio.h>
+// #include <u_cell_info.h>
+// #include <u_cell_loc.h>
+// #include <u_cell_time.h>
+// #include <u_cell_mqtt.h>
+// #include <u_cell_http.h>
+// #include <u_cell_pwr.h>
+// #include <u_cell_sec.h>
+// #include <u_cell_sec_tls.h>
+// #include <u_cell_sock.h>
+// #include <u_cell_fota.h>
+// #include <u_cell_mux.h>
+// #include <u_cell_ppp.h>
+// #include <u_cell_sim.h>
+// #include <u_cell_geofence.h>
 #include <u_gnss_type.h>
 #include <u_gnss.h>
 #include <u_gnss_cfg_val_key.h>
@@ -152,14 +152,14 @@
 #include <u_gnss_mga.h>
 #include <u_gnss_geofence.h>
 #include <u_gnss_util.h>
-#include <u_wifi.h>
-#include <u_wifi_cfg.h>
-#include <u_wifi_mqtt.h>
-#include <u_wifi_sock.h>
-#include <u_wifi_http.h>
-#include <u_wifi_captive_portal.h>
-#include <u_wifi_loc.h>
-#include <u_wifi_geofence.h>
+// #include <u_wifi.h>
+// #include <u_wifi_cfg.h>
+// #include <u_wifi_mqtt.h>
+// #include <u_wifi_sock.h>
+// #include <u_wifi_http.h>
+// #include <u_wifi_captive_portal.h>
+// #include <u_wifi_loc.h>
+// #include <u_wifi_geofence.h>
 
 /** @}*/
 

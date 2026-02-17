@@ -31,11 +31,25 @@ message("Build type: " ${CMAKE_BUILD_TYPE})
 # Enable CMake support for ASM and C languages
 enable_language(C CXX ASM)
 
+file(GLOB_RECURSE UBXLIB_COMMON_API
+        Core/Inc/ubxlib-master/common/*/api/*.h
+        Core/Inc/ubxlib-master/common/*.h)
+
+file(GLOB_RECURSE UBXLIB_GNSS_API
+        Core/Inc/ubxlib-master/gnss/api/*.h)
+
+file(GLOB_RECURSE UBXLIB_PORT_API
+        Core/Inc/ubxlib-master/port/api/*.h
+        Core/Inc/ubxlib-master/port/platform/stm32cube/api/*.h)
 # Create an executable object type
 add_executable(${CMAKE_PROJECT_NAME}
         Core/Inc/GPS.h
         Core/Inc/u_cfg_override.h
-        Core/Inc/ubxlib-master/port/platform/stm32cube/src/u_port.c
+        Core/Inc/ubxlib-master/ubxlib.h
+
+        ${UBXLIB_COMMON_API}
+        ${UBXLIB_GNSS_API}
+        ${UBXLIB_PORT_API}
 )
 
 # Add STM32CubeMX generated sources
@@ -46,35 +60,33 @@ target_link_directories(${CMAKE_PROJECT_NAME} PRIVATE
     # Add user defined library search paths
 )
 
+file(GLOB_RECURSE UBXLIB_COMMON_SRC
+        Core/Inc/ubxlib-master/common/*/src/*.c)
+
+file(GLOB_RECURSE UBXLIB_GNSS_SRC
+        Core/Inc/ubxlib-master/gnss/src/*.c)
+
+file(GLOB_RECURSE UBXLIB_PORT_SRC
+        Core/Inc/ubxlib-master/port/*.c
+        Core/Inc/ubxlib-master/port/platform/stm32cube/src/*.c)
 # Add sources to executable
 target_sources(${CMAKE_PROJECT_NAME} PRIVATE
     # Add user sources here
         Core/Src/Buzzer.cpp
         Core/Src/main.cpp
         Core/Src/GPS.cpp
-        Core/Inc/ubxlib-master/gnss/src/u_gnss_pos.c
+        ${UBXLIB_COMMON_SRC}
+        ${UBXLIB_GNSS_SRC}
+        ${UBXLIB_PORT_SRC}
 )
-
-# Find all directories named "api" inside ubxlib
-file(GLOB_RECURSE UBXLIB_API_DIRS
-        LIST_DIRECTORIES true
-        ${CMAKE_SOURCE_DIR}/Core/Inc/ubxlib-master/*/api)
-
-# Keep only directories (GLOB can return files)
-set(UBXLIB_API_DIRS_FILTERED "")
-foreach(dir ${UBXLIB_API_DIRS})
-    if(IS_DIRECTORY ${dir})
-        list(APPEND UBXLIB_API_DIRS_FILTERED ${dir})
-    endif()
-endforeach()
 
 # Add include paths
 target_include_directories(${CMAKE_PROJECT_NAME} PRIVATE
     # Add user defined include paths
         Core/Inc/ubxlib-master
-        ${UBXLIB_API_DIRS_FILTERED}
         Core/Inc/ubxlib-master/port/platform/stm32cube
         Core/Inc/ubxlib-master/cfg
+        Core/Inc/ubxlib-master/port/api
 )
 
 # Add project symbols (macros)

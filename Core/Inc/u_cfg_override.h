@@ -18,6 +18,13 @@
     #define U_CFG_APP_NEED_WIFI 0
     #define U_CFG_APP_NEED_THREADX 0
     #define U_CFG_APP_NEED_BLE 0
+    #define U_CFG_CELL_ENABLE 0
+    #define U_CFG_BLE_ENABLE 0
+    #define U_CFG_WIFI_ENABLE 0
+    #define U_CFG_SHORT_RANGE_ENABLE 0
+
+    #define U_CFG_OS_PRIORITY_MIN 0
+    #define U_CFG_OS_PRIORITY_MAX  configMAX_PRIORITIES
 
     #endif
 
