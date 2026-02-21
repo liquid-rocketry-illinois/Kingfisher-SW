@@ -7,8 +7,14 @@
 #define GNSS_I2C_INSTANCE 3
 
 #include "GPS.h"
+
 extern "C" {
 #include "ubxlib.h"
+#include "common/device/api/u_device.h"
+#include "gnss/api/u_gnss_module_type.h"
+#include "gnss/api/u_gnss_type.h"
+#include "gnss/api/u_gnss_cfg.h"
+#include "gnss/api/u_gnss_pos.h"
 }
 
 GnssSensor::GnssSensor()
