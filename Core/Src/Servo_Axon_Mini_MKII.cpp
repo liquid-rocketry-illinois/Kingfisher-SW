@@ -16,7 +16,7 @@
  *
  *  @return Motor encoder output angle state. {Servo1 Angle, Servo2 Angle}
  */
-SAsym Servo_Axon_Mini_MKII::readCurrentAngle() {
+SAsym<float> Servo_Axon_Mini_MKII::readCurrentAngle() {
     // Calculate other components of servo
     // Current angle is derived from the voltage reading from
     // the servo pin. 0 is 0deg, 1.65V is 180deg, 3.3V is 360deg.
@@ -33,7 +33,7 @@ SAsym Servo_Axon_Mini_MKII::readCurrentAngle() {
     float reading1 = (3.3f * raw1) / 4095.0f; // read voltage from SERVO1_ENC_Pin / SERVO1_ENC_GPIO
     float reading2 = (3.3f * raw2) / 4095.0f; // vice versa
 
-    SAsym output = {
+    SAsym<float> output = {
         MATHEMATICS::Map(reading1, 0.0f, 3.3f, 0.0f, 360.0f),
         MATHEMATICS::Map(reading2, 0.0f, 3.3f, 0.0f, 360.0f)
     };
@@ -47,10 +47,10 @@ SAsym Servo_Axon_Mini_MKII::readCurrentAngle() {
  *
  * @return calculated error, as a scalar
  */
-SAsym Servo_Axon_Mini_MKII::calculateError() {
+SAsym<float> Servo_Axon_Mini_MKII::calculateError() {
     // Expected angle is data.trackedAngle - We compare this
     // value to readCurrentAngle().
-    SAsym output = {
+    SAsym<float> output = {
         (readCurrentAngle().S1 - data.trackedAngle.S1) / data.trackedAngle.S1,
         (readCurrentAngle().S2 - data.trackedAngle.S2) / data.trackedAngle.S2
     };
@@ -60,7 +60,7 @@ SAsym Servo_Axon_Mini_MKII::calculateError() {
 /** @brief Actuate({Servo1 input rotation, Servo2 input rotation})
  *  Actuate servos to the specified positional input.
  */
-void Servo_Axon_Mini_MKII::Actuate(SAsym input) {
+void Servo_Axon_Mini_MKII::Actuate(SAsym<float> input) {
     // Calculate the required number of increments for CCR1 and CCR2.
     // Then, actuate to specified values as quickly as possible. We
     // assume that the increments will change little each time due
@@ -80,7 +80,7 @@ void Servo_Axon_Mini_MKII::Actuate(SAsym input) {
 }
 
 // PUBLIC
-/** @brief Init(void); \n
+/** @brief Init({offset 1, offset 2} (degrees), PRECISION::xxx, true/false); \n
  * Return true if the rotated degree matches commanded degree.
  * Initializing servo outputs PWM to servo pin, then checks
  * the encoder voltage for rotated angle. Matching angle indicates
@@ -90,7 +90,7 @@ void Servo_Axon_Mini_MKII::Actuate(SAsym input) {
  * return true = no hardware fault\n
  * return false = hardware fault or tolerance not nominal
  */
-bool Servo_Axon_Mini_MKII::Init(float AngOffset,
+bool Servo_Axon_Mini_MKII::Init(SAsym<float> AngOffset,
                                 PRECISION precision = PRECISION::HUNDREDTH_DEGREE,
                                 bool debug = false) {
     CFG_Axon_Mini_MKII configDesired;
@@ -133,24 +133,28 @@ bool Servo_Axon_Mini_MKII::Init(float AngOffset,
 
     //Init TIM3 channels 1 and 2 which are the servos' channels.
     TIM3->ARR = 4000000 - 1;
-    HAL_TIM_PWM_Start(&htim3, TIM_CHANNEL_2); //Servo 1
-    HAL_TIM_PWM_Start(&htim3, TIM_CHANNEL_1); //Servo 2
-    float CCR2_us = 500.0f + config.AngleOffsetDEGREES * sf;
-    float CCR1_us = 500.0f + config.AngleOffsetDEGREES * sf;
+    HAL_TIM_PWM_Start(&htim3, TIM_CHANNEL_1);
+    HAL_TIM_PWM_Start(&htim3, TIM_CHANNEL_2);
+    float CCR1_us = 500.0f + config.AngleOffsetDEGREES.S1 * sf;
+    float CCR2_us = 500.0f + config.AngleOffsetDEGREES.S2 * sf;
 
     // Scaling factor will give us the precision we need, then we
     // truncate the decimals.
-    TIM3->CCR2 = (uint32_t)(CCR2_us * 200.0f);
     TIM3->CCR1 = (uint32_t)(CCR1_us * 200.0f);
+    TIM3->CCR2 = (uint32_t)(CCR2_us * 200.0f);
     HAL_Delay(10); //Give time to rotate motor
 
     float testAngle = targetAng;
 
-    float test_us = 500.0f + (testAngle + config.AngleOffsetDEGREES) * sf;
-    uint32_t testCCR = (uint32_t)(test_us * 200.0f);
+    // PWM range is from 500us to 2500us. We assume that 0deg is
+    // 500us and 360 is 2500us
+    float test_us1 = 500.0f + (testAngle + config.AngleOffsetDEGREES.S1) * sf;
+    uint32_t testCCR1 = (uint32_t)(test_us1 * 200.0f);
+    float test_us2 = 500.0f + (testAngle + config.AngleOffsetDEGREES.S2) * sf;
+    uint32_t testCCR2 = (uint32_t)(test_us2 * 200.0f);
 
-    TIM3->CCR1 = testCCR;
-    TIM3->CCR2 = testCCR;
+    TIM3->CCR1 = testCCR1;
+    TIM3->CCR2 = testCCR2;
 
     HAL_Delay(50);  // again
 

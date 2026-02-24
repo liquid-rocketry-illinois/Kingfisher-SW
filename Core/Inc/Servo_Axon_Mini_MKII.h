@@ -21,36 +21,37 @@ enum PRECISION {
     THOUSANTHS_DEGREE
 };
 
-struct SAsym{
-    float S1;
-    float S2;
+template<typename T>
+struct SAsym {
+    T S1;
+    T S2;
 };
 
 struct DATA_Axon_Mini_MKII{
-    SAsym targetAngle;
-    SAsym currentAngle;
-    SAsym trackedError;
-    SAsym trackedAngle;
-    SAsym Nominal = {false, false};
+    SAsym<float> targetAngle;
+    SAsym<float> currentAngle;
+    SAsym<float> trackedError;
+    SAsym<float> trackedAngle;
+    SAsym<bool> Nominal = {false, false};
 };
 
 struct CFG_Axon_Mini_MKII{
     uint8_t Precision;
     bool ENABLE_DEBUG;
-    float AngleOffsetDEGREES;
+    SAsym<float> AngleOffsetDEGREES;
 };
 
 class Servo_Axon_Mini_MKII{
 private:
-    CFG_Axon_Mini_MKII config; // Both servos use same config
-    DATA_Axon_Mini_MKII data;
+    CFG_Axon_Mini_MKII config = {}; // Both servos use same config
+    DATA_Axon_Mini_MKII data = {};
 
-    SAsym readCurrentAngle(); // For async calls outside of Update()
-    SAsym calculateError();
-    void Actuate(SAsym input);
+    SAsym<float> readCurrentAngle(); // For async calls outside of Update()
+    SAsym<float> calculateError();
+    void Actuate(SAsym<float> input);
 
 public:
-    bool Init(  float AngOffset,
+    bool Init(  SAsym<float> AngOffset,
                 PRECISION precision,
                 bool debug);
     void Update(float S1_Target_Deg, float S2_Target_Deg);
