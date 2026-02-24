@@ -31,7 +31,8 @@ extern "C" {
 
 /* Private includes ----------------------------------------------------------*/
 /* USER CODE BEGIN Includes */
-
+  #include "tim.h"
+  #include "Buzzer.h"
 /* USER CODE END Includes */
 
 /* Exported types ------------------------------------------------------------*/

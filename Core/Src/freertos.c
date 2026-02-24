@@ -35,7 +35,7 @@
 
 /* Private define ------------------------------------------------------------*/
 /* USER CODE BEGIN PD */
-
+void task(void*);
 /* USER CODE END PD */
 
 /* Private macro -------------------------------------------------------------*/
@@ -88,6 +88,8 @@ void MX_FREERTOS_Init(void) {
 
   /* USER CODE BEGIN RTOS_QUEUES */
   /* add queues, ... */
+  defaultTaskHandle = osThreadNew(task, NULL, &defaultTask_attributes);
+  return;
   /* USER CODE END RTOS_QUEUES */
 
   /* Create the thread(s) */
