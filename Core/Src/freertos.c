@@ -214,15 +214,6 @@ void StartDefaultTask(void *argument)
 
 /* Private application code --------------------------------------------------*/
 /* USER CODE BEGIN Application */
-/* USER CODE BEGIN 4 */
-static int32_t platform_write(void *handle, uint8_t reg, const uint8_t *bufp, uint16_t len){
-
-  HAL_GPIO_WritePin(CS_ISM_GPIO_Port, CS_ISM_Pin, GPIO_PIN_RESET); // Chip selection!!
-  HAL_SPI_Transmit((SPI_HandleTypeDef*)handle, &reg, 1, 1000); // Send register address
-  HAL_SPI_Transmit((SPI_HandleTypeDef*)handle, (uint8_t*)bufp, len, 1000); // Send data
-  HAL_GPIO_WritePin(CS_ISM_GPIO_Port, CS_ISM_Pin, GPIO_PIN_SET); // Unselect chip
-  return 0;
-}
 
 static int32_t platform_read(void *handle,
                              uint8_t reg,
