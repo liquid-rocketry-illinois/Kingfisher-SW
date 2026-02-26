@@ -29,10 +29,16 @@ project(${CMAKE_PROJECT_NAME})
 message("Build type: " ${CMAKE_BUILD_TYPE})
 
 # Enable CMake support for ASM and C languages
-enable_language(C CXX ASM)
+enable_language(C ASM)
 
 # Create an executable object type
-add_executable(${CMAKE_PROJECT_NAME})
+add_executable(${CMAKE_PROJECT_NAME}
+        Core/Inc/Servo_Axon_Mini_MKII.h
+        Core/Inc/timing.h
+        Core/Src/Math/Math.h
+        Core/Inc/TEST_FUNCTIONS.h
+        Core/Src/TEST_FUNCTIONS.cpp
+        Core/Src/main.cpp)
 
 # Add STM32CubeMX generated sources
 add_subdirectory(cmake/stm32cubemx)
@@ -45,8 +51,9 @@ target_link_directories(${CMAKE_PROJECT_NAME} PRIVATE
 # Add sources to executable
 target_sources(${CMAKE_PROJECT_NAME} PRIVATE
     # Add user sources here
-        Core/Src/Buzzer.cpp
-        Core/Src/main.cpp
+        Core/Src/Servo_Axon_Mini_MKII.cpp
+        Core/Src/timing.cpp
+        Core/Src/Math/Math.cpp
 )
 
 # Add include paths
