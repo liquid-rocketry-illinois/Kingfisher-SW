@@ -6,8 +6,11 @@
 #define HAL_1_SW_TEST_FUNCTIONS_H
 
 #include <stdint.h>
+#include "Servo_Axon_Mini_MKII.h"
 
-class TEST_FUNCTIONS{
+class TEST{
+public:
+    TEST();
     int SERVO_TEST();
 };
 

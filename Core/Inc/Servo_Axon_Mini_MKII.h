@@ -21,7 +21,7 @@ enum PRECISION {
     THOUSANTHS_DEGREE
 };
 
-template<typename T>
+template <typename T>
 struct SAsym {
     T S1;
     T S2;

@@ -5,6 +5,7 @@
 #include "Servo_Axon_Mini_MKII.h"
 
 #include "adc.h"
+#include "cmsis_os2.h"
 #include "main.h"
 #include "tim.h"
 #include "Math/Math.h"
@@ -68,8 +69,8 @@ void Servo_Axon_Mini_MKII::Actuate(SAsym<float> input) {
 
     float sf = 5.55555555556f; // µs per degree
 
-    float us1 = 500.0f + (input.S1 + config.AngleOffsetDEGREES) * sf;
-    float us2 = 500.0f + (input.S2 + config.AngleOffsetDEGREES) * sf;
+    float us1 = 500.0f + (input.S1 + config.AngleOffsetDEGREES.S1) * sf;
+    float us2 = 500.0f + (input.S2 + config.AngleOffsetDEGREES.S2) * sf;
 
     // Convert µs to timer counts (1 µs = 200 counts @ 200 MHz)
     uint32_t ccr1 = (uint32_t)(us1 * 200.0f);
@@ -142,7 +143,7 @@ bool Servo_Axon_Mini_MKII::Init(SAsym<float> AngOffset,
     // truncate the decimals.
     TIM3->CCR1 = (uint32_t)(CCR1_us * 200.0f);
     TIM3->CCR2 = (uint32_t)(CCR2_us * 200.0f);
-    HAL_Delay(10); //Give time to rotate motor
+    osDelay(10); //Give time to rotate motor
 
     float testAngle = targetAng;
 
@@ -156,7 +157,7 @@ bool Servo_Axon_Mini_MKII::Init(SAsym<float> AngOffset,
     TIM3->CCR1 = testCCR1;
     TIM3->CCR2 = testCCR2;
 
-    HAL_Delay(50);  // again
+    osDelay(50);  // again
 
 
     data.currentAngle = readCurrentAngle();

@@ -35,7 +35,10 @@ enable_language(C ASM)
 add_executable(${CMAKE_PROJECT_NAME}
         Core/Inc/Servo_Axon_Mini_MKII.h
         Core/Inc/timing.h
-        Core/Src/Math/Math.h)
+        Core/Src/Math/Math.h
+        Core/Inc/TEST_FUNCTIONS.h
+        Core/Src/TEST_FUNCTIONS.cpp
+        Core/Src/main.cpp)
 
 # Add STM32CubeMX generated sources
 add_subdirectory(cmake/stm32cubemx)
