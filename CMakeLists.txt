@@ -33,6 +33,12 @@ enable_language(C CXX ASM)
 
 # Create an executable object type
 add_executable(${CMAKE_PROJECT_NAME}
+        Core/Inc/Servo_Axon_Mini_MKII.h
+        Core/Inc/timing.h
+        Core/Src/Math/Math.h
+        Core/Inc/TEST_FUNCTIONS.h
+        Core/Src/TEST_FUNCTIONS.cpp
+        Core/Src/main.cpp
         Core/Src/ism6hg256x_reg.c)
 
 # Add STM32CubeMX generated sources
@@ -46,14 +52,15 @@ target_link_directories(${CMAKE_PROJECT_NAME} PRIVATE
 # Add sources to executable
 target_sources(${CMAKE_PROJECT_NAME} PRIVATE
     # Add user sources here
-        Core/Src/Buzzer.cpp
-        Core/Src/main.cpp
+        Core/Src/Servo_Axon_Mini_MKII.cpp
+        Core/Src/timing.cpp
+        Core/Src/Math/Math.cpp
 )
 
 # Add include paths
 target_include_directories(${CMAKE_PROJECT_NAME} PRIVATE
     # Add user defined include paths
-    "Core/Src/ism6hg256x_reg.c"
+        Core/Src/ism6hg256x_reg.c
 )
 
 # Add project symbols (macros)
