@@ -31,9 +31,10 @@ SAsym<float> Servo_Axon_Mini_MKII::readCurrentAngle() {
     uint32_t raw2 = HAL_ADC_GetValue(&hadc3);
 
     // Convert 12-bit ADC to voltage
-    float reading1 = (3.3f * raw1) / 4095.0f; // read voltage from SERVO1_ENC_Pin / SERVO1_ENC_GPIO
-    float reading2 = (3.3f * raw2) / 4095.0f; // vice versa
+    float reading1 = (3.3f * raw1) / 65536.0f; // read voltage from SERVO1_ENC_Pin / SERVO1_ENC_GPIO
+    float reading2 = (3.3f * raw2) / 65536.0f; // vice versa
 
+    // Linearly map readings to between 0 and 360 degree angles
     SAsym<float> output = {
         MATHEMATICS::Map(reading1, 0.0f, 3.3f, 0.0f, 360.0f),
         MATHEMATICS::Map(reading2, 0.0f, 3.3f, 0.0f, 360.0f)
@@ -51,9 +52,11 @@ SAsym<float> Servo_Axon_Mini_MKII::readCurrentAngle() {
 SAsym<float> Servo_Axon_Mini_MKII::calculateError() {
     // Expected angle is data.trackedAngle - We compare this
     // value to readCurrentAngle().
+    SAsym<float> value = readCurrentAngle();
+
     SAsym<float> output = {
-        (readCurrentAngle().S1 - data.trackedAngle.S1) / data.trackedAngle.S1,
-        (readCurrentAngle().S2 - data.trackedAngle.S2) / data.trackedAngle.S2
+        (value.S1 - data.trackedAngle.S1) / data.trackedAngle.S1,
+        (value.S2 - data.trackedAngle.S2) / data.trackedAngle.S2
     };
     return output;
 }
