@@ -35,11 +35,15 @@ enable_language(C CXX ASM)
 add_executable(${CMAKE_PROJECT_NAME}
         Core/Inc/Servo_Axon_Mini_MKII.h
         Core/Inc/timing.h
-        Core/Src/Math/Math.h
+        Core/Inc/Math/Math.h
         Core/Inc/TEST_FUNCTIONS.h
-        Core/Src/TEST_FUNCTIONS.cpp
-        Core/Src/main.cpp
-        Core/Src/ism6hg256x_reg.c)
+        Core/Inc/ism6hg256x_reg.h
+        Core/Inc/IMU_ISM6HGx.h
+        Core/Inc/Math/Vector3D.h
+        Core/Src/Math/Vector3D.cpp
+        Core/Src/interrupt_override.cpp
+        Core/Inc/Sensors.h
+)
 
 # Add STM32CubeMX generated sources
 add_subdirectory(cmake/stm32cubemx)
@@ -55,12 +59,15 @@ target_sources(${CMAKE_PROJECT_NAME} PRIVATE
         Core/Src/Servo_Axon_Mini_MKII.cpp
         Core/Src/timing.cpp
         Core/Src/Math/Math.cpp
+        Core/Src/TEST_FUNCTIONS.cpp
+        Core/Src/main.cpp
+        Core/Src/ism6hg256x_reg.c
+        Core/Src/IMU_ISM6HGx.cpp
 )
 
 # Add include paths
 target_include_directories(${CMAKE_PROJECT_NAME} PRIVATE
     # Add user defined include paths
-        Core/Src/ism6hg256x_reg.c
 )
 
 # Add project symbols (macros)

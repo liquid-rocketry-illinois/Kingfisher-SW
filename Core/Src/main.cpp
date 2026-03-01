@@ -16,8 +16,8 @@ extern "C" void task(void*) {
 
     for(;;)
     {
+        test.ISM_TEST();
         osDelay(1);
-        int ServoTestStatus = test.SERVO_TEST();
     }
     /* USER CODE END StartDefaultTask */
 }

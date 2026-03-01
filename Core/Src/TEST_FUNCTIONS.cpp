@@ -33,3 +33,19 @@ int TEST::SERVO_TEST() {
 
     return status;
 }
+
+int TEST::ISM_TEST() {
+    IMU_ISM6HGx ISM6;
+    IMU_Data data;
+    int status = ISM6.Init();
+
+    if (status != 0)
+    {
+        Error_Handler();
+    }
+    while (1) {
+        ISM6.Update();
+        data = ISM6.GetData();
+        osDelay(1);
+    }
+}

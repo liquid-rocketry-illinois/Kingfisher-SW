@@ -45,21 +45,6 @@ void task(void*);
 
 /* Private variables ---------------------------------------------------------*/
 /* USER CODE BEGIN Variables */
-struct IMU_Data {
-  int16_t linAX;
-  int16_t linAY;
-  int16_t linAZ;
-  int16_t angAX;
-  int16_t angAY;
-  int16_t angAZ;
-};
-
-
-static uint8_t whoAmI;
-extern SPI_HandleTypeDef hspi3;
-stmdev_ctx_t dev_ctx;
-struct IMU_Data main_imu_data;
-ism6hg256x_pin_int_route_hg_t pin_int = { 0 };
 
 /* USER CODE END Variables */
 /* Definitions for defaultTask */
@@ -72,14 +57,7 @@ const osThreadAttr_t defaultTask_attributes = {
 
 /* Private function prototypes -----------------------------------------------*/
 /* USER CODE BEGIN FunctionPrototypes */
-static int32_t platform_write(void *handle, uint8_t reg, const uint8_t *bufp,
-                              uint16_t len);
-static int32_t platform_read(void *handle, uint8_t reg, uint8_t *bufp,
-                             uint16_t len);
-static void tx_com( uint8_t *tx_buffer, uint16_t len );
-static void platform_delay(uint32_t ms);
-static void platform_init(void);
-int8_t IMU_read_data(stmdev_ctx_t *ctx, struct IMU_Data *data);
+
 /* USER CODE END FunctionPrototypes */
 
 void StartDefaultTask(void *argument);
@@ -139,131 +117,13 @@ void StartDefaultTask(void *argument)
 {
   /* USER CODE BEGIN StartDefaultTask */
 
-
-
-  // TODO: Check if we are polling, DMA, or data interrupt
-  // 1: Sensor initialisation
-  dev_ctx.write_reg = platform_write;
-  dev_ctx.read_reg = platform_read;
-  dev_ctx.handle = &hspi3;
-  dev_ctx.mdelay = platform_delay;
-
-
-  platform_init();
-  platform_delay(20);
-
-
-
-  // 3: Check sensor identity
-  // ism6hg256x_device_id_get(&dev_ctx, &whoAmI);
-  //   while (whoAmI != ISM6HG256X_ID) {
-  //     // Retry
-  //     ism6hg256x_device_id_get(&dev_ctx, &whoAmI);
-  //     // Wrong SPI handle signal: flashing LED for 1 second
-  //     HAL_GPIO_WritePin(USR_LED_GPIO_Port, USR_LED_Pin, GPIO_PIN_SET);
-  //     osDelay(1000);
-  //     HAL_GPIO_WritePin(USR_LED_GPIO_Port, USR_LED_Pin, GPIO_PIN_RESET);
-  //     osDelay(1000);
-  //   }
-
-
-  // 4: Sensor correct, initiate sensor
-  ism6hg256x_sw_por(&dev_ctx);
-  osDelay(20);
-
-  ism6hg256x_block_data_update_set(&dev_ctx, PROPERTY_ENABLE);
-  //TODO: Check if this is actually 240 Hz or if we need something else
-  ism6hg256x_xl_setup(&dev_ctx, ISM6HG256X_ODR_AT_60Hz, ISM6HG256X_XL_HIGH_PERFORMANCE_MD);
-  ism6hg256x_hg_xl_data_rate_set(&dev_ctx, ISM6HG256X_HG_XL_ODR_AT_960Hz, 1);
-  ism6hg256x_gy_setup(&dev_ctx, ISM6HG256X_ODR_AT_120Hz, ISM6HG256X_GY_HIGH_PERFORMANCE_MD);
-
-  ism6hg256x_xl_full_scale_set(&dev_ctx, ISM6HG256X_2g);
-  ism6hg256x_hg_xl_full_scale_set(&dev_ctx, ISM6HG256X_256g);
-  ism6hg256x_gy_full_scale_set(&dev_ctx, ISM6HG256X_2000dps);
-
-  pin_int.drdy_hg_xl = PROPERTY_ENABLE;
-  ism6hg256x_pin_int1_route_hg_set(&dev_ctx, &pin_int);
-
-  TIM3->ARR = 57141L;
-  TIM3->CCR2 = 28571L;
-  HAL_TIM_PWM_Start(&htim3, TIM_CHANNEL_2);
-
   /* Infinite loop */
   for(;;)
   {
-
-    ism6hg256x_data_ready_t status;
-    ism6hg256x_flag_data_ready_get(&dev_ctx, &status);
-
-
-    if (IMU_read_data(&dev_ctx, &main_imu_data) == 0) {
-      HAL_GPIO_TogglePin(USR_LED_GPIO_Port, USR_LED_Pin);
-    }
-
-    osDelay(10);
-
-
-
-
-
+    osDelay(1);
   }
   /* USER CODE END StartDefaultTask */
 }
 
 /* Private application code --------------------------------------------------*/
 /* USER CODE BEGIN Application */
-
-static int32_t platform_read(void *handle,
-                             uint8_t reg,
-                             uint8_t *bufp,
-                             uint16_t len)
-{
-  reg |= 0x80;
-  SPI_HandleTypeDef *hspi = (SPI_HandleTypeDef*)handle;
-
-  HAL_GPIO_WritePin(CS_ISM_GPIO_Port, CS_ISM_Pin, GPIO_PIN_RESET);
-  // Send the register address
-  HAL_SPI_Transmit(hspi, &reg, 1, HAL_MAX_DELAY);
-  // Receive the data bytes
-  HAL_SPI_Receive(hspi, bufp, len, HAL_MAX_DELAY);
-  // Pull CS high to end transaction
-  HAL_GPIO_WritePin(CS_ISM_GPIO_Port, CS_ISM_Pin, GPIO_PIN_SET);
-
-  return 0;
-}
-
-
-
-void platform_init(void){
-  HAL_GPIO_WritePin(CS_ISM_GPIO_Port, CS_ISM_Pin, GPIO_PIN_SET);
-}
-
-static void tx_com(uint8_t *tx_buffer, uint16_t len){
-  HAL_UART_Transmit(&huart4, tx_buffer, len, 1000);
-}
-
-static void platform_delay(uint32_t ms){
-  osDelay(ms);
-}
-
-int8_t IMU_read_data(stmdev_ctx_t *ctx, struct IMU_Data *data){
-  ism6hg256x_data_ready_t drdy;
-  // Ask the sensor which data is ready
-  ism6hg256x_flag_data_ready_get(ctx, &drdy);
-  uint8_t data_updated = 0;
-  // If Accelerometer is ready, read directly into the struct
-  if(drdy.drdy_xl){
-    // &data->linAX points to the start of the X, Y, Z block in memory
-    ism6hg256x_acceleration_raw_get(ctx, (int16_t*)&data->linAX);
-    data_updated = 1;
-  }
-  // If Gyroscope is ready, read directly into the struct
-  if(drdy.drdy_gy){
-    ism6hg256x_angular_rate_raw_get(ctx, (int16_t*)&data->angAX);
-    data_updated = 1;
-  }
-  // Return 0 if we got new data, 1 if nothing was ready
-  return (data_updated) ? 0 : 1;
-}
-/* USER CODE END Application */
-

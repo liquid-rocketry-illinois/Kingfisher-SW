@@ -110,7 +110,7 @@ int main(void)
   MX_TIM3_Init();
   MX_UART4_Init();
   MX_UART8_Init();
-  MX_USART6_UART_Init();
+  // MX_USART6_UART_Init();
   MX_USB_OTG_FS_PCD_Init();
   MX_FATFS_Init();
   /* USER CODE BEGIN 2 */
