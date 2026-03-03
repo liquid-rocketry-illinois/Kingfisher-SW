@@ -7,11 +7,13 @@
 
 #include <stdint.h>
 #include "Servo_Axon_Mini_MKII.h"
+#include "IMU_ISM6HGx.h"
 
 class TEST{
 public:
     TEST();
     int SERVO_TEST();
+    int ISM_TEST();
 };
 
 #endif //HAL_1_SW_TEST_FUNCTIONS_H

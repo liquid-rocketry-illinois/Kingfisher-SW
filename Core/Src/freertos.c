@@ -116,9 +116,8 @@ void MX_FREERTOS_Init(void) {
 void StartDefaultTask(void *argument)
 {
   /* USER CODE BEGIN StartDefaultTask */
+
   /* Infinite loop */
-
-
   for(;;)
   {
     osDelay(1);
@@ -128,6 +127,3 @@ void StartDefaultTask(void *argument)
 
 /* Private application code --------------------------------------------------*/
 /* USER CODE BEGIN Application */
-
-/* USER CODE END Application */
-
