@@ -52,14 +52,14 @@ void MX_GPIO_Init(void)
 
   /*Configure GPIO pin Output Level */
   HAL_GPIO_WritePin(GPIOE, RADIO_RST_Pin|RADIO_AUX_Pin|M0_Radio_Pin|M1_Radio_Pin
-                          |CS3_Pin|CS2_Pin|CS1E11_Pin, GPIO_PIN_RESET);
+                          |SIMU_CS3_Pin|SIMU_CS2_Pin|SIMU_CS1_Pin, GPIO_PIN_RESET);
 
   /*Configure GPIO pin Output Level */
-  HAL_GPIO_WritePin(GPIOA, CS1_Pin|DROUGE_BACK_Pin|DROUGE_MAIN_Pin, GPIO_PIN_RESET);
+  HAL_GPIO_WritePin(GPIOA, SD_CS1_Pin|DROUGE_BACK_Pin|DROUGE_MAIN_Pin, GPIO_PIN_RESET);
 
   /*Configure GPIO pin Output Level */
-  HAL_GPIO_WritePin(GPIOD, CS1D8_Pin|CS2D10_Pin|CS3D12_Pin|USR_LED_Pin
-                          |CS_ISM_Pin|CS1D4_Pin, GPIO_PIN_RESET);
+  HAL_GPIO_WritePin(GPIOD, BMP390_CS1_Pin|BMP390_CS2_Pin|BMP390_CS3_Pin|USR_LED_Pin
+                          |CS_ISM_Pin|CS1_Pin, GPIO_PIN_RESET);
 
   /*Configure GPIO pin Output Level */
   HAL_GPIO_WritePin(MAIN_GPIO_Port, MAIN_Pin, GPIO_PIN_RESET);
@@ -68,9 +68,9 @@ void MX_GPIO_Init(void)
   HAL_GPIO_WritePin(GPS_RST_GPIO_Port, GPS_RST_Pin, GPIO_PIN_RESET);
 
   /*Configure GPIO pins : RADIO_RST_Pin RADIO_AUX_Pin M0_Radio_Pin M1_Radio_Pin
-                           CS3_Pin CS2_Pin CS1E11_Pin */
+                           SIMU_CS3_Pin SIMU_CS2_Pin SIMU_CS1_Pin */
   GPIO_InitStruct.Pin = RADIO_RST_Pin|RADIO_AUX_Pin|M0_Radio_Pin|M1_Radio_Pin
-                          |CS3_Pin|CS2_Pin|CS1E11_Pin;
+                          |SIMU_CS3_Pin|SIMU_CS2_Pin|SIMU_CS1_Pin;
   GPIO_InitStruct.Mode = GPIO_MODE_OUTPUT_PP;
   GPIO_InitStruct.Pull = GPIO_NOPULL;
   GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
@@ -82,29 +82,29 @@ void MX_GPIO_Init(void)
   GPIO_InitStruct.Pull = GPIO_NOPULL;
   HAL_GPIO_Init(SD_DET_GPIO_Port, &GPIO_InitStruct);
 
-  /*Configure GPIO pins : CS1_Pin DROUGE_BACK_Pin DROUGE_MAIN_Pin */
-  GPIO_InitStruct.Pin = CS1_Pin|DROUGE_BACK_Pin|DROUGE_MAIN_Pin;
+  /*Configure GPIO pins : SD_CS1_Pin DROUGE_BACK_Pin DROUGE_MAIN_Pin */
+  GPIO_InitStruct.Pin = SD_CS1_Pin|DROUGE_BACK_Pin|DROUGE_MAIN_Pin;
   GPIO_InitStruct.Mode = GPIO_MODE_OUTPUT_PP;
   GPIO_InitStruct.Pull = GPIO_NOPULL;
   GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
   HAL_GPIO_Init(GPIOA, &GPIO_InitStruct);
 
-  /*Configure GPIO pin : INT3_Pin */
-  GPIO_InitStruct.Pin = INT3_Pin;
+  /*Configure GPIO pin : SIMU_INT3_Pin */
+  GPIO_InitStruct.Pin = SIMU_INT3_Pin;
   GPIO_InitStruct.Mode = GPIO_MODE_IT_RISING;
   GPIO_InitStruct.Pull = GPIO_NOPULL;
-  HAL_GPIO_Init(INT3_GPIO_Port, &GPIO_InitStruct);
+  HAL_GPIO_Init(SIMU_INT3_GPIO_Port, &GPIO_InitStruct);
 
-  /*Configure GPIO pins : INT2_Pin INT1_Pin */
-  GPIO_InitStruct.Pin = INT2_Pin|INT1_Pin;
+  /*Configure GPIO pins : SIMU_INT2_Pin SIMU_INT1_Pin */
+  GPIO_InitStruct.Pin = SIMU_INT2_Pin|SIMU_INT1_Pin;
   GPIO_InitStruct.Mode = GPIO_MODE_IT_RISING;
   GPIO_InitStruct.Pull = GPIO_NOPULL;
   HAL_GPIO_Init(GPIOE, &GPIO_InitStruct);
 
-  /*Configure GPIO pins : CS1D8_Pin CS2D10_Pin CS3D12_Pin USR_LED_Pin
-                           CS_ISM_Pin CS1D4_Pin */
-  GPIO_InitStruct.Pin = CS1D8_Pin|CS2D10_Pin|CS3D12_Pin|USR_LED_Pin
-                          |CS_ISM_Pin|CS1D4_Pin;
+  /*Configure GPIO pins : BMP390_CS1_Pin BMP390_CS2_Pin BMP390_CS3_Pin USR_LED_Pin
+                           CS_ISM_Pin CS1_Pin */
+  GPIO_InitStruct.Pin = BMP390_CS1_Pin|BMP390_CS2_Pin|BMP390_CS3_Pin|USR_LED_Pin
+                          |CS_ISM_Pin|CS1_Pin;
   GPIO_InitStruct.Mode = GPIO_MODE_OUTPUT_PP;
   GPIO_InitStruct.Pull = GPIO_NOPULL;
   GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
