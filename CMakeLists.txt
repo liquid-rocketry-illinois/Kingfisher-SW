@@ -43,6 +43,7 @@ add_executable(${CMAKE_PROJECT_NAME}
         Core/Src/Math/Vector3D.cpp
         Core/Src/interrupt_override.cpp
         Core/Inc/Sensors.h
+        Core/Inc/Math/Math.h
 )
 
 # Add STM32CubeMX generated sources
