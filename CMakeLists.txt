@@ -44,6 +44,11 @@ add_executable(${CMAKE_PROJECT_NAME}
         Core/Src/interrupt_override.cpp
         Core/Inc/Sensors.h
         Core/Inc/Math/Math.h
+        Core/Inc/bmi3.h
+        Core/Inc/bmi3_defs.h
+        Core/Inc/bmi323.h
+        Core/Inc/bmi323_defs.h
+        Core/Inc/SIMU_BMI323.h
 )
 
 # Add STM32CubeMX generated sources
@@ -64,6 +69,8 @@ target_sources(${CMAKE_PROJECT_NAME} PRIVATE
         Core/Src/main.cpp
         Core/Src/ism6hg256x_reg.c
         Core/Src/IMU_ISM6HGx.cpp
+        Core/Src/bmi3.c
+        Core/Src/bmi323.c
 )
 
 # Add include paths
