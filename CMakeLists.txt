@@ -49,6 +49,8 @@ add_executable(${CMAKE_PROJECT_NAME}
         Core/Inc/bmi323.h
         Core/Inc/bmi323_defs.h
         Core/Inc/SIMU_BMI323.h
+        Core/Inc/SIMU_BMI323.h
+        Core/Src/SIMU_BMI323.cpp
 )
 
 # Add STM32CubeMX generated sources

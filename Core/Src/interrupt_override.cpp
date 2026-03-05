@@ -12,15 +12,18 @@ extern "C" void HAL_GPIO_EXTI_Callback(uint16_t GPIO_Pin)
         IMU_ISM6HGx::ism6hg256x_read_data_drdy_handler();
     }
 
-    if (GPIO_Pin == INT1_Pin) {
+    // Note: LIS2MDL uses a different approach to interrupts in 4-wire SPI mode.
+    // We must read the STATUS_REG register, instead.
+
+    if (GPIO_Pin == SIMU_INT1_Pin) {
 
     }
 
-    if (GPIO_Pin == INT2_Pin) {
+    if (GPIO_Pin == SIMU_INT2_Pin) {
 
     }
 
-    if (GPIO_Pin == INT3_Pin) {
+    if (GPIO_Pin == SIMU_INT3_Pin) {
 
     }
 

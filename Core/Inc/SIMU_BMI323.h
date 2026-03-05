@@ -8,15 +8,7 @@
 #include "bmi323.h"
 #include "bmi3.h"
 #include "main.h"
-
-#define BMI1_CS_GPIO_Port CS1_Pin
-#define BMI1_CS_Pin       GPIO_PIN_4
-
-#define BMI2_CS_GPIO_Port GPIOE
-#define BMI2_CS_Pin       GPIO_PIN_5
-
-#define BMI3_CS_GPIO_Port GPIOE
-#define BMI3_CS_Pin       GPIO_PIN_6
+#include "Math/Math.h"
 
 struct BMI323_Data
 {
@@ -53,7 +45,7 @@ public:
     SensorData<int> Update();
 
     SensorData<BMI323_Data> getRawData();
-    SensorData<BMI323_Quat> getQuat();
+    SensorData<BMI323_Quat> getQuat(Vector3D<float> mag);
 
 private:
     SPI_HandleTypeDef* _spi;
