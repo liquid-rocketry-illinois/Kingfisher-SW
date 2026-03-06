@@ -3,17 +3,13 @@
 //
 
 #include "SIMU_BMI323.h"
-#include <cstring>
 
 extern SPI_HandleTypeDef hspi4;
 
 SIMU_BMI323::SIMU_BMI323(SPI_HandleTypeDef* spi)
 {
     _spi = spi;
-    _tmr_enabled = false;
-
-    for(int i = 0; i < 3; i++)
-        _sensor_active[i] = false;
+    _sensor_active = false;
 }
 
 void SIMU_BMI323::CS_Select(uint8_t index)
@@ -60,96 +56,67 @@ int8_t SIMU_BMI323::SPI_Write(uint8_t cs_index, uint8_t reg, const uint8_t* data
     return 0;
 }
 
-int SIMU_BMI323::Init(bool TMR_Toggle)
+int SIMU_BMI323::Init()
 {
-    _tmr_enabled = TMR_Toggle;
-
-    int sensors_to_try = (_tmr_enabled) ? 3 : 1;
-
-    for(int i = 0; i < sensors_to_try; i++)
+    device.intf = BMI3_SPI_INTF;
+    device.read = [](uint8_t reg, uint8_t* data, uint32_t len, void* intf_ptr)
     {
-        _dev[i].intf = BMI3_SPI_INTF;
-        _dev[i].read = [](uint8_t reg, uint8_t* data, uint32_t len, void* intf_ptr)
-        {
-            return ((SIMU_BMI323*)intf_ptr)->SPI_Read((uint32_t)intf_ptr >> 16, reg, data, len);
-        };
+        return static_cast<SIMU_BMI323 *>(intf_ptr)->SPI_Read(0, reg, data, len);
+    };
 
-        _dev[i].write = [](uint8_t reg, const uint8_t* data, uint32_t len, void* intf_ptr)
-        {
-            return ((SIMU_BMI323*)intf_ptr)->SPI_Write((uint32_t)intf_ptr >> 16, reg, data, len);
-        };
+    device.write = [](uint8_t reg, const uint8_t* data, uint32_t len, void* intf_ptr)
+    {
+        return static_cast<SIMU_BMI323 *>(intf_ptr)->SPI_Write(0, reg, data, len);
+    };
 
-        _dev[i].intf_ptr = this;
-        _dev[i].delay_us = [](uint32_t period, void*) { HAL_Delay(period / 1000); };
+    device.intf_ptr = this;
+    device.delay_us = [](uint32_t period, void*) { HAL_Delay(period / 1000); };
 
-        if(bmi323_init(&_dev[i]) == BMI3_OK)
-        {
-            _sensor_active[i] = true;
-        }
+    if(bmi323_init(&device) == BMI3_OK)
+    {
+        _sensor_active = true;
     }
 
     return 0;
 }
 
-SensorData<int> SIMU_BMI323::Update()
+int SIMU_BMI323::Update()
 {
-    SensorData<int> status = {0,0,0};
+    int status = 0;
 
-    for(int i = 0; i < 3; i++)
-    {
-        if(!_sensor_active[i])
+        if(!_sensor_active)
         {
-            if(i==0) status.sensor1 = -1;
-            if(i==1) status.sensor2 = -1;
-            if(i==2) status.sensor3 = -1;
-            continue;
+            status = -1;
         }
 
-        bmi3_sensor_data BMI323A, BMI323G;
+        bmi3_sensor_data BMI323[2];
 
-        BMI323A.type = BMI323_ACCEL;
-        BMI323G.type = BMI323_GYRO;
+        BMI323[0].type = BMI323_ACCEL;
+        BMI323[1].type = BMI323_GYRO;
 
-        if(bmi323_get_sensor_data(&BMI323A, 1, &_dev[i]) == BMI3_OK)
+        if(bmi323_get_sensor_data(BMI323, 2, &device) == BMI3_OK)
         {
-            BMI323_Data data;
-            data.a_x = BMI323A.sens_data.acc.x;
-            data.a_y = BMI323A.sens_data.acc.y;
-            data.a_z = BMI323A.sens_data.acc.z;
-            data.omega_x = BMI323G.sens_data.gyr.x;
-            data.omega_y = BMI323G.sens_data.gyr.y;
-            data.omega_z = BMI323G.sens_data.gyr.z;
+            SensorData data;
+            data.a_x = BMI323[0].sens_data.acc.x;
+            data.a_y = BMI323[0].sens_data.acc.y;
+            data.a_z = BMI323[0].sens_data.acc.z;
+            data.omega_x = BMI323[1].sens_data.gyr.x;
+            data.omega_y = BMI323[1].sens_data.gyr.y;
+            data.omega_z = BMI323[1].sens_data.gyr.z;
 
-            if(i==0) _raw.sensor1 = data;
-            if(i==1) _raw.sensor2 = data;
-            if(i==2) _raw.sensor3 = data;
+            _raw = data;
 
-            status.sensor1 = 0;
+            status = 0;
         }
-        else
-        {
-            if(i==0) status.sensor1 = -1;
-            if(i==1) status.sensor2 = -1;
-            if(i==2) status.sensor3 = -1;
+        else {
+            status = -1;
         }
-    }
 
     return status;
 }
 
 // Return the raw data calculated
-SensorData<BMI323_Data> SIMU_BMI323::getRawData()
+SensorData SIMU_BMI323::getRawData()
 {
     return _raw;
-}
-
-// Return the calculated quaternion data with an option to use external
-// magnetometer data.
-SensorData<BMI323_Quat> SIMU_BMI323::getQuat(Vector3D<float> mag = Vector3D<float>(0.0f,0.0f,0.0f))
-{
-    // NOTE:
-    // BMI323 does NOT natively output quaternions.
-    // This is placeholder. You must implement fusion (e.g., Madgwick).
-
-    return _quat;
 }

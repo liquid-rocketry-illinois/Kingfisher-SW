@@ -10,7 +10,7 @@
 #include "main.h"
 #include "Math/Math.h"
 
-struct BMI323_Data
+struct SensorData
 {
     float a_x;
     float a_y;
@@ -20,42 +20,22 @@ struct BMI323_Data
     float omega_z;
 };
 
-struct BMI323_Quat
-{
-    float w;
-    float x;
-    float y;
-    float z;
-};
-
-template<typename T>
-struct SensorData
-{
-    T sensor1;
-    T sensor2;
-    T sensor3;
-};
-
 class SIMU_BMI323
 {
 public:
     SIMU_BMI323(SPI_HandleTypeDef* spi);
 
-    int Init(bool TMR_Toggle);
-    SensorData<int> Update();
+    int Init();
+    int Update();
 
-    SensorData<BMI323_Data> getRawData();
-    SensorData<BMI323_Quat> getQuat(Vector3D<float> mag);
+    SensorData getRawData();
 
 private:
     SPI_HandleTypeDef* _spi;
-    bool _tmr_enabled;
+    bmi3_dev device;
+    bool _sensor_active;
 
-    bmi3_dev _dev[3];
-    bool _sensor_active[3];
-
-    SensorData<BMI323_Data> _raw;
-    SensorData<BMI323_Quat> _quat;
+    SensorData _raw;
 
     int8_t SPI_Read(uint8_t cs_index, uint8_t reg, uint8_t* data, uint16_t len);
     int8_t SPI_Write(uint8_t cs_index, uint8_t reg, const uint8_t* data, uint16_t len);
