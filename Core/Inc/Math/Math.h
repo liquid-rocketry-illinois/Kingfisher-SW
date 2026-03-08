@@ -25,7 +25,6 @@ struct Quaternion {
 struct MATHEMATICS {
     // Map an input value in an original range to a different range
     static float Map(float in, float inMin, float inMax, float outMin, float outMax);
-    static float fastInvSqRt(float number);
     static Q Quaternion_Madgwick(   Quaternion* QuatIn,
                                     Vector3D<float> accel,
                                     Vector3D<float> gyro,

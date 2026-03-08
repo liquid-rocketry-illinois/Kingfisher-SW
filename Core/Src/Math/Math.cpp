@@ -10,23 +10,6 @@ float MATHEMATICS::Map(float in, float inMin, float inMax, float outMin, float o
     return outMin + ( (in - inMin) * (outMax - outMin) ) / (inMax - inMin);
 }
 
-// This is literally straight from Quake III Arena code :3
-float MATHEMATICS::fastInvSqRt(float number) {
-    long i;
-    float x2, y;
-    const float threehalfs = 1.5F;
-
-    x2 = number * 0.5F;
-    y  = number;
-    i  = * ( long * ) &y;                       // evil floating point bit level hacking
-    i  = 0x5f3759df - ( i >> 1 );               // what the fuck?
-    y  = * ( float * ) &i;
-    y  = y * ( threehalfs - ( x2 * y * y ) );   // 1st iteration
-    //	y  = y * ( threehalfs - ( x2 * y * y ) );   // 2nd iteration, this can be removed
-
-    return y;
-}
-
 // No input for mag if only accel and gyro inputs
 Q MATHEMATICS::Quaternion_Madgwick( Quaternion* QuatIn,
                                     Vector3D<float> accel,
@@ -64,7 +47,7 @@ Q MATHEMATICS::Quaternion_Madgwick( Quaternion* QuatIn,
     /* Normalize accelerometer */
     float accelNormSq = ax*ax + ay*ay + az*az;
     if(accelNormSq == 0.0f) return q;
-    norm = fastInvSqRt(accelNormSq);
+    norm = 1.0F / sqrtf(accelNormSq);
     ax *= norm;
     ay *= norm;
     az *= norm;
@@ -77,7 +60,7 @@ Q MATHEMATICS::Quaternion_Madgwick( Quaternion* QuatIn,
         if(magNormSq == 0.0f) useMag = false;
         else
         {
-            norm = fastInvSqRt(magNormSq);
+            norm = 1.0F / sqrtf(magNormSq);
             mx *= norm;
             my *= norm;
             mz *= norm;
@@ -114,7 +97,7 @@ Q MATHEMATICS::Quaternion_Madgwick( Quaternion* QuatIn,
          _8q3*q2q2 + _8q3*q3q3 + _4q3*az;
     s4 = 4.0f*q2q2*q4 - _2q2*ax + 4.0f*q3q3*q4 - _2q3*ay;
 
-    norm = fastInvSqRt(s1*s1 + s2*s2 + s3*s3 + s4*s4);
+    norm = 1.0F / sqrtf(s1*s1 + s2*s2 + s3*s3 + s4*s4);
     s1 *= norm;
     s2 *= norm;
     s3 *= norm;
@@ -138,7 +121,7 @@ Q MATHEMATICS::Quaternion_Madgwick( Quaternion* QuatIn,
 
     /* Normalize quaternion */
 
-    norm = fastInvSqRt(q1*q1 + q2*q2 + q3*q3 + q4*q4);
+    norm = 1.0F / sqrtf(q1*q1 + q2*q2 + q3*q3 + q4*q4);
 
     q.w = q1 * norm;
     q.x = q2 * norm;
