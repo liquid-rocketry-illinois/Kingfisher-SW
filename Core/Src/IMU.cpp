@@ -30,7 +30,7 @@ IMU::IMU(bool tmr_on) : Quaternion_BMI(), Quaternion_ISM() {
     TMR_STATE = tmr_on;
 }
 
-IMU::Status IMU::Init() {
+IMUsStatus IMU::Init() {
     sensorStatus.A = BMI323_A.Init();
     sensorStatus.A = BMI323_B.Init();
     sensorStatus.A = BMI323_C.Init();
@@ -38,7 +38,8 @@ IMU::Status IMU::Init() {
 
     return sensorStatus;
 }
-IMU::Status IMU::Update() {
+
+IMUsStatus IMU::Update() {
     if (BMI323_A.Update() != 0) sensorStatus.A = false;
     else {
         Raw_BMI.BMIA_d = BMI323_A.getRawData();

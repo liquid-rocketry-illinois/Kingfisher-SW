@@ -16,7 +16,7 @@ extern "C" void task(void*) {
 
     for(;;)
     {
-        test.ISM_TEST();
+        test.IMU_TEST();
         osDelay(1);
     }
     /* USER CODE END StartDefaultTask */

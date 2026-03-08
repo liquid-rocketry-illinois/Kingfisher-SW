@@ -9,6 +9,13 @@
 #include "IMU_ISM6HGx.h"
 #include "Math/TripleModRedundancy.h"
 
+struct IMUsStatus {
+    int8_t A = 0;
+    int8_t B = 0;
+    int8_t C = 0;
+    int8_t ISM = 0;
+};
+
 class IMU {
 private:
     SIMU_BMI323 BMI323_A = SIMU_BMI323(&hspi4, SIMU_BMI323::SENSOR1_I);
@@ -23,12 +30,7 @@ private:
         BMI_Data BMIC_d;
     } Raw_BMI;
 
-    struct Status {
-        int8_t A = 0;
-        int8_t B = 0;
-        int8_t C = 0;
-        int8_t ISM = 0;
-    } sensorStatus;
+    IMUsStatus sensorStatus;
 
     bool TMR_STATE = false;
 
@@ -43,8 +45,8 @@ private:
 public:
     IMU(bool tmr_on);
 
-    Status Init();
-    Status Update();
+    IMUsStatus Init();
+    IMUsStatus Update();
     BMI_Data getRawBMI(uint8_t index);
     ISM_Data getRawISM();
 };
