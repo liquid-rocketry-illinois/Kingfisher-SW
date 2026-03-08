@@ -10,6 +10,8 @@
 #define CNT_FOR_OUTPUT 100
 #define SENSOR_BUS hspi3
 
+
+
 // PRIVATE
 
 void IMU_ISM6HGx::cs_low()
@@ -75,7 +77,11 @@ void IMU_ISM6HGx::platform_delay(uint32_t ms)
     osDelay(ms);
 }
 
+
+
 // PUBLIC
+
+IMU_ISM6HGx::IMU_ISM6HGx() {}
 
 void IMU_ISM6HGx::ism6hg256x_read_data_drdy_handler() {
     thread_wake = 1;
@@ -169,13 +175,10 @@ void IMU_ISM6HGx::Update()
 
             /* Read acceleration field data */
             ism6hg256x_acceleration_raw_get(&dev_ctx, data_raw_motion);
-            data.acceleration.x = ism6hg256x_from_fs2_to_mg(data_raw_motion[0]);
-            data.acceleration.y = ism6hg256x_from_fs2_to_mg(data_raw_motion[1]);
-            data.acceleration.z = ism6hg256x_from_fs2_to_mg(data_raw_motion[2]);
 
-            lowg_xl_sum[0] += data.acceleration.x;
-            lowg_xl_sum[1] += data.acceleration.y;
-            lowg_xl_sum[2] += data.acceleration.z;
+            lowg_xl_sum[0] += ism6hg256x_from_fs2_to_mg(data_raw_motion[0]);
+            lowg_xl_sum[1] += ism6hg256x_from_fs2_to_mg(data_raw_motion[1]);
+            lowg_xl_sum[2] += ism6hg256x_from_fs2_to_mg(data_raw_motion[2]);
             lowg_xl_cnt++;
             }
 
@@ -184,13 +187,10 @@ void IMU_ISM6HGx::Update()
 
             /* Read acceleration field data */
             ism6hg256x_hg_acceleration_raw_get(&dev_ctx, data_raw_motion);
-            acceleration_mg[0] = ism6hg256x_from_fs256_to_mg(data_raw_motion[0]);
-            acceleration_mg[1] = ism6hg256x_from_fs256_to_mg(data_raw_motion[1]);
-            acceleration_mg[2] = ism6hg256x_from_fs256_to_mg(data_raw_motion[2]);
 
-            hg_xl_sum[0] += acceleration_mg[0];
-            hg_xl_sum[1] += acceleration_mg[1];
-            hg_xl_sum[2] += acceleration_mg[2];
+            hg_xl_sum[0] += ism6hg256x_from_fs256_to_mg(data_raw_motion[0]);
+            hg_xl_sum[1] += ism6hg256x_from_fs256_to_mg(data_raw_motion[1]);
+            hg_xl_sum[2] += ism6hg256x_from_fs256_to_mg(data_raw_motion[2]);
             hg_xl_cnt++;
             }
 
@@ -200,13 +200,10 @@ void IMU_ISM6HGx::Update()
 
             /* Read angular rate field data */
             ism6hg256x_angular_rate_raw_get(&dev_ctx, data_raw_motion);
-            angular_rate_mdps[0] = ism6hg256x_from_fs2000_to_mdps(data_raw_motion[0]);
-            angular_rate_mdps[1] = ism6hg256x_from_fs2000_to_mdps(data_raw_motion[1]);
-            angular_rate_mdps[2] = ism6hg256x_from_fs2000_to_mdps(data_raw_motion[2]);
 
-            gyro_sum[0] += angular_rate_mdps[0];
-            gyro_sum[1] += angular_rate_mdps[1];
-            gyro_sum[2] += angular_rate_mdps[2];
+            gyro_sum[0] += ism6hg256x_from_fs2000_to_mdps(data_raw_motion[0]);
+            gyro_sum[1] += ism6hg256x_from_fs2000_to_mdps(data_raw_motion[1]);
+            gyro_sum[2] += ism6hg256x_from_fs2000_to_mdps(data_raw_motion[2]);
             gyro_cnt++;
             }
 
@@ -221,48 +218,48 @@ void IMU_ISM6HGx::Update()
             }
         }
 
-        if (lowg_xl_cnt >= CNT_FOR_OUTPUT) {
-            // Set avg accel data low-g
-            if (lowg_xl_cnt > 0) {
-                acceleration_mg[0] = lowg_xl_sum[0] / lowg_xl_cnt;
-                acceleration_mg[1] = lowg_xl_sum[1] / lowg_xl_cnt;
-                acceleration_mg[2] = lowg_xl_sum[2] / lowg_xl_cnt;
-            }
-
-            // Reset for next run
-            lowg_xl_sum[0] = lowg_xl_sum[1] = lowg_xl_sum[2] = 0.0;
-            lowg_xl_cnt = 0;
-
-            // Set avg accel high-g
-            if (hg_xl_cnt > 0) {
-                acceleration_mg[0] = hg_xl_sum[0] / hg_xl_cnt;
-                acceleration_mg[1] = hg_xl_sum[1] / hg_xl_cnt;
-                acceleration_mg[2] = hg_xl_sum[2] / hg_xl_cnt;
-            }
-
-            // Reset for next pass
-            hg_xl_sum[0] = hg_xl_sum[1] = hg_xl_sum[2] = 0.0;
-            hg_xl_cnt = 0;
-
-            // Set avg gyro data
-            if (gyro_cnt > 0) {
-                angular_rate_mdps[0] = gyro_sum[0] / gyro_cnt;
-                angular_rate_mdps[1] = gyro_sum[1] / gyro_cnt;
-                angular_rate_mdps[2] = gyro_sum[2] / gyro_cnt;
-            }
-
-            // Reset for next pass
-            gyro_sum[0] = gyro_sum[1] = gyro_sum[2] = 0.0;
-            gyro_cnt = 0;
-
-            // Set avg temperature data, reset for next pass
-            temperature_degC = temp_sum / temp_cnt;
-            temp_cnt = 0;
-            temp_sum = 0.0;
+    if (lowg_xl_cnt >= CNT_FOR_OUTPUT) {
+        // Set avg accel data low-g
+        if (lowg_xl_cnt > 0) {
+            data.acceleration.x = lowg_xl_sum[0] / lowg_xl_cnt;
+            data.acceleration.y = lowg_xl_sum[1] / lowg_xl_cnt;
+            data.acceleration.z = lowg_xl_sum[2] / lowg_xl_cnt;
         }
+
+        // Reset for next run
+        lowg_xl_sum[0] = lowg_xl_sum[1] = lowg_xl_sum[2] = 0.0;
+        lowg_xl_cnt = 0;
+
+        // Set avg accel high-g
+        if (hg_xl_cnt > 0) {
+            data.accelerationHighG.x = hg_xl_sum[0] / hg_xl_cnt;
+            data.accelerationHighG.y = hg_xl_sum[1] / hg_xl_cnt;
+            data.accelerationHighG.z = hg_xl_sum[2] / hg_xl_cnt;
+        }
+
+        // Reset for next pass
+        hg_xl_sum[0] = hg_xl_sum[1] = hg_xl_sum[2] = 0.0;
+        hg_xl_cnt = 0;
+
+        // Set avg gyro data
+        if (gyro_cnt > 0) {
+            data.angular_velocity.x = gyro_sum[0] / gyro_cnt;
+            data.angular_velocity.y = gyro_sum[1] / gyro_cnt;
+            data.angular_velocity.z = gyro_sum[2] / gyro_cnt;
+        }
+
+        // Reset for next pass
+        gyro_sum[0] = gyro_sum[1] = gyro_sum[2] = 0.0;
+        gyro_cnt = 0;
+
+        // Set avg temperature data, reset for next pass
+        temperature_degC = temp_sum / temp_cnt;
+        temp_cnt = 0;
+        temp_sum = 0.0;
+    }
 }
 
-IMU_Data IMU_ISM6HGx::GetData() {
+ISM_Data IMU_ISM6HGx::GetData() {
     return data;
 };
 
@@ -270,7 +267,7 @@ IMU_Data IMU_ISM6HGx::GetData() {
 
 // STATIC VARS
 
-IMU_Data IMU_ISM6HGx::data;
+ISM_Data IMU_ISM6HGx::data;
 
 int16_t IMU_ISM6HGx::data_raw_motion[3];
 int16_t IMU_ISM6HGx::data_raw_temperature;

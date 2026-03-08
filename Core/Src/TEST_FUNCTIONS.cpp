@@ -34,17 +34,12 @@ int TEST::SERVO_TEST() {
     return status;
 }
 
-int TEST::ISM_TEST() {
-    IMU_ISM6HGx ISM6;
-    IMU_Data data;
+int TEST::IMU_TEST() {
+    IMU IMU_ENGINE(false);
+    IMUsStatus sensorStatuses = IMU_ENGINE.Init();
 
-    if (IMU_ISM6HGx::Init() != 0)
-    {
-        Error_Handler();
-    }
     while (1) {
-        ISM6.Update();
-        data = ISM6.GetData();
+        sensorStatuses = IMU_ENGINE.Update();
         osDelay(1);
     }
 }

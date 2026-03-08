@@ -13,13 +13,14 @@
 #include "gpio.h"
 #include "spi.h"
 
-struct IMU_Data {
+struct ISM_Data {
     Vector3D<float> acceleration;
+    Vector3D<float> accelerationHighG;
     Vector3D<float> angular_velocity;
 };
 
 class IMU_ISM6HGx {
-    static IMU_Data data;
+    static ISM_Data data;
 
     static int16_t data_raw_motion[3];
     static int16_t data_raw_temperature;
@@ -51,10 +52,11 @@ class IMU_ISM6HGx {
     static void cs_high();
 
 public:
+    IMU_ISM6HGx();
     static void ism6hg256x_read_data_drdy_handler();
     static int Init();
     static void Update();
-    IMU_Data GetData();
+    ISM_Data GetData();
 };
 
 #endif //KINGFISHER_SW_IMU_ISM6HGX_H
