@@ -10,11 +10,28 @@ float MATHEMATICS::Map(float in, float inMin, float inMax, float outMin, float o
     return outMin + ( (in - inMin) * (outMax - outMin) ) / (inMax - inMin);
 }
 
+// This is literally straight from Quake III Arena code :3
+float MATHEMATICS::fastInvSqRt(float number) {
+    long i;
+    float x2, y;
+    const float threehalfs = 1.5F;
+
+    x2 = number * 0.5F;
+    y  = number;
+    i  = * ( long * ) &y;                       // evil floating point bit level hacking
+    i  = 0x5f3759df - ( i >> 1 );               // what the fuck?
+    y  = * ( float * ) &i;
+    y  = y * ( threehalfs - ( x2 * y * y ) );   // 1st iteration
+    //	y  = y * ( threehalfs - ( x2 * y * y ) );   // 2nd iteration, this can be removed
+
+    return y;
+}
+
 // No input for mag if only accel and gyro inputs
 Q MATHEMATICS::Quaternion_Madgwick( Quaternion* QuatIn,
                                     Vector3D<float> accel,
                                     Vector3D<float> gyro,
-                                    Vector3D<float> mag = Vector3D<float>(0.0f,0.0f,0.0f)) {
+                                    Vector3D<float> mag) {
     float ax = accel.x, ay = accel.y, az = accel.z;
     float gx = gyro.x,  gy = gyro.y,  gz = gyro.z;
     float mx = mag.x,   my = mag.y,   mz = mag.z;
@@ -45,9 +62,9 @@ Q MATHEMATICS::Quaternion_Madgwick( Quaternion* QuatIn,
     float q4q4 = q4*q4;
 
     /* Normalize accelerometer */
-    norm = sqrtf(ax*ax + ay*ay + az*az);
-    if(norm == 0.0f) return q; // dereference q using *
-    norm = 1.0f / norm;
+    float accelNormSq = ax*ax + ay*ay + az*az;
+    if(accelNormSq == 0.0f) return q;
+    norm = fastInvSqRt(accelNormSq);
     ax *= norm;
     ay *= norm;
     az *= norm;
@@ -56,11 +73,11 @@ Q MATHEMATICS::Quaternion_Madgwick( Quaternion* QuatIn,
 
     if(useMag)
     {
-        norm = sqrtf(mx*mx + my*my + mz*mz);
-        if(norm == 0.0f) useMag = false;
+        float magNormSq = mx*mx + my*my + mz*mz;
+        if(magNormSq == 0.0f) useMag = false;
         else
         {
-            norm = 1.0f / norm;
+            norm = fastInvSqRt(magNormSq);
             mx *= norm;
             my *= norm;
             mz *= norm;
@@ -97,7 +114,7 @@ Q MATHEMATICS::Quaternion_Madgwick( Quaternion* QuatIn,
          _8q3*q2q2 + _8q3*q3q3 + _4q3*az;
     s4 = 4.0f*q2q2*q4 - _2q2*ax + 4.0f*q3q3*q4 - _2q3*ay;
 
-    norm = 1.0f / sqrtf(s1*s1 + s2*s2 + s3*s3 + s4*s4);
+    norm = fastInvSqRt(s1*s1 + s2*s2 + s3*s3 + s4*s4);
     s1 *= norm;
     s2 *= norm;
     s3 *= norm;
@@ -112,14 +129,16 @@ Q MATHEMATICS::Quaternion_Madgwick( Quaternion* QuatIn,
 
     /* Integrate */
 
-    q1 += qDot1 * (1.0f/sampleFreq);
-    q2 += qDot2 * (1.0f/sampleFreq);
-    q3 += qDot3 * (1.0f/sampleFreq);
-    q4 += qDot4 * (1.0f/sampleFreq);
+    float dt = 1.0f / sampleFreq;
+
+    q1 += qDot1 * dt;
+    q2 += qDot2 * dt;
+    q3 += qDot3 * dt;
+    q4 += qDot4 * dt;
 
     /* Normalize quaternion */
 
-    norm = 1.0f / sqrtf(q1*q1 + q2*q2 + q3*q3 + q4*q4);
+    norm = fastInvSqRt(q1*q1 + q2*q2 + q3*q3 + q4*q4);
 
     q.w = q1 * norm;
     q.x = q2 * norm;

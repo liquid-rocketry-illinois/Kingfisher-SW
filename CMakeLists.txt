@@ -51,6 +51,10 @@ add_executable(${CMAKE_PROJECT_NAME}
         Core/Inc/SIMU_BMI323.h
         Core/Inc/SIMU_BMI323.h
         Core/Src/SIMU_BMI323.cpp
+        Core/Inc/Math/TripleModRedundancy.h
+        Core/Src/TripleModRedundancy.cpp
+        Core/Inc/IMUs.h
+        Core/Src/IMU.cpp
 )
 
 # Add STM32CubeMX generated sources

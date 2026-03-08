@@ -36,7 +36,7 @@ int TEST::SERVO_TEST() {
 
 int TEST::ISM_TEST() {
     IMU_ISM6HGx ISM6;
-    IMU_Data data;
+    ISM_Data data;
 
     if (IMU_ISM6HGx::Init() != 0)
     {
