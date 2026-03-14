@@ -55,6 +55,11 @@ add_executable(${CMAKE_PROJECT_NAME}
         Core/Src/TripleModRedundancy.cpp
         Core/Inc/IMUs.h
         Core/Src/IMU.cpp
+        Core/Inc/Ebyte_E22_900T22S.h
+        Core/Inc/Ebyte_E22_900T22S_defs.h
+        Core/Src/Ebyte_E22_900T22S.cpp
+        Core/Inc/Telemetry.h
+        Core/Src/Telemetry.cpp
 )
 
 # Add STM32CubeMX generated sources
