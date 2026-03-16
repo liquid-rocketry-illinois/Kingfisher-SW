@@ -6,6 +6,8 @@
 #include "usart.h"
 #include <cstring>
 
+//TODO include all sensor files
+
 config_e22_900t22s Telemetry::des_cfg;
 
 Telemetry::Telemetry()
@@ -26,72 +28,95 @@ uint8_t Telemetry::Init()
     des_cfg.E22_M1_PIN = M1_Radio_Pin;
     des_cfg.E22_M1_PORT = M1_Radio_GPIO_Port;
 
-    // These are default config values, so we can use functions
+    // These are default values, we can use functions
     // to change them later.
     // See pg. 15 of datasheet
-    des_cfg.addh = 0x00;
-    des_cfg.addl = 0x00;
-    des_cfg.head = 0xC0; // Write config to radio. C1 and C2 are read
-                         // and write temporarily, respectively
+    des_cfg.ADDH = 0b00;
+    des_cfg.ADDL = 0b00;
+
     // REG0 -> 9600 baud, 8N1 parity, 9600 wireless data rate
-    // using 0bXXXXX instead of 0xXXXXXX for readability (binary form)
-    des_cfg.sped = 0b01100100; // baud rate (3), parity (2), air rate (3)
+    des_cfg.REG0 =     R0_765_E22_UART_BAUD::E22_UART_BAUD_115200
+                    | R0_43_SERIAL_PORT_PARITY_BIT::MODE_8N1
+                    | R0_210_E22_AIR_DATA_RATE::E22_AIR_RATE_9_6K;
     // REG2 -> channel
-    des_cfg.chan = CH915;
+    des_cfg.REG2 = CH915;
     // REG1 -> 240 bytes sub packet, off, reserved, off, 22dBm
-    des_cfg.option = 0b0001000; // sub packet setting, RSSI toggle, reserve, Software M switch, TX Power
-    //TODO write in REG3??
+    des_cfg.REG1 =    R1_76_SUB_PACKET_SETTING::BYTES_240
+                    | R1_5_RSSI_ENVIRONMENTAL_NOISE_MEASURE_DISABLE
+                    | R1_2_SOFTWARE_MODE_SWITCHING_OFF
+                    | R1_10_E22_TX_POWER::E22_TX_POWER_22DBM;
+
+    // Examples of changing params using functions
+    // changeOpFreq_e22_900t22s(R2_E22Channel915::CH915);
+    // setAirDataRate_e22_900t22s(R0_210_E22_AIR_DATA_RATE::E22_AIR_RATE_9_6K);
+    // setUARTBaud_e22_900t22s(R0_765_E22_UART_BAUD::E22_UART_BAUD_115200);
+    // setTxPower_e22_900t22s(R1_10_E22_TX_POWER::E22_TX_POWER_22DBM);
+
     if(init_e22_900t22s(&des_cfg) != 0)
         return 1;
 
     changeMode(TRANS);
-
-    changeOpFreq_e22_900t22s(CH915);
-
-    setAirDataRate_e22_900t22s(E22_AIR_RATE_9_6K);
-    setUARTBaud_e22_900t22s(E22_UART_BAUD_115200);
-    setTxPower_e22_900t22s(E22_TX_POWER_22DBM);
-
     return 0;
 }
 
 uint8_t Telemetry::Update()
 {
-    sendData();
-    receiveData();
+    static telemetryData t;
+    static GndStationData gnd;
 
+    receiveData(gnd);
+
+    // TODO replace all values with current sensor values
+    t.mAccX = 0.0F;
+    t.mAccY = 0.0F;
+    t.mAccZ = 0.0F;
+
+    t.bAccX = 0.0F;
+    t.bAccY = 0.0F;
+    t.bAccZ = 0.0F;
+
+    t.pitch = 0.0F;
+    t.yaw   = 0.0F;
+    t.roll  = 0.0F;
+
+    t.servoPos1 = 0.0F;
+    t.servoPos2 = 0.0F;
+
+    // TODO Integrate RCI and RCP
+    sendData(t);
     return 0;
 }
 
-uint8_t Telemetry::sendData()
+uint8_t Telemetry::sendData(const telemetryData &data)
 {
-    uint8_t index = 0;
+    uint16_t index = 0;
 
     tx_buffer[index++] = TELEMETRY_SYNC1;
     tx_buffer[index++] = TELEMETRY_SYNC2;
 
+    tx_buffer[index++] = sizeof(telemetryData);   // payload length
+
     tx_buffer[index++] = (uint8_t)(seq & 0xFF);
     tx_buffer[index++] = (uint8_t)(seq >> 8);
 
-    // Example payload (replace with sensor data)
-    int16_t testValue = 1234;
-
-    memcpy(&tx_buffer[index], &testValue, sizeof(testValue));
-    index += sizeof(testValue);
+    memcpy(&tx_buffer[index], &data, sizeof(telemetryData));
+    index += sizeof(telemetryData);
 
     uint16_t crc = Checksum(tx_buffer, index);
 
     tx_buffer[index++] = crc & 0xFF;
     tx_buffer[index++] = crc >> 8;
 
-    transmit_e22_900t22s(tx_buffer, index);
+    int8_t status = transmit_e22_900t22s(tx_buffer, index);
+    if(status != E22_OK)
+        return status;
 
     seq++;
 
     return 0;
 }
 
-uint8_t Telemetry::receiveData()
+uint8_t Telemetry::receiveData(GndStationData &gnd)
 {
     if(!e22_available())
         return 0;
@@ -101,10 +126,10 @@ uint8_t Telemetry::receiveData()
     if(len <= 0)
         return 1;
 
-    return decodeData();
+    return decodeData(gnd);
 }
 
-uint8_t Telemetry::decodeData()
+uint8_t Telemetry::decodeData(GndStationData &gnd)
 {
     if(rx_buffer[0] != TELEMETRY_SYNC1)
         return -1;
@@ -112,26 +137,25 @@ uint8_t Telemetry::decodeData()
     if(rx_buffer[1] != TELEMETRY_SYNC2)
         return -2;
 
+    uint8_t payload_len = rx_buffer[2];
+
     uint16_t seq_rx =
-        rx_buffer[2] |
-        (rx_buffer[3] << 8);
+        rx_buffer[3] |
+        (rx_buffer[4] << 8);
 
     uint16_t crc_rx =
-        rx_buffer[6] |
-        (rx_buffer[7] << 8);
+        rx_buffer[5 + payload_len] |
+        (rx_buffer[6 + payload_len] << 8);
 
-    uint16_t crc_calc = Checksum(rx_buffer, 6);
+    uint16_t crc_calc = Checksum(rx_buffer, 5 + payload_len);
 
-    // Checksum bad
     if(crc_rx != crc_calc)
         return -3;
 
-    // payload example
-    int16_t value;
+    memcpy(&gnd, &rx_buffer[5], sizeof(GndStationData));
 
-    memcpy(&value, &rx_buffer[4], sizeof(value));
-
-    // now you have decoded telemetry data
+    /* update internal telemetry state */
+    lastSeq = seq_rx;
 
     return 0;
 }
@@ -146,11 +170,8 @@ uint16_t Telemetry::Checksum(uint8_t *data, uint16_t length)
     return sum;
 }
 
-uint8_t Telemetry::Reconfigure(config_e22_900t22s cfg_new)
+void Telemetry::Reconfigure(const config_e22_900t22s* cfg_new)
 {
-    writeConfig_e22_900t22s(&cfg_new, true);
-
-    des_cfg = cfg_new;
-
-    return 0;
+    writeConfig_e22_900t22s(cfg_new, true);
+    des_cfg = *cfg_new;
 }

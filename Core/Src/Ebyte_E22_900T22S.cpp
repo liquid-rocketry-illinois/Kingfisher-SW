@@ -1,83 +1,289 @@
-//
-// Created by dyrel on 3/12/2026.
-//
-
 #include "Ebyte_E22_900T22S.h"
+#include "stm32h7xx_hal.h"
+#include "FreeRTOS.h"
+#include "task.h"
 #include <string.h>
+#include "semphr.h"
 
-/* ===============================
-   Internal driver state
-   =============================== */
-
-static config_e22_900t22s current_cfg;
+static config_e22_900t22s e22_cfg;
 static bool initialized = false;
 
+/* Mutex for thread-safe radio access */
 
-/* ===============================
-   Internal helpers
-   =============================== */
+// Because we have multiple things that can't overlap,
+// we can use FreeRTOS's mutex to handle everything.
+// using the pair xSemaphoreTake() and xSemaphoreGive(),
+// whatever code we put in between will not be run unless
+// no other code is queued. This is useful because we
+// don't want things like commands and data to overlap.
+// If they did, it would cause bytes to be corrupted and
+// give bad data. Here, the semaphore stuff prevents
+// cases like config commands being sent, then in the
+// middle of its execution, starting a data transfer.
+static SemaphoreHandle_t e22_mutex = NULL;
 
-static void uart_write(uint8_t *data, size_t len)
+/* ================= AUX HANDLING ================= */
+
+// Use aux to detect transmitted data via wireless, or if
+// data won't go through UART, or if modules are still
+// initializing/etc.+
+static inline bool auxHigh(void)
 {
-    HAL_UART_Transmit(current_cfg.huart, data, len, HAL_MAX_DELAY);
+    return HAL_GPIO_ReadPin(
+        e22_cfg.E22_AUX_PORT,
+        e22_cfg.E22_AUX_PIN
+    ) == GPIO_PIN_SET;
 }
 
-static void uart_read(uint8_t *data, size_t len)
+bool e22_isBusy(void)
 {
-    HAL_UART_Receive(current_cfg.huart, data, len, HAL_MAX_DELAY);
+    return !auxHigh();
 }
 
-static void set_pin(GPIO_TypeDef *port, uint16_t pin, GPIO_PinState state)
+int8_t waitAux_e22_900t22s(uint32_t timeout_ms)
 {
-    HAL_GPIO_WritePin(port, pin, state);
+    uint32_t start = xTaskGetTickCount();
+
+    while(!auxHigh())
+    {
+        if((xTaskGetTickCount() - start) > pdMS_TO_TICKS(timeout_ms))
+            return E22_ERR_TIMEOUT;
+
+        vTaskDelay(pdMS_TO_TICKS(1));
+    }
+
+    return E22_OK;
 }
 
-static GPIO_PinState read_pin(GPIO_TypeDef *port, uint16_t pin)
+/* ================= MODE CONTROL ================= */
+
+void changeMode(EBYTE_MODE mode)
 {
-    return HAL_GPIO_ReadPin(port, pin);
+    // Module will finish its current task (e.g. transmission) even if
+    // the mode is switched. No delay is needed
+    switch(mode)
+    {
+        case TRANS:
+            HAL_GPIO_WritePin(e22_cfg.E22_M0_PORT, e22_cfg.E22_M0_PIN, GPIO_PIN_RESET);
+            HAL_GPIO_WritePin(e22_cfg.E22_M1_PORT, e22_cfg.E22_M1_PIN, GPIO_PIN_RESET);
+            break;
+
+        case WOR:
+            HAL_GPIO_WritePin(e22_cfg.E22_M0_PORT, e22_cfg.E22_M0_PIN, GPIO_PIN_SET);
+            HAL_GPIO_WritePin(e22_cfg.E22_M1_PORT, e22_cfg.E22_M1_PIN, GPIO_PIN_RESET);
+            break;
+
+        case CONFIG:
+            HAL_GPIO_WritePin(e22_cfg.E22_M0_PORT, e22_cfg.E22_M0_PIN, GPIO_PIN_RESET);
+            HAL_GPIO_WritePin(e22_cfg.E22_M1_PORT, e22_cfg.E22_M1_PIN, GPIO_PIN_SET);
+            break;
+
+        case OFF:
+            HAL_GPIO_WritePin(e22_cfg.E22_M0_PORT, e22_cfg.E22_M0_PIN, GPIO_PIN_SET);
+            HAL_GPIO_WritePin(e22_cfg.E22_M1_PORT, e22_cfg.E22_M1_PIN, GPIO_PIN_SET);
+            break;
+    }
+
+    // Wait until the module has processed the mode switch
+    waitAux_e22_900t22s(200);
 }
 
-
-/* ===============================
-   Initialization
-   =============================== */
+/* ================= INITIALIZATION ================= */
 
 int8_t init_e22_900t22s(config_e22_900t22s *cfg)
 {
-    if(cfg == NULL)
-        return -1;
-    
-    memcpy(&current_cfg, cfg, sizeof(config_e22_900t22s));
+    if (cfg == NULL)
+        return E22_ERR_INVALID_PARAM;
 
-    changeMode(EBYTE_MODE::CONFIG);
+    /* copy desired configuration locally */
+    e22_cfg = *cfg;
 
-    if(writeConfig_e22_900t22s(cfg, true) < 0)
-        return -2;
+    /* ensure mutex exists */
+    if (e22_mutex == NULL)
+        e22_mutex = xSemaphoreCreateMutex();
 
-    changeMode(EBYTE_MODE::TRANS);
+    if (e22_mutex == NULL)
+        return E22_ERR_BUSY;
+
+    /* ensure radio is ready */
+    if (waitAux_e22_900t22s(1000) != E22_OK)
+        return E22_ERR_TIMEOUT;
+
+    /* switch to configuration mode */
+    changeMode(CONFIG);
+
+    if (waitAux_e22_900t22s(1000) != E22_OK)
+        return E22_ERR_TIMEOUT;
+
+    /* read current radio configuration */
+    config_e22_900t22s current_cfg;
+
+    if (readConfig_e22_900t22s(&current_cfg) != E22_OK)
+        return E22_ERR_UART;
+
+    /* compare relevant fields */
+    bool config_matches =
+        (current_cfg.ADDH == cfg->ADDH)   &&
+        (current_cfg.ADDL == cfg->ADDL)   &&
+        (current_cfg.REG0 == cfg->REG0)   &&
+        (current_cfg.REG2 == cfg->REG2)   &&
+        (current_cfg.REG1 == cfg->REG1);
+
+    /* only write if configuration differs */
+    if (!config_matches)
+    {
+        if (writeConfig_e22_900t22s(cfg, true) != E22_OK)
+            return E22_ERR_UART;
+
+        if (waitAux_e22_900t22s(1000) != E22_OK)
+            return E22_ERR_TIMEOUT;
+    }
+
+    /* return to normal transmit mode */
+    changeMode(TRANS);
+
+    if (waitAux_e22_900t22s(1000) != E22_OK)
+        return E22_ERR_TIMEOUT;
 
     initialized = true;
 
-    return 0;
+    return E22_OK;
 }
 
+// Keep this
+bool e22_initialized(void)
+{
+    return initialized;
+}
 
-/* ===============================
-   Transmission
-   =============================== */
+/* ================= UART HELPERS ================= */
+
+static int8_t uartWrite(uint8_t *data, uint16_t len)
+{
+    if(HAL_UART_Transmit(
+        e22_cfg.huart,
+        data,
+        len,
+        100) != HAL_OK)
+        return E22_ERR_UART;
+
+    return E22_OK;
+}
+
+static int8_t uartRead(uint8_t *data, uint16_t len)
+{
+    if(HAL_UART_Receive(
+        e22_cfg.huart,
+        data,
+        len,
+        100) != HAL_OK)
+        return E22_ERR_UART;
+
+    return E22_OK;
+}
+
+/* ================= CONFIGURATION ================= */
+
+// save_to_flash overwrites the factory default settings.
+// Set to TRUE when deploying finalized code!
+int8_t writeConfig_e22_900t22s(
+    const config_e22_900t22s *cfg,
+    bool save_to_flash)
+{
+    if(!initialized)
+        return E22_ERR_NOT_INITIALIZED;
+
+    uint8_t frame[6];
+
+    // Head command byte
+    frame[0] = save_to_flash ?
+        COMMAND_BYTE_WRITE_CFG_SAVE_FLASH :
+        COMMAND_BYTE_WRITE_CFG_NOSAVE_FLASH;
+
+    // REG3 is for more advanced functions and is not included
+    frame[1] = cfg->ADDH;
+    frame[2] = cfg->ADDL;
+    frame[3] = cfg->REG0; // odd ordering specified in datasheet. cfg expects this
+    frame[4] = cfg->REG2;
+    frame[5] = cfg->REG1;
+
+    xSemaphoreTake(e22_mutex, portMAX_DELAY);
+
+    changeMode(CONFIG);
+
+    // Construct and write config commands
+    int8_t status = uartWrite(frame, 6);
+    if(status != E22_OK)
+    {
+        xSemaphoreGive(e22_mutex);
+        return status;
+    }
+
+    waitAux_e22_900t22s(200);
+
+    changeMode(TRANS);
+
+    e22_cfg = *cfg;
+
+    xSemaphoreGive(e22_mutex);
+
+    return E22_OK;
+}
+
+int8_t readConfig_e22_900t22s(config_e22_900t22s *cfg)
+{
+    if(!initialized)
+        return E22_ERR_NOT_INITIALIZED;
+
+    uint8_t cmd = COMMAND_BYTE_READ_CFG;
+    uint8_t resp[6];
+
+    xSemaphoreTake(e22_mutex, portMAX_DELAY);
+
+    changeMode(CONFIG);
+
+    uartWrite(&cmd,1);
+
+    if(uartRead(resp,6) != E22_OK)
+    {
+        xSemaphoreGive(e22_mutex);
+        return E22_ERR_UART;
+    }
+
+    changeMode(TRANS);
+
+    cfg->ADDH   = resp[1];
+    cfg->ADDL   = resp[2];
+    cfg->REG0   = resp[3];
+    cfg->REG2   = resp[4];
+    cfg->REG1   = resp[5];
+
+    xSemaphoreGive(e22_mutex);
+
+    return E22_OK;
+}
+
+/* ================= DATA TRANSMISSION ================= */
 
 int8_t transmit_e22_900t22s(uint8_t *data, size_t length)
 {
     if(!initialized)
-        return -1;
+        return E22_ERR_NOT_INITIALIZED;
 
-    uart_write(data, length);
+    xSemaphoreTake(e22_mutex, portMAX_DELAY);
 
-    waitAux_e22_900t22s(100);
+    waitAux_e22_900t22s(200);
 
-    return 0;
+    int8_t status = uartWrite(data, length);
+
+    waitAux_e22_900t22s(200);
+
+    xSemaphoreGive(e22_mutex);
+
+    return status;
 }
 
+/* ================= FIXED TRANSMISSION ================= */
 
 int8_t transmit_fixed_e22_900t22s(
     uint16_t address,
@@ -86,225 +292,109 @@ int8_t transmit_fixed_e22_900t22s(
     size_t length)
 {
     if(!initialized)
-        return -1;
+        return E22_ERR_NOT_INITIALIZED;
 
-    uint8_t header[3];
+    uint8_t frame[3 + length];
 
-    header[0] = (address >> 8) & 0xFF;
-    header[1] = address & 0xFF;
-    header[2] = channel;
+    frame[0] = (address >> 8);
+    frame[1] = (address & 0xFF);
+    frame[2] = channel;
 
-    uart_write(header, 3);
-    uart_write(data, length);
+    memcpy(&frame[3], data, length);
 
-    waitAux_e22_900t22s(100);
-
-    return 0;
+    return transmit_e22_900t22s(frame, length + 3);
 }
 
+/* ================= RECEIVE ================= */
 
-/* ===============================
-   Reception
-   =============================== */
+bool e22_available(void)
+{
+    return !e22_isBusy();
+}
 
 int16_t recieve_e22_900t22s(uint8_t *buffer, size_t max_length)
 {
     if(!initialized)
-        return -1;
+        return E22_ERR_NOT_INITIALIZED;
 
-    if(!e22_available())
-        return -2;
+    if(e22_isBusy())
+        return 0;
 
-    HAL_UART_Receive(current_cfg.huart, buffer, max_length, 10);
+    if(HAL_UART_Receive(
+        e22_cfg.huart,
+        buffer,
+        max_length,
+        10) != HAL_OK)
+        return E22_ERR_UART;
 
     return max_length;
 }
 
-
-bool e22_available(void)
-{
-    return (__HAL_UART_GET_FLAG(current_cfg.huart, UART_FLAG_RXNE) != RESET);
-}
-
-
-/* ===============================
-   Mode control
-   =============================== */
-
-void changeMode(EBYTE_MODE mode)
-{
-    switch(mode)
-    {
-        case EBYTE_MODE::TRANS:
-            set_pin(current_cfg.E22_M0_PORT, current_cfg.E22_M0_PIN, GPIO_PIN_RESET);
-            set_pin(current_cfg.E22_M1_PORT, current_cfg.E22_M1_PIN, GPIO_PIN_RESET);
-            break;
-
-        case EBYTE_MODE::WOR:
-            set_pin(current_cfg.E22_M0_PORT, current_cfg.E22_M0_PIN, GPIO_PIN_SET);
-            set_pin(current_cfg.E22_M1_PORT, current_cfg.E22_M1_PIN, GPIO_PIN_RESET);
-            break;
-
-        case EBYTE_MODE::CONFIG:
-            set_pin(current_cfg.E22_M0_PORT, current_cfg.E22_M0_PIN, GPIO_PIN_RESET);
-            set_pin(current_cfg.E22_M1_PORT, current_cfg.E22_M1_PIN, GPIO_PIN_SET);
-            break;
-
-        case EBYTE_MODE::OFF:
-            set_pin(current_cfg.E22_M0_PORT, current_cfg.E22_M0_PIN, GPIO_PIN_SET);
-            set_pin(current_cfg.E22_M1_PORT, current_cfg.E22_M1_PIN, GPIO_PIN_SET);
-
-        default:
-            break;
-    }
-
-    HAL_Delay(2);
-}
-
-
-/* ===============================
-   Frequency
-   =============================== */
-
-void changeOpFreq_e22_900t22s(E22Channel915 channel)
-{
-    current_cfg.chan = channel;
-
-    changeMode(EBYTE_MODE::CONFIG);
-
-    writeConfig_e22_900t22s(&current_cfg, true);
-
-    changeMode(EBYTE_MODE::TRANS);
-}
-
-
-E22Channel915 getOpFreq_e22_900t22s(void)
-{
-    return (E22Channel915)current_cfg.chan;
-}
-
-
-/* ===============================
-   Address
-   =============================== */
+/* ================= ADDRESS ================= */
 
 void setAddress_e22_900t22s(uint16_t address)
 {
-    current_cfg.addh = (address >> 8) & 0xFF;
-    current_cfg.addl = address & 0xFF;
+    e22_cfg.ADDH = (address >> 8);
+    e22_cfg.ADDL = (address & 0xFF);
+
+    writeConfig_e22_900t22s(&e22_cfg,false);
 }
 
 uint16_t getAddress_e22_900t22s(void)
 {
-    return ((uint16_t)current_cfg.addh << 8) | current_cfg.addl;
+    return (e22_cfg.ADDH << 8) | e22_cfg.ADDL;
 }
 
+/* ================= CHANNEL ================= */
 
-/* ===============================
-   Parameter setters
-   =============================== */
-
-void setAirDataRate_e22_900t22s(E22_AIR_DATA_RATE rate)
+void changeOpFreq_e22_900t22s(R2_E22Channel915 channel)
 {
-    current_cfg.sped &= 0xF8;
-    current_cfg.sped |= rate;
+    e22_cfg.REG2 = channel;
+    writeConfig_e22_900t22s(&e22_cfg,false);
 }
 
-void setUARTBaud_e22_900t22s(E22_UART_BAUD baud)
+R2_E22Channel915 getOpFreq_e22_900t22s(void)
 {
-    current_cfg.sped &= 0xC7;
-    current_cfg.sped |= baud;
+    return (R2_E22Channel915)e22_cfg.REG2;
 }
 
-void setTxPower_e22_900t22s(E22_TX_POWER power)
+/* ================= PARAMETER SETTERS ================= */
+
+void setAirDataRate_e22_900t22s(R0_210_E22_AIR_DATA_RATE rate)
 {
-    current_cfg.option &= 0xFC;
-    current_cfg.option |= power;
+    e22_cfg.REG0 &= ~0x07;
+    e22_cfg.REG0 |= rate;
+
+    writeConfig_e22_900t22s(&e22_cfg,false);
 }
 
-
-/* ===============================
-   Config read/write
-   =============================== */
-
-int8_t readConfig_e22_900t22s(config_e22_900t22s *cfg)
+void setUARTBaud_e22_900t22s(R0_765_E22_UART_BAUD baud)
 {
-    uint8_t cmd[3] = {0xC1, 0xC1, 0xC1};
+    e22_cfg.REG0 &= ~(0b111 << 5);
+    e22_cfg.REG0 |= baud;
 
-    uart_write(cmd, 3);
-
-    uint8_t response[6];
-
-    uart_read(response, 6);
-
-    memcpy(cfg, &response[1], 5);
-
-    return 0;
+    writeConfig_e22_900t22s(&e22_cfg,false);
 }
 
-
-int8_t writeConfig_e22_900t22s(
-    const config_e22_900t22s *cfg,
-    bool save_to_flash)
+void setTxPower_e22_900t22s(R1_10_E22_TX_POWER power)
 {
-    uint8_t frame[6];
+    e22_cfg.REG1 &= ~0x03;
+    e22_cfg.REG1 |= power;
 
-    frame[0] = save_to_flash ? 0xC0 : 0xC2;
-    frame[1] = cfg->addh;
-    frame[2] = cfg->addl;
-    frame[3] = cfg->sped;
-    frame[4] = cfg->chan;
-    frame[5] = cfg->option;
-
-    uart_write(frame, 6);
-
-    waitAux_e22_900t22s(100);
-
-    return 0;
+    writeConfig_e22_900t22s(&e22_cfg,false);
 }
 
-
-/* ===============================
-   AUX control
-   =============================== */
-
-int8_t waitAux_e22_900t22s(uint32_t timeout_ms)
-{
-    uint32_t start = HAL_GetTick();
-
-    while(read_pin(current_cfg.E22_AUX_PORT, current_cfg.E22_AUX_PIN) == GPIO_PIN_RESET)
-    {
-        if((HAL_GetTick() - start) > timeout_ms)
-            return -1;
-    }
-
-    return 0;
-}
-
-
-bool e22_isBusy(void)
-{
-    return (read_pin(current_cfg.E22_AUX_PORT, current_cfg.E22_AUX_PIN) == GPIO_PIN_RESET);
-}
-
-
-/* ===============================
-   Reset
-   =============================== */
+/* ================= RESET ================= */
 
 void reset_e22_900t22s(void)
 {
-    changeMode(EBYTE_MODE::CONFIG);
-    HAL_Delay(10);
-    changeMode(EBYTE_MODE::TRANS);
-}
+    uint8_t cmd = COMMAND_BYTE_RESET_MODULE;
 
+    changeMode(CONFIG);
 
-/* ===============================
-   Driver state
-   =============================== */
+    uartWrite(&cmd,1);
 
-bool e22_initialized(void)
-{
-    return initialized;
+    waitAux_e22_900t22s(500);
+
+    changeMode(TRANS);
 }

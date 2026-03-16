@@ -26,17 +26,17 @@ bool e22_available(void);
 
 // Switch from trans, WOR, config, and off modes
 void changeMode(EBYTE_MODE mode);
-void changeOpFreq_e22_900t22s(E22Channel915 channel);
-E22Channel915 getOpFreq_e22_900t22s(void);
+void changeOpFreq_e22_900t22s(R2_E22Channel915 channel);
+R2_E22Channel915 getOpFreq_e22_900t22s(void);
 
 // Address config
 void setAddress_e22_900t22s(uint16_t address);
 uint16_t getAddress_e22_900t22s(void);
 
 // Parameters
-void setAirDataRate_e22_900t22s(E22_AIR_DATA_RATE rate);
-void setUARTBaud_e22_900t22s(E22_UART_BAUD baud);
-void setTxPower_e22_900t22s(E22_TX_POWER power);
+void setAirDataRate_e22_900t22s(R0_210_E22_AIR_DATA_RATE rate);
+void setUARTBaud_e22_900t22s(R0_765_E22_UART_BAUD baud);
+void setTxPower_e22_900t22s(R1_10_E22_TX_POWER power);
 
 // Read configuration from module
 int8_t readConfig_e22_900t22s(config_e22_900t22s *cfg);
