@@ -60,6 +60,12 @@ add_executable(${CMAKE_PROJECT_NAME}
         Core/Src/Ebyte_E22_900T22S.cpp
         Core/Inc/Telemetry.h
         Core/Src/Telemetry.cpp
+        Core/Src/BMP3xx_platform.cpp
+        Core/Src/bmp3.c
+        Core/Inc/bmp3.h
+        Core/Inc/bmp3_defs.h
+        Core/Inc/BMP390.h
+        Core/Src/BMP390.cpp
 )
 
 # Add STM32CubeMX generated sources

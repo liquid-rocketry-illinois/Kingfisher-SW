@@ -43,3 +43,16 @@ int TEST::IMU_TEST() {
         osDelay(1);
     }
 }
+
+int TEST::BMP_TEST()
+{
+    Barometer BMP(&hspi2, Barometer::SENSOR1_I);
+    BMP_Data data;
+    BMP.Init();
+
+    while (1)
+    {
+        BMP.Update();
+        data = BMP.getRawData();
+    }
+}

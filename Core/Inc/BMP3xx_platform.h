@@ -2,20 +2,13 @@
 #ifndef BMP3XX_PLATFORM_H
 #define BMP3XX_PLATFORM_H
 
-#include "..\..\Drivers\BMP390\bmp3.h"
+#include "stm32h7xx_hal.h"
 #include <stdint.h>
-
-/*
- * PLATFORM-SPECIFIC INTERFACE STRUCT
- * -----------------------------------
- * Fill in the actual members when hardware is decided.
- * For now this is an opaque pointer used by SPI read/write methods.
- */
 
 typedef struct
 {
-    void *spi_handle;     // Replace with SPI_HandleTypeDef*
-    void *cs_port;        // Replace with GPIO_TypeDef*
+    SPI_HandleTypeDef* spi_handle;     // Replace with SPI_HandleTypeDef*
+    GPIO_TypeDef* cs_port;        // Replace with GPIO_TypeDef*
     uint16_t cs_pin;      // Replace with actual pin number
 } bmp3_spi_intf;
 
