@@ -6,9 +6,17 @@
 #define KINGFISHER_SW_SIMU_BMI323_H
 
 #include "bmi323.h"
-#include "bmi3.h"
 #include "main.h"
+#include "spi.h"
 #include "Math/Math.h"
+
+#define _spi &hspi4
+
+typedef enum {
+    SENSOR1_I,
+    SENSOR2_I,
+    SENSOR3_I
+} BMI_INDEX;
 
 struct BMI_Data
 {
@@ -19,29 +27,23 @@ struct BMI_Data
 class SIMU_BMI323
 {
 public:
-    enum BMI_INDEX {
-        SENSOR1_I,
-        SENSOR2_I,
-        SENSOR3_I
-    };
-
-    SIMU_BMI323(SPI_HandleTypeDef* spi, BMI_INDEX DeviceNum);
+    SIMU_BMI323(BMI_INDEX DeviceNum);
     int Init();
     int Update();
     BMI_Data getRawData();
 
 private:
-    SPI_HandleTypeDef* _spi;
     bmi3_dev device;
     bool _sensor_active;
     BMI_INDEX InitDev;
 
     BMI_Data _raw;
 
-    int8_t SPI_Read(uint8_t reg, uint8_t* data, uint16_t len);
-    int8_t SPI_Write(uint8_t reg, const uint8_t* data, uint16_t len);
+    static int8_t SPI_Read(uint8_t reg, uint8_t* data, uint32_t len, void *intf_ptr);
+    static int8_t SPI_Write(uint8_t reg, const uint8_t* data, uint32_t len, void *intf_ptr);
     void CS_Select();
     void CS_Deselect();
+    static void platform_Delay(uint32_t microseconds, void *intf_ptr);
 };
 
 #endif //KINGFISHER_SW_SIMU_BMI323_H

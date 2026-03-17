@@ -6,11 +6,16 @@
 
 extern SPI_HandleTypeDef hspi4;
 
-SIMU_BMI323::SIMU_BMI323(SPI_HandleTypeDef* spi, BMI_INDEX DeviceNum)
+SIMU_BMI323::SIMU_BMI323(BMI_INDEX DeviceNum)
 {
-    _spi = spi;
     _sensor_active = false;
     InitDev = DeviceNum;
+
+    device.intf = BMI3_SPI_INTF;
+    device.read = SPI_Read;
+    device.write = SPI_Write;
+    device.intf_ptr = this;
+    device.delay_us = platform_Delay;
 }
 
 void SIMU_BMI323::CS_Select()
@@ -33,46 +38,46 @@ void SIMU_BMI323::CS_Deselect()
     }
 }
 
-int8_t SIMU_BMI323::SPI_Read(uint8_t reg, uint8_t* data, uint16_t len)
+int8_t SIMU_BMI323::SPI_Read(uint8_t reg, uint8_t* data, uint32_t len, void *intf_ptr)
 {
     uint8_t addr = reg | 0x80;
+    SIMU_BMI323* obj = static_cast<SIMU_BMI323*>(intf_ptr);
 
-    CS_Select();
+    obj->CS_Select();
     HAL_SPI_Transmit(_spi, &addr, 1, HAL_MAX_DELAY);
     HAL_SPI_Receive(_spi, data, len, HAL_MAX_DELAY);
-    CS_Deselect();
+    obj->CS_Deselect();
 
     return 0;
 }
 
-int8_t SIMU_BMI323::SPI_Write(uint8_t reg, const uint8_t* data, uint16_t len)
+int8_t SIMU_BMI323::SPI_Write(uint8_t reg, const uint8_t* data, uint32_t len, void *intf_ptr)
 {
     uint8_t addr = reg & 0x7F;
+    SIMU_BMI323* obj = static_cast<SIMU_BMI323*>(intf_ptr);
 
-    CS_Select();
+    obj->CS_Select();
     HAL_SPI_Transmit(_spi, &addr, 1, HAL_MAX_DELAY);
     HAL_SPI_Transmit(_spi, (uint8_t*)data, len, HAL_MAX_DELAY);
-    CS_Deselect();
+    obj->CS_Deselect();
 
     return 0;
+}
+
+void SIMU_BMI323::platform_Delay(uint32_t microseconds, void *intf_ptr)
+{
+    uint32_t start = DWT->CYCCNT;
+    uint32_t ticks = (uint32_t)(((uint64_t)microseconds * HAL_RCC_GetHCLKFreq()) / 1000000ULL); // convert to CPU cycles
+
+    while ((DWT->CYCCNT - start) < ticks)
+    {
+        // optionally add a short NOP to be nice to the compiler
+        __NOP();
+    }
 }
 
 int SIMU_BMI323::Init()
 {
-    device.intf = BMI3_SPI_INTF;
-    device.read = [](uint8_t reg, uint8_t* data, uint32_t len, void* intf_ptr) -> int8_t
-    {
-        return ((SIMU_BMI323*)intf_ptr)->SPI_Read(reg, data, len);
-    };
-
-    device.write = [](uint8_t reg, const uint8_t* data, uint32_t len, void* intf_ptr) -> int8_t
-    {
-        return ((SIMU_BMI323*)intf_ptr)->SPI_Write(reg, data, len);
-    };
-
-    device.intf_ptr = this;
-    device.delay_us = [](uint32_t period, void*) { HAL_Delay(period / 1000); };
-
     if(bmi323_init(&device) == BMI3_OK)
     {
         _sensor_active = true;

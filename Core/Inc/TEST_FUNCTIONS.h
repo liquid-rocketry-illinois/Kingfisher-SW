@@ -10,6 +10,7 @@
 #include "IMUs.h"
 #include "BMP390.h"
 #include "LIS2MDL.h"
+#include "Telemetry.h"
 
 class TEST{
 public:
@@ -18,6 +19,7 @@ public:
     int IMU_TEST();
     int BMP_TEST();
     int LIS2_TEST();
+    int RADIO_TEST();
 };
 
 #endif //HAL_1_SW_TEST_FUNCTIONS_H

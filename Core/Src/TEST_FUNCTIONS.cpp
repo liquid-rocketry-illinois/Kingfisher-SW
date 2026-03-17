@@ -2,8 +2,11 @@
 // Created by dyrel on 2/23/2026.
 //
 
+#include "FreeRTOS.h"
 #include "cmsis_os2.h"
 #include "TEST_FUNCTIONS.h"
+
+#include "task.h"
 
 TEST::TEST(){;}
 
@@ -12,19 +15,19 @@ TEST::TEST(){;}
 int TEST::SERVO_TEST() {
     Servo_Axon_Mini_MKII servoSet;
     bool initState = servoSet.Init({0,0}, PRECISION::TENTH_DEGREE, true);
-    osDelay(500);
+    vTaskDelay(500);
 
     // Track status of servos
     static int status = 0;
     if (status == 0 && initState) {
         servoSet.Update(90, -90);
-        osDelay(10);
+        vTaskDelay(10);
     }
     // Error - Not initialized within tolerance.
     else if (!initState) {
         // Attempt init again
         initState = servoSet.Init({0,0}, PRECISION::TENTH_DEGREE, true);
-        osDelay(500);
+        vTaskDelay(500);
         return -2;
     }
     // Something else went wrong (This should never really happen
@@ -36,11 +39,13 @@ int TEST::SERVO_TEST() {
 
 int TEST::IMU_TEST() {
     IMU IMU_ENGINE(false);
+    HAL_GPIO_TogglePin(USR_LED_GPIO_Port, USR_LED_Pin);
     IMUsStatus sensorStatuses = IMU_ENGINE.Init();
 
     while (1) {
+        HAL_GPIO_TogglePin(USR_LED_GPIO_Port, USR_LED_Pin);
         sensorStatuses = IMU_ENGINE.Update();
-        osDelay(1);
+        vTaskDelay(100);
     }
 }
 
@@ -48,12 +53,15 @@ int TEST::BMP_TEST()
 {
     Barometer BMP(&hspi2, Barometer::SENSOR1_I);
     BMP_Data data;
-    BMP.Init();
+    uint8_t status = 0;
+    uint8_t init = BMP.Init();
 
     while (1)
     {
-        BMP.Update();
+        status = BMP.Update();
         data = BMP.getRawData();
+        HAL_GPIO_TogglePin(USR_LED_GPIO_Port, USR_LED_Pin);
+        vTaskDelay(100);
     }
 }
 
@@ -61,11 +69,29 @@ int TEST::LIS2_TEST()
 {
     Magnetometer mag;
     LIS2_Data data;
-    mag.Init();
+    uint8_t status = 0;
+    uint8_t init = mag.Init();
 
     while (1)
     {
-        mag.Update();
+        status = mag.Update();
         data = mag.getRawData();
+        HAL_GPIO_TogglePin(USR_LED_GPIO_Port, USR_LED_Pin);
+        vTaskDelay(100);
     }
 }
+
+int TEST::RADIO_TEST() {
+    Telemetry telem;
+    telemetryData dataE22;
+    GndStationData keepalive;
+    uint8_t status = 0;
+    uint8_t init = telem.Init();
+
+    while (1) {
+        status = telem.Update();
+        HAL_GPIO_TogglePin(USR_LED_GPIO_Port, USR_LED_Pin);
+        vTaskDelay(100);
+    }
+}
+

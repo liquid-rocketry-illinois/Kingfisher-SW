@@ -35,7 +35,7 @@ uint8_t Telemetry::Init()
     des_cfg.ADDL = 0b00;
 
     // REG0 -> 9600 baud, 8N1 parity, 9600 wireless data rate
-    des_cfg.REG0 =     R0_765_E22_UART_BAUD::E22_UART_BAUD_115200
+    des_cfg.REG0 =     R0_765_E22_UART_BAUD::E22_UART_BAUD_9600
                     | R0_43_SERIAL_PORT_PARITY_BIT::MODE_8N1
                     | R0_210_E22_AIR_DATA_RATE::E22_AIR_RATE_9_6K;
     // REG2 -> channel
@@ -52,7 +52,8 @@ uint8_t Telemetry::Init()
     // setUARTBaud_e22_900t22s(R0_765_E22_UART_BAUD::E22_UART_BAUD_115200);
     // setTxPower_e22_900t22s(R1_10_E22_TX_POWER::E22_TX_POWER_22DBM);
 
-    if(init_e22_900t22s(&des_cfg) != 0)
+    int8_t status = init_e22_900t22s(&des_cfg);
+    if(status != 0)
         return 1;
 
     changeMode(TRANS);

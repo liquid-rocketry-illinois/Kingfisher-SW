@@ -130,10 +130,6 @@ BMP_Data Barometer::getRawData()
     return _raw;
 }
 
-/* -------------------------------------------------------------------------- */
-/* Optional direct SPI helpers (not required by Bosch driver)                */
-/* -------------------------------------------------------------------------- */
-
 int8_t Barometer::SPI_Read(uint8_t reg, uint8_t* data, uint16_t len)
 {
     uint8_t addr = reg | 0x80;

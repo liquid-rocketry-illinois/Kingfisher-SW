@@ -117,7 +117,7 @@ int8_t init_e22_900t22s(config_e22_900t22s *cfg)
 
     /* read current radio configuration */
     config_e22_900t22s current_cfg;
-
+    // TODO stuck here. uart timing issue? cubemx config issue? uart read result weird
     if (readConfig_e22_900t22s(&current_cfg) != E22_OK)
         return E22_ERR_UART;
 
@@ -190,9 +190,6 @@ int8_t writeConfig_e22_900t22s(
     const config_e22_900t22s *cfg,
     bool save_to_flash)
 {
-    if(!initialized)
-        return E22_ERR_NOT_INITIALIZED;
-
     uint8_t frame[6];
 
     // Head command byte
@@ -232,19 +229,19 @@ int8_t writeConfig_e22_900t22s(
 
 int8_t readConfig_e22_900t22s(config_e22_900t22s *cfg)
 {
-    if(!initialized)
-        return E22_ERR_NOT_INITIALIZED;
-
-    uint8_t cmd = COMMAND_BYTE_READ_CFG;
-    uint8_t resp[6];
+    uint8_t cmd[3];
+    cmd[0] = COMMAND_BYTE_READ_CFG;
+    cmd[1] = 0; // Start from REG0
+    cmd[2] = 6; // Read all registers
+    uint8_t resp[8];
 
     xSemaphoreTake(e22_mutex, portMAX_DELAY);
 
     changeMode(CONFIG);
 
-    uartWrite(&cmd,1);
+    uartWrite(cmd,sizeof(cmd));
 
-    if(uartRead(resp,6) != E22_OK)
+    if(uartRead(resp,sizeof(resp)) != E22_OK)
     {
         xSemaphoreGive(e22_mutex);
         return E22_ERR_UART;
@@ -252,11 +249,14 @@ int8_t readConfig_e22_900t22s(config_e22_900t22s *cfg)
 
     changeMode(TRANS);
 
-    cfg->ADDH   = resp[1];
-    cfg->ADDL   = resp[2];
-    cfg->REG0   = resp[3];
-    cfg->REG2   = resp[4];
-    cfg->REG1   = resp[5];
+    // resp[0] is just C1 acknowledging read, not used anywhere
+    // resp[1] is acknowledged address
+    // resp[2] is acknowledged length
+    cfg->ADDH   = resp[3];
+    cfg->ADDL   = resp[4];
+    cfg->REG0   = resp[5];
+    cfg->REG2   = resp[6];
+    cfg->REG1   = resp[7];
 
     xSemaphoreGive(e22_mutex);
 
