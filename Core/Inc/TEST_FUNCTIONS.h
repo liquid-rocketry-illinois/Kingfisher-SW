@@ -9,6 +9,7 @@
 #include "Servo_Axon_Mini_MKII.h"
 #include "IMUs.h"
 #include "BMP390.h"
+#include "LIS2MDL.h"
 
 class TEST{
 public:
@@ -16,6 +17,7 @@ public:
     int SERVO_TEST();
     int IMU_TEST();
     int BMP_TEST();
+    int LIS2_TEST();
 };
 
 #endif //HAL_1_SW_TEST_FUNCTIONS_H
