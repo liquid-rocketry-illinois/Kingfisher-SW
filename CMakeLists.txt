@@ -55,6 +55,12 @@ add_executable(${CMAKE_PROJECT_NAME}
         Core/Src/TripleModRedundancy.cpp
         Core/Inc/IMUs.h
         Core/Src/IMU.cpp
+        Core/Src/BMP3xx_platform.cpp
+        Core/Src/bmp3.c
+        Core/Inc/bmp3.h
+        Core/Inc/bmp3_defs.h
+        Core/Inc/BMP390.h
+        Core/Src/BMP390.cpp
 )
 
 # Add STM32CubeMX generated sources
