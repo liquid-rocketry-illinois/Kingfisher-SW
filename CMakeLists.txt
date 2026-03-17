@@ -66,6 +66,9 @@ add_executable(${CMAKE_PROJECT_NAME}
         Core/Inc/bmp3_defs.h
         Core/Inc/BMP390.h
         Core/Src/BMP390.cpp
+        Core/Inc/LIS2MDL.h
+        Core/Src/lis2mdl_reg.c
+        Core/Src/LIS2MDL.cpp
 )
 
 # Add STM32CubeMX generated sources

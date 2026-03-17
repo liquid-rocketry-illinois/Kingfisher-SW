@@ -56,3 +56,16 @@ int TEST::BMP_TEST()
         data = BMP.getRawData();
     }
 }
+
+int TEST::LIS2_TEST()
+{
+    Magnetometer mag;
+    LIS2_Data data;
+    mag.Init();
+
+    while (1)
+    {
+        mag.Update();
+        data = mag.getRawData();
+    }
+}

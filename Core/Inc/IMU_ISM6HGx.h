@@ -34,10 +34,14 @@ class IMU_ISM6HGx {
     static float_t acceleration_mg[3], angular_rate_mdps[3]; // Arrays for output data.
     static uint16_t lowg_xl_cnt, hg_xl_cnt, gyro_cnt, temp_cnt;
 
-    static int32_t platform_write(void *handle, uint8_t reg, const uint8_t *bufp,
-                              uint16_t len);
-    static int32_t platform_read(void *handle, uint8_t reg, uint8_t *bufp,
-                                 uint16_t len);
+    static int32_t platform_write(  void *handle,
+                                    uint8_t reg,
+                                    const uint8_t *bufp,
+                                    uint16_t len);
+    static int32_t platform_read(   void *handle,
+                                    uint8_t reg,
+                                    uint8_t *bufp,
+                                    uint16_t len);
     static void platform_delay(uint32_t ms);
     static void platform_init();
 
