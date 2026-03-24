@@ -31,12 +31,39 @@
 #endif
 
 /* USER CODE BEGIN DECL */
+/* USER CODE BEGIN DECL */
 
 /* Includes ------------------------------------------------------------------*/
 #include <string.h>
 #include "ff_gen_drv.h"
+#include "user_diskio_spi.h"
+/* USER CODE BEGIN DECL */
 
 /* Private typedef -----------------------------------------------------------*/
+/* Private function prototypes -----------------------------------------------*/
+DSTATUS USER_initialize (BYTE pdrv);
+DSTATUS USER_status (BYTE pdrv);
+DRESULT USER_read (BYTE pdrv, BYTE *buff, DWORD sector, UINT count);
+#if _USE_WRITE == 1
+  DRESULT USER_write (BYTE pdrv, const BYTE *buff, DWORD sector, UINT count);
+#endif /* _USE_WRITE == 1 */
+#if _USE_IOCTL == 1
+  DRESULT USER_ioctl (BYTE pdrv, BYTE cmd, void *buff);
+#endif /* _USE_IOCTL == 1 */
+
+Diskio_drvTypeDef  USER_Driver =
+{
+  USER_initialize,
+  USER_status,
+  USER_read,
+#if  _USE_WRITE
+  USER_write,
+#endif  /* _USE_WRITE == 1 */
+#if  _USE_IOCTL == 1
+  USER_ioctl,
+#endif /* _USE_IOCTL == 1 */
+};
+
 /* Private define ------------------------------------------------------------*/
 
 /* Private variables ---------------------------------------------------------*/
@@ -81,8 +108,7 @@ DSTATUS USER_initialize (
 )
 {
   /* USER CODE BEGIN INIT */
-    Stat = STA_NOINIT;
-    return Stat;
+	return USER_SPI_initialize(pdrv); //ADD THIS LINE
   /* USER CODE END INIT */
 }
 
@@ -96,10 +122,10 @@ DSTATUS USER_status (
 )
 {
   /* USER CODE BEGIN STATUS */
-    Stat = STA_NOINIT;
-    return Stat;
+	return USER_SPI_status(pdrv); //ADD THIS LINE
   /* USER CODE END STATUS */
 }
+
 
 /**
   * @brief  Reads Sector(s)
@@ -117,7 +143,7 @@ DRESULT USER_read (
 )
 {
   /* USER CODE BEGIN READ */
-    return RES_OK;
+	return USER_SPI_read(pdrv, buff, sector, count); //ADD THIS LINE
   /* USER CODE END READ */
 }
 
@@ -139,7 +165,7 @@ DRESULT USER_write (
 {
   /* USER CODE BEGIN WRITE */
   /* USER CODE HERE */
-    return RES_OK;
+	return USER_SPI_write(pdrv, buff, sector, count); //ADD THIS LINE
   /* USER CODE END WRITE */
 }
 #endif /* _USE_WRITE == 1 */
@@ -159,8 +185,7 @@ DRESULT USER_ioctl (
 )
 {
   /* USER CODE BEGIN IOCTL */
-    DRESULT res = RES_ERROR;
-    return res;
+	return USER_SPI_ioctl(pdrv, cmd, buff); //ADD THIS LINE
   /* USER CODE END IOCTL */
 }
 #endif /* _USE_IOCTL == 1 */

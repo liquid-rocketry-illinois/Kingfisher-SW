@@ -29,7 +29,9 @@
 /*-----------------------------------------------------------------------------/
 / Function Configurations
 /-----------------------------------------------------------------------------*/
-
+/* USER CODE BEGIN Private defines */
+#define SD_SPI_HANDLE hspi2
+/* USER CODE END Private defines */
 #define _FS_READONLY         0      /* 0:Read/Write or 1:Read only */
 /* This option switches read-only configuration. (0:Read/Write or 1:Read-only)
 /  Read-only configuration removes writing API functions, f_write(), f_sync(),

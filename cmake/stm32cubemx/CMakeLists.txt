@@ -107,7 +107,9 @@ set(MX_LINK_DIRS
 set(MX_LINK_LIBS 
     STM32_Drivers
     ${TOOLCHAIN_LINK_LIBRARIES}
-    FreeRTOS	FatFs	
+    FreeRTOS
+	FatFs
+	
 )
 # Interface library for includes and symbols
 add_library(stm32cubemx INTERFACE)
@@ -126,7 +128,9 @@ target_sources(FreeRTOS PRIVATE ${FreeRTOS_Src})
 target_link_libraries(FreeRTOS PUBLIC stm32cubemx)
 
 # Create FatFs static library
-add_library(FatFs OBJECT)
+add_library(FatFs OBJECT
+		../../FATFS/Target/user_diskio_spi.cpp
+		../../FATFS/Target/user_diskio_spi.h)
 target_sources(FatFs PRIVATE ${FatFs_Src})
 target_link_libraries(FatFs PUBLIC stm32cubemx)
 
