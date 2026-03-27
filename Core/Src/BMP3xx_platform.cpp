@@ -1,80 +1,96 @@
-#include <cstdint>
-#include "..\Inc\BMP3xx_platform.h"   // not .hpp
+#include "BMP3xx_platform.h"
+#include <cstring>
+
 extern "C" {
-#include "../../Drivers/BMP390/bmp3.h"
+#include "bmp3.h"
 }
 
-
+// To handle input
+uint8_t addr[512];
+uint8_t GRXBuffer[2048];
 
 /*
- * Note:
- *  - Replace the TODO blocks with your actual SPI transmit/receive calls
- *    and your CS pin toggling once hardware is finalized.
- *  - The logic is correct for the BMP390 SPI interface.
+ * SPI read
+ * Bosch SPI protocol:
+ * bit7 = 1 for read
  */
-
 int8_t bmp3_spi_read(uint8_t reg_addr,
                      uint8_t *data,
                      uint32_t len,
                      void *intf_ptr)
 {
-    bmp3_spi_intf *spi = (bmp3_spi_intf *)intf_ptr;
+    if(intf_ptr == nullptr || data == nullptr || len == 0)
+        return BMP3_E_NULL_PTR;
 
-    // SPI read: MSB = 1
-    uint8_t addr = reg_addr | 0x80;
+    bmp3_spi_intf *spi = (bmp3_spi_intf*)intf_ptr;
 
-    // --- Chip Select LOW ---
-    // TODO: set CS pin LOW using your GPIO API
+    SPI_HandleTypeDef *hspi = (SPI_HandleTypeDef*)spi->spi_handle;
+    GPIO_TypeDef *cs_port   = (GPIO_TypeDef*)spi->cs_port;
 
-    // TODO: Send addr over SPI using your SPI transmit function
-    // Example (when implemented):
-    // platform_spi_transmit(spi->spi_handle, &addr, 1);
+    addr[0] = reg_addr | 0x80;   // read bit
 
-    // TODO: Receive bytes from SPI
-    // platform_spi_receive(spi->spi_handle, data, len);
+    HAL_GPIO_WritePin(cs_port, spi->cs_pin, GPIO_PIN_RESET);
 
-    // --- Chip Select HIGH ---
-    // TODO: set CS pin HIGH
+    // timeout of 1000ms is still very generous
+    HAL_StatusTypeDef status = HAL_SPI_TransmitReceive(hspi, addr, GRXBuffer, len+1, 1000);
+    while(hspi->State == HAL_SPI_STATE_BUSY);  // wait for xmission complete
+    if(status != HAL_OK)
+    {
+        HAL_GPIO_WritePin(cs_port, spi->cs_pin, GPIO_PIN_SET);
+        return BMP3_E_COMM_FAIL;
+    }
 
-    // Return success for now (replace with real error code later)
+    HAL_GPIO_WritePin(cs_port, spi->cs_pin, GPIO_PIN_SET);
+
+    memcpy(data, GRXBuffer+1, len);
     return BMP3_OK;
 }
 
-
+/*
+ * SPI write
+ * bit7 = 0 for write
+ */
 int8_t bmp3_spi_write(uint8_t reg_addr,
                       const uint8_t *data,
                       uint32_t len,
                       void *intf_ptr)
 {
-    bmp3_spi_intf *spi = (bmp3_spi_intf *)intf_ptr;
+    if(intf_ptr == nullptr || data == nullptr || len == 0)
+        return BMP3_E_NULL_PTR;
 
-    // SPI write: MSB = 0
-    uint8_t addr = reg_addr & 0x7F;
+    bmp3_spi_intf *spi = (bmp3_spi_intf*)intf_ptr;
 
-    // --- Chip Select LOW ---
-    // TODO: set CS LOW
+    SPI_HandleTypeDef *hspi = (SPI_HandleTypeDef*)spi->spi_handle;
+    GPIO_TypeDef *cs_port   = (GPIO_TypeDef*)spi->cs_port;
 
-    // TODO: transmit address
-    // platform_spi_transmit(spi->spi_handle, &addr, 1);
+    addr[0] = reg_addr & 0x7F;   // write bit
+    memcpy(&addr[1], data, len);
 
-    // TODO: transmit payload
-    // platform_spi_transmit(spi->spi_handle, data, len);
+    HAL_GPIO_WritePin(cs_port, spi->cs_pin, GPIO_PIN_RESET);
 
-    // --- Chip Select HIGH ---
-    // TODO: set CS HIGH
+    // timeout delay of 1000ms is pretty generous
+    int8_t status = HAL_SPI_Transmit(hspi, addr, len+1, 1000);
+    while(hspi->State == HAL_SPI_STATE_BUSY);  // wait for xmission complete
+
+    if(status != HAL_OK)
+    {
+        HAL_GPIO_WritePin(cs_port, spi->cs_pin, GPIO_PIN_SET);
+        return BMP3_E_COMM_FAIL;
+    }
+
+    HAL_GPIO_WritePin(cs_port, spi->cs_pin, GPIO_PIN_SET);
 
     return BMP3_OK;
 }
 
-
+/*
+ * Microsecond delay function
+ * Uses DWT cycle counter (best option on STM32H7)
+ */
 void bmp3_delay_us(uint32_t period, void *intf_ptr)
 {
-    // TODO:
-    // Provide a microsecond-level delay function.
-    //
-    // If unavailable, you can approximate using milliseconds:
-    //
-    // platform_delay_ms((period + 999) / 1000);
-    //
-    // For now this is empty.
+    uint32_t start = DWT->CYCCNT;
+    uint32_t ticks = period * (SystemCoreClock / 1000000);
+
+    while ((DWT->CYCCNT - start) < ticks);
 }
