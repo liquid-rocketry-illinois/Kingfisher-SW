@@ -1,8 +1,13 @@
 #include "BMP3xx_platform.h"
+#include <cstring>
 
 extern "C" {
 #include "bmp3.h"
 }
+
+// To handle input
+uint8_t addr[512];
+uint8_t GRXBuffer[2048];
 
 /*
  * SPI read
@@ -22,17 +27,14 @@ int8_t bmp3_spi_read(uint8_t reg_addr,
     SPI_HandleTypeDef *hspi = (SPI_HandleTypeDef*)spi->spi_handle;
     GPIO_TypeDef *cs_port   = (GPIO_TypeDef*)spi->cs_port;
 
-    uint8_t addr = reg_addr | 0x80;   // read bit
+    addr[0] = reg_addr | 0x80;   // read bit
 
     HAL_GPIO_WritePin(cs_port, spi->cs_pin, GPIO_PIN_RESET);
 
-    if(HAL_SPI_Transmit(hspi, &addr, 1, HAL_MAX_DELAY) != HAL_OK)
-    {
-        HAL_GPIO_WritePin(cs_port, spi->cs_pin, GPIO_PIN_SET);
-        return BMP3_E_COMM_FAIL;
-    }
-
-    if(HAL_SPI_Receive(hspi, data, len, HAL_MAX_DELAY) != HAL_OK)
+    // timeout of 1000ms is still very generous
+    HAL_StatusTypeDef status = HAL_SPI_TransmitReceive(hspi, addr, GRXBuffer, len+1, 1000);
+    while(hspi->State == HAL_SPI_STATE_BUSY);  // wait for xmission complete
+    if(status != HAL_OK)
     {
         HAL_GPIO_WritePin(cs_port, spi->cs_pin, GPIO_PIN_SET);
         return BMP3_E_COMM_FAIL;
@@ -40,6 +42,7 @@ int8_t bmp3_spi_read(uint8_t reg_addr,
 
     HAL_GPIO_WritePin(cs_port, spi->cs_pin, GPIO_PIN_SET);
 
+    memcpy(data, GRXBuffer+1, len);
     return BMP3_OK;
 }
 
@@ -60,17 +63,16 @@ int8_t bmp3_spi_write(uint8_t reg_addr,
     SPI_HandleTypeDef *hspi = (SPI_HandleTypeDef*)spi->spi_handle;
     GPIO_TypeDef *cs_port   = (GPIO_TypeDef*)spi->cs_port;
 
-    uint8_t addr = reg_addr & 0x7F;   // write bit
+    addr[0] = reg_addr & 0x7F;   // write bit
+    memcpy(&addr[1], data, len);
 
     HAL_GPIO_WritePin(cs_port, spi->cs_pin, GPIO_PIN_RESET);
 
-    if(HAL_SPI_Transmit(hspi, &addr, 1, HAL_MAX_DELAY) != HAL_OK)
-    {
-        HAL_GPIO_WritePin(cs_port, spi->cs_pin, GPIO_PIN_SET);
-        return BMP3_E_COMM_FAIL;
-    }
+    // timeout delay of 1000ms is pretty generous
+    int8_t status = HAL_SPI_Transmit(hspi, addr, len+1, 1000);
+    while(hspi->State == HAL_SPI_STATE_BUSY);  // wait for xmission complete
 
-    if(HAL_SPI_Transmit(hspi, (uint8_t*)data, len, HAL_MAX_DELAY) != HAL_OK)
+    if(status != HAL_OK)
     {
         HAL_GPIO_WritePin(cs_port, spi->cs_pin, GPIO_PIN_SET);
         return BMP3_E_COMM_FAIL;
@@ -81,17 +83,14 @@ int8_t bmp3_spi_write(uint8_t reg_addr,
     return BMP3_OK;
 }
 
-
 /*
  * Microsecond delay function
  * Uses DWT cycle counter (best option on STM32H7)
  */
 void bmp3_delay_us(uint32_t period, void *intf_ptr)
 {
-    (void)intf_ptr;
-
     uint32_t start = DWT->CYCCNT;
     uint32_t ticks = period * (SystemCoreClock / 1000000);
 
-    while((DWT->CYCCNT - start) < ticks);
+    while ((DWT->CYCCNT - start) < ticks);
 }

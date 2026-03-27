@@ -808,6 +808,7 @@ int8_t bmp3_get_regs(uint8_t reg_addr, uint8_t *reg_data, uint32_t len, struct b
         /* If interface selected is SPI */
         if (dev->intf != BMP3_I2C_INTF)
         {
+            // Force first bit to be 1; signifies read command
             reg_addr = reg_addr | 0x80;
 
             /* Read the data from the register */
@@ -1441,6 +1442,9 @@ int8_t bmp3_get_sensor_data(uint8_t sensor_comp, struct bmp3_data *comp_data, st
 
         if (rslt == BMP3_OK)
         {
+            // TODO: likely issue with read data. compensating function
+            // should not even matter if ranges of sensor data make sense
+
             /* Parse the read data from the sensor */
             parse_sensor_data(reg_data, &uncomp_data);
 
@@ -2447,6 +2451,7 @@ static int8_t compensate_temperature(double *temperature,
     calib_data->quantized_calib_data.t_lin = partial_data2 + (partial_data1 * partial_data1) *
                                              calib_data->quantized_calib_data.par_t3;
 
+    // TODO: Stuck here
     /* Returns compensated temperature */
     if (calib_data->quantized_calib_data.t_lin < BMP3_MIN_TEMP_DOUBLE)
     {
@@ -2457,7 +2462,7 @@ static int8_t compensate_temperature(double *temperature,
     if (calib_data->quantized_calib_data.t_lin > BMP3_MAX_TEMP_DOUBLE)
     {
         calib_data->quantized_calib_data.t_lin = BMP3_MAX_TEMP_DOUBLE;
-        rslt = BMP3_W_MAX_TEMP;
+        rslt = BMP3_W_MAX_TEMP; // clipping at 85C
     }
 
     (*temperature) = calib_data->quantized_calib_data.t_lin;
@@ -2506,7 +2511,7 @@ static int8_t compensate_pressure(double *pressure,
     if (comp_press < BMP3_MIN_PRES_DOUBLE)
     {
         comp_press = BMP3_MIN_PRES_DOUBLE;
-        rslt = BMP3_W_MIN_PRES;
+        rslt = BMP3_W_MIN_PRES; //
     }
 
     if (comp_press > BMP3_MAX_PRES_DOUBLE)

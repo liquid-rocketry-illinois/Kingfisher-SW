@@ -3,6 +3,8 @@
 #include "FreeRTOS.h"
 #include "task.h"
 #include <string.h>
+
+#include "main.h"
 #include "semphr.h"
 
 static config_e22_900t22s e22_cfg;
@@ -43,15 +45,23 @@ bool e22_isBusy(void)
 int8_t waitAux_e22_900t22s(uint32_t timeout_ms)
 {
     uint32_t start = xTaskGetTickCount();
+    uint32_t p = xTaskGetTickCount();
 
     while(!auxHigh())
     {
-        if((xTaskGetTickCount() - start) > pdMS_TO_TICKS(timeout_ms))
+        if((xTaskGetTickCount() - start) > pdMS_TO_TICKS(timeout_ms)) {
+            HAL_GPIO_WritePin(USR_LED_GPIO_Port, USR_LED_Pin, GPIO_PIN_RESET);
             return E22_ERR_TIMEOUT;
+        }
 
+        if ((xTaskGetTickCount() - p) > pdMS_TO_TICKS(300)) {
+            HAL_GPIO_TogglePin(USR_LED_GPIO_Port, USR_LED_Pin);
+            p = xTaskGetTickCount();
+        }
         vTaskDelay(pdMS_TO_TICKS(1));
     }
 
+    HAL_GPIO_WritePin(USR_LED_GPIO_Port, USR_LED_Pin, GPIO_PIN_RESET);
     return E22_OK;
 }
 
@@ -106,7 +116,7 @@ int8_t init_e22_900t22s(config_e22_900t22s *cfg)
         return E22_ERR_BUSY;
 
     /* ensure radio is ready */
-    if (waitAux_e22_900t22s(1000) != E22_OK)
+    if (waitAux_e22_900t22s(5000) != E22_OK)
         return E22_ERR_TIMEOUT;
 
     /* switch to configuration mode */
@@ -158,10 +168,12 @@ bool e22_initialized(void)
 
 /* ================= UART HELPERS ================= */
 
+#include "usart.h"
+
 static int8_t uartWrite(uint8_t *data, uint16_t len)
 {
     if(HAL_UART_Transmit(
-        e22_cfg.huart,
+        &huart8,// e22_cfg.huart,
         data,
         len,
         100) != HAL_OK)
@@ -172,12 +184,12 @@ static int8_t uartWrite(uint8_t *data, uint16_t len)
 
 static int8_t uartRead(uint8_t *data, uint16_t len)
 {
-    if(HAL_UART_Receive(
-        e22_cfg.huart,
+    HAL_StatusTypeDef status = HAL_UART_Receive(
+        &huart8, // e22_cfg.huart,
         data,
         len,
-        100) != HAL_OK)
-        return E22_ERR_UART;
+        5000); // Make a generous amount of time
+    if(status != HAL_OK) return E22_ERR_UART;
 
     return E22_OK;
 }
@@ -231,17 +243,17 @@ int8_t readConfig_e22_900t22s(config_e22_900t22s *cfg)
 {
     uint8_t cmd[3];
     cmd[0] = COMMAND_BYTE_READ_CFG;
-    cmd[1] = 0; // Start from REG0
-    cmd[2] = 6; // Read all registers
-    uint8_t resp[8];
+    cmd[1] = 0x00; // Start from REG0
+    cmd[2] = 0x06; // Read all necessary registers
+    uint8_t resp[9];
 
     xSemaphoreTake(e22_mutex, portMAX_DELAY);
 
     changeMode(CONFIG);
 
     uartWrite(cmd,sizeof(cmd));
-
-    if(uartRead(resp,sizeof(resp)) != E22_OK)
+    waitAux_e22_900t22s(10000);
+    if(uartRead(resp,9) != E22_OK)
     {
         xSemaphoreGive(e22_mutex);
         return E22_ERR_UART;
@@ -249,14 +261,18 @@ int8_t readConfig_e22_900t22s(config_e22_900t22s *cfg)
 
     changeMode(TRANS);
 
-    // resp[0] is just C1 acknowledging read, not used anywhere
-    // resp[1] is acknowledged address
-    // resp[2] is acknowledged length
+    // first three values are just repetition of sent data
+    if (resp[0] != cmd[0] &&
+        resp[1] != cmd[1] &&
+        resp[2] != cmd[2])
+        static int8_t E22_INIT_WARNING = E22_ERR_DATA_VERIFICATION; // sohws up in debugger if flagged
+
     cfg->ADDH   = resp[3];
     cfg->ADDL   = resp[4];
-    cfg->REG0   = resp[5];
-    cfg->REG2   = resp[6];
-    cfg->REG1   = resp[7];
+    cfg->NETID  = resp[5];
+    cfg->REG0   = resp[6];
+    cfg->REG2   = resp[7];
+    cfg->REG1   = resp[8];
 
     xSemaphoreGive(e22_mutex);
 

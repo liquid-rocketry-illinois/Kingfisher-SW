@@ -164,10 +164,10 @@ void Error_Handler(void);
 #define GPS_I2CSCL_GPIO_Port GPIOB
 #define GPS_I2CSDA_Pin GPIO_PIN_9
 #define GPS_I2CSDA_GPIO_Port GPIOB
-#define RADIO_RX_Pin GPIO_PIN_0
-#define RADIO_RX_GPIO_Port GPIOE
-#define RADIO_TX_Pin GPIO_PIN_1
+#define RADIO_TX_Pin GPIO_PIN_0
 #define RADIO_TX_GPIO_Port GPIOE
+#define RADIO_RX_Pin GPIO_PIN_1
+#define RADIO_RX_GPIO_Port GPIOE
 
 /* USER CODE BEGIN Private defines */
 

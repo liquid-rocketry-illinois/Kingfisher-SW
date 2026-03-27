@@ -33,7 +33,8 @@ typedef enum
     E22_ERR_UART          = -2,
     E22_ERR_BUSY          = -3,
     E22_ERR_INVALID_PARAM = -4,
-    E22_ERR_NOT_INITIALIZED = -5
+    E22_ERR_NOT_INITIALIZED = -5,
+    E22_ERR_DATA_VERIFICATION   = -6
 } E22_Status;
 
 /**

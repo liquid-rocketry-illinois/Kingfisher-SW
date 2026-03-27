@@ -8,6 +8,8 @@
 #include "BMP3xx_platform.h"
 #include "bmp3.h"
 
+#define FIFO_MAX_SIZE 256
+
 typedef struct
 {
     float heightMeters = 0.0F;
@@ -35,6 +37,17 @@ private:
     bmp3_dev device;
     bool _sensor_active;
     BMP_INDEX InitDev;
+    bmp3_data fifo_pt_data[FIFO_MAX_SIZE];
+
+    // config stuff in init and in update too
+    bmp3_fifo_settings fifo_settings = {0};
+    bmp3_fifo_data fifo = {0};
+    uint8_t fifo_data[FIFO_MAX_SIZE];
+    uint16_t fifo_length = 0;
+    bmp3_settings settings = {0};
+    uint16_t settings_sel;
+    uint16_t settings_fifo;
+    bmp3_status status = {{0}};
 
     BMP_Data _raw;
 

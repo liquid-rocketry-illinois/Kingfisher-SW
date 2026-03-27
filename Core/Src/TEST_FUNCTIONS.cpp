@@ -51,17 +51,18 @@ int TEST::IMU_TEST() {
 
 int TEST::BMP_TEST()
 {
-    Barometer BMP(&hspi2, Barometer::SENSOR1_I);
+    Barometer BMP(&hspi2, Barometer::SENSOR2_I);
     BMP_Data data;
     uint8_t status = 0;
-    uint8_t init = BMP.Init();
+    uint8_t init = BMP.Init(); // TODO: investigate bad calibration data read
 
     while (1)
     {
         status = BMP.Update();
         data = BMP.getRawData();
         HAL_GPIO_TogglePin(USR_LED_GPIO_Port, USR_LED_Pin);
-        vTaskDelay(100);
+        //vTaskDelay(100); TODO: vTaskDelay causing hard fault- memory bad? overflow? div by 0?
+        HAL_Delay(100);
     }
 }
 
