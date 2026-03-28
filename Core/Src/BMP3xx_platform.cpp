@@ -1,96 +1,67 @@
 #include "BMP3xx_platform.h"
 #include <cstring>
+#include "FreeRTOS.h"
+#include "projdefs.h"
+#include "spi.h"
+#include "task.h"
 
-extern "C" {
-#include "bmp3.h"
+// tx and rx data buffers
+uint8_t GTXBuffer[512], GRXBuffer[2048];
+
+const void BMP_CS_Select(bmp3_spi_intf* intf_ptr) {
+    // ensure everything deselected before selecting only one. this is just a guard
+    HAL_GPIO_WritePin(BMP390_CS1_GPIO_Port, BMP390_CS1_Pin, GPIO_PIN_SET);
+    HAL_GPIO_WritePin(BMP390_CS2_GPIO_Port, BMP390_CS2_Pin, GPIO_PIN_SET);
+    HAL_GPIO_WritePin(BMP390_CS3_GPIO_Port, BMP390_CS3_Pin, GPIO_PIN_SET);
+
+    vTaskDelay(pdMS_TO_TICKS(5));
+    HAL_GPIO_WritePin(intf_ptr->cs_port, intf_ptr->cs_pin, GPIO_PIN_RESET);
 }
 
-// To handle input
-uint8_t addr[512];
-uint8_t GRXBuffer[2048];
+const void BMP_CS_Deselect(bmp3_spi_intf* intf_ptr) {
+    // Easier to just deselect everything
+    HAL_GPIO_WritePin(BMP390_CS1_GPIO_Port, BMP390_CS1_Pin, GPIO_PIN_SET);
+    HAL_GPIO_WritePin(BMP390_CS2_GPIO_Port, BMP390_CS2_Pin, GPIO_PIN_SET);
+    HAL_GPIO_WritePin(BMP390_CS3_GPIO_Port, BMP390_CS3_Pin, GPIO_PIN_SET);
+
+    vTaskDelay(pdMS_TO_TICKS(5));
+}
 
 /*
  * SPI read
  * Bosch SPI protocol:
  * bit7 = 1 for read
- */
-int8_t bmp3_spi_read(uint8_t reg_addr,
-                     uint8_t *data,
-                     uint32_t len,
-                     void *intf_ptr)
+ */ // TODO: make read and write discoverable within bmp390 class init()
+int8_t BMP_SPI_Read(uint8_t reg, uint8_t* data, uint32_t len, bmp3_spi_intf *intf_ptr)
 {
-    if(intf_ptr == nullptr || data == nullptr || len == 0)
-        return BMP3_E_NULL_PTR;
+    GTXBuffer[0] = reg | 0x80;
 
-    bmp3_spi_intf *spi = (bmp3_spi_intf*)intf_ptr;
-
-    SPI_HandleTypeDef *hspi = (SPI_HandleTypeDef*)spi->spi_handle;
-    GPIO_TypeDef *cs_port   = (GPIO_TypeDef*)spi->cs_port;
-
-    addr[0] = reg_addr | 0x80;   // read bit
-
-    HAL_GPIO_WritePin(cs_port, spi->cs_pin, GPIO_PIN_RESET);
-
-    // timeout of 1000ms is still very generous
-    HAL_StatusTypeDef status = HAL_SPI_TransmitReceive(hspi, addr, GRXBuffer, len+1, 1000);
-    while(hspi->State == HAL_SPI_STATE_BUSY);  // wait for xmission complete
-    if(status != HAL_OK)
-    {
-        HAL_GPIO_WritePin(cs_port, spi->cs_pin, GPIO_PIN_SET);
-        return BMP3_E_COMM_FAIL;
-    }
-
-    HAL_GPIO_WritePin(cs_port, spi->cs_pin, GPIO_PIN_SET);
+    BMP_CS_Select(intf_ptr);
+    HAL_SPI_TransmitReceive(intf_ptr->spi_handle, GTXBuffer, data, len+1, 5000);
+    while(intf_ptr->spi_handle->State == HAL_SPI_STATE_BUSY) {}
+    BMP_CS_Deselect(intf_ptr);
 
     memcpy(data, GRXBuffer+1, len);
-    return BMP3_OK;
+
+    return 0;
 }
 
-/*
- * SPI write
- * bit7 = 0 for write
- */
-int8_t bmp3_spi_write(uint8_t reg_addr,
-                      const uint8_t *data,
-                      uint32_t len,
-                      void *intf_ptr)
-{
-    if(intf_ptr == nullptr || data == nullptr || len == 0)
-        return BMP3_E_NULL_PTR;
+int8_t BMP_SPI_Write(uint8_t reg, const uint8_t* data, uint32_t len, bmp3_spi_intf *intf_ptr) { // bmp3_spi_intf *spi_ptr?
+    GTXBuffer[0] = reg & 0x7F;
+    memcpy(&GTXBuffer[1], data, len);
 
-    bmp3_spi_intf *spi = (bmp3_spi_intf*)intf_ptr;
+    BMP_CS_Select(intf_ptr);
+    HAL_SPI_Transmit(intf_ptr->spi_handle, GTXBuffer, len+1, 5000);
+    while(intf_ptr->spi_handle->State == HAL_SPI_STATE_BUSY) {}
+    //HAL_SPI_Transmit(_spi, (uint8_t*)data, len, HAL_MAX_DELAY);
+    BMP_CS_Deselect(intf_ptr);
 
-    SPI_HandleTypeDef *hspi = (SPI_HandleTypeDef*)spi->spi_handle;
-    GPIO_TypeDef *cs_port   = (GPIO_TypeDef*)spi->cs_port;
-
-    addr[0] = reg_addr & 0x7F;   // write bit
-    memcpy(&addr[1], data, len);
-
-    HAL_GPIO_WritePin(cs_port, spi->cs_pin, GPIO_PIN_RESET);
-
-    // timeout delay of 1000ms is pretty generous
-    int8_t status = HAL_SPI_Transmit(hspi, addr, len+1, 1000);
-    while(hspi->State == HAL_SPI_STATE_BUSY);  // wait for xmission complete
-
-    if(status != HAL_OK)
-    {
-        HAL_GPIO_WritePin(cs_port, spi->cs_pin, GPIO_PIN_SET);
-        return BMP3_E_COMM_FAIL;
-    }
-
-    HAL_GPIO_WritePin(cs_port, spi->cs_pin, GPIO_PIN_SET);
-
-    return BMP3_OK;
+    return 0;
 }
 
-/*
- * Microsecond delay function
- * Uses DWT cycle counter (best option on STM32H7)
- */
-void bmp3_delay_us(uint32_t period, void *intf_ptr)
-{
+void BMP_delay_us(uint32_t us, void *intf_ptr) {
     uint32_t start = DWT->CYCCNT;
-    uint32_t ticks = period * (SystemCoreClock / 1000000);
+    uint32_t ticks = us * (SystemCoreClock / 1000000);
 
     while ((DWT->CYCCNT - start) < ticks);
 }
