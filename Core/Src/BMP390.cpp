@@ -109,15 +109,11 @@ uint8_t Barometer::Update()
 
     bmp3_data data = { 0 };
 
-    if(bmp3_get_sensor_data(BMP3_PRESS_TEMP, &data, &device) != BMP3_OK)
-        return 2;
-    else {
-        if (status.intr.drdy == BMP3_ENABLE) {
-            if (bmp3_get_sensor_data(BMP3_PRESS_TEMP, &data, &device) != BMP3_OK)
-                return 3;
-            if (bmp3_get_status(&status, &device) != BMP3_OK)
-                return 4;
-        }
+    if (status.intr.drdy == BMP3_ENABLE) {
+        if (bmp3_get_sensor_data(BMP3_PRESS_TEMP, &data, &device) != BMP3_OK)
+            return 2;
+        if (bmp3_get_status(&status, &device) != BMP3_OK)
+            return 3;
     }
 
     _raw.Pressure = static_cast<float>(data.pressure);

@@ -18,12 +18,12 @@ typedef struct
 int8_t BMP_SPI_Read(uint8_t reg_addr,
                      uint8_t *data,
                      uint32_t len,
-                     void *intf_ptr);
+                     void *ptr);
 
 int8_t BMP_SPI_Write(uint8_t reg_addr,
                       const uint8_t *data,
                       uint32_t len,
-                      void *intf_ptr);
+                      void *ptr);
 
 void BMP_delay_us(uint32_t period, void *intf_ptr);
 
