@@ -35,14 +35,14 @@
     </configurations>
   </component>
   <component name="ChangeListManager">
-    <list default="true" id="b71e0858-14db-4924-8f99-4a29e2cf87f5" name="Changes" comment="Revise GPIO pin defs in CubeMX">
-      <change afterPath="$PROJECT_DIR$/Core/Src/SIMU_BMI323.cpp" afterDir="false" />
+    <list default="true" id="b71e0858-14db-4924-8f99-4a29e2cf87f5" name="Changes" comment="Build servo test code with encoder read error.">
+      <change beforePath="$PROJECT_DIR$/.idea/editor.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/editor.xml" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/CMakeLists.txt" beforeDir="false" afterPath="$PROJECT_DIR$/CMakeLists.txt" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/Core/Inc/Math/Math.h" beforeDir="false" afterPath="$PROJECT_DIR$/Core/Inc/Math/Math.h" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/Core/Inc/SIMU_BMI323.h" beforeDir="false" afterPath="$PROJECT_DIR$/Core/Inc/SIMU_BMI323.h" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/Core/Src/Math/Math.cpp" beforeDir="false" afterPath="$PROJECT_DIR$/Core/Src/Math/Math.cpp" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/Core/Src/interrupt_override.cpp" beforeDir="false" afterPath="$PROJECT_DIR$/Core/Src/interrupt_override.cpp" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/Core/Inc/TEST_FUNCTIONS.h" beforeDir="false" afterPath="$PROJECT_DIR$/Core/Inc/TEST_FUNCTIONS.h" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/Core/Src/TEST_FUNCTIONS.cpp" beforeDir="false" afterPath="$PROJECT_DIR$/Core/Src/TEST_FUNCTIONS.cpp" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/Core/Src/i2c.c" beforeDir="false" afterPath="$PROJECT_DIR$/Core/Src/i2c.c" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/Core/Src/main.c" beforeDir="false" afterPath="$PROJECT_DIR$/Core/Src/main.c" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/Core/Src/main.cpp" beforeDir="false" afterPath="$PROJECT_DIR$/Core/Src/main.cpp" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -79,7 +79,7 @@
   <component name="Git.Settings">
     <option name="RECENT_BRANCH_BY_REPOSITORY">
       <map>
-        <entry key="$PROJECT_DIR$" value="main" />
+        <entry key="$PROJECT_DIR$" value="GPS-dev" />
       </map>
     </option>
     <option name="RECENT_GIT_ROOT_PATH" value="$PROJECT_DIR$" />
@@ -90,9 +90,6 @@
     &quot;assignee&quot;: &quot;AlephInfi&quot;
   }
 }</component>
-  <component name="GithubDefaultAccount">
-    <option name="defaultAccountId" value="00d78abe-7064-437a-89fc-6617d9e8cfda" />
-  </component>
   <component name="GithubPullRequestsUISettings">{
   &quot;selectedUrlAndAccountId&quot;: {
     &quot;url&quot;: &quot;https://github.com/liquid-rocketry-illinois/HAL-1-SW.git&quot;,
@@ -100,10 +97,7 @@
   }
 }</component>
   <component name="HighlightingSettingsPerFile">
-    <setting file="file://$PROJECT_DIR$/Core/Inc/ism6hg256x_reg.h" root0="FORCE_HIGHLIGHTING" />
-    <setting file="file://$PROJECT_DIR$/Core/Src/Servo_Axon_Mini_MKII.cpp" root0="SKIP_HIGHLIGHTING" />
     <setting file="file://$PROJECT_DIR$/Core/Src/TEST_FUNCTIONS.cpp" root0="FORCE_HIGHLIGHTING" />
-    <setting file="file://$PROJECT_DIR$/Drivers/CMSIS/Device/ST/STM32H7xx/Include/stm32h753xx.h" root0="SKIP_HIGHLIGHTING" />
   </component>
   <component name="MacroExpansionManager">
     <option name="directoryName" value="v1Ifb0vu" />
@@ -128,47 +122,41 @@
     <option name="hideEmptyMiddlePackages" value="true" />
     <option name="showLibraryContents" value="true" />
   </component>
-  <component name="PropertiesComponent">{
-  &quot;keyToString&quot;: {
-    &quot;ModuleVcsDetector.initialDetectionPerformed&quot;: &quot;true&quot;,
-    &quot;OpenOCD Download &amp; Run.Hal-1-SW.executor&quot;: &quot;Run&quot;,
-    &quot;OpenOCD Download &amp; Run.Kingfisher-SW.executor&quot;: &quot;Run&quot;,
-    &quot;RunOnceActivity.RadMigrateCodeStyle&quot;: &quot;true&quot;,
-    &quot;RunOnceActivity.ShowReadmeOnStart&quot;: &quot;true&quot;,
-    &quot;RunOnceActivity.TerminalTabsStorage.copyFrom.TerminalArrangementManager.252&quot;: &quot;true&quot;,
-    &quot;RunOnceActivity.cidr.known.project.marker&quot;: &quot;true&quot;,
-    &quot;RunOnceActivity.git.unshallow&quot;: &quot;true&quot;,
-    &quot;RunOnceActivity.readMode.enableVisualFormatting&quot;: &quot;true&quot;,
-    &quot;RunOnceActivity.typescript.service.memoryLimit.init&quot;: &quot;true&quot;,
-    &quot;RunOnceActivity.west.config.association.type.startup.service&quot;: &quot;true&quot;,
-    &quot;cf.first.check.clang-format&quot;: &quot;false&quot;,
-    &quot;cidr.known.project.marker&quot;: &quot;true&quot;,
-    &quot;git-widget-placeholder&quot;: &quot;SIMU-BMI323-dev&quot;,
-    &quot;ignore.virus.scanning.warn.message&quot;: &quot;true&quot;,
-    &quot;node.js.detected.package.eslint&quot;: &quot;true&quot;,
-    &quot;node.js.detected.package.tslint&quot;: &quot;true&quot;,
-    &quot;node.js.selected.package.eslint&quot;: &quot;(autodetect)&quot;,
-    &quot;node.js.selected.package.tslint&quot;: &quot;(autodetect)&quot;,
-    &quot;nodejs_package_manager_path&quot;: &quot;npm&quot;,
-    &quot;org.rust.first.attach.projects&quot;: &quot;true&quot;,
-    &quot;settings.editor.selected.configurable&quot;: &quot;vcs.Git&quot;,
-    &quot;vue.rearranger.settings.migration&quot;: &quot;true&quot;
+  <component name="PropertiesComponent"><![CDATA[{
+  "keyToString": {
+    "ModuleVcsDetector.initialDetectionPerformed": "true",
+    "OpenOCD Download & Run.Hal-1-SW.executor": "Run",
+    "OpenOCD Download & Run.Kingfisher-SW.executor": "Run",
+    "RunOnceActivity.RadMigrateCodeStyle": "true",
+    "RunOnceActivity.ShowReadmeOnStart": "true",
+    "RunOnceActivity.TerminalTabsStorage.copyFrom.TerminalArrangementManager.252": "true",
+    "RunOnceActivity.cidr.known.project.marker": "true",
+    "RunOnceActivity.git.unshallow": "true",
+    "RunOnceActivity.readMode.enableVisualFormatting": "true",
+    "RunOnceActivity.typescript.service.memoryLimit.init": "true",
+    "RunOnceActivity.west.config.association.type.startup.service": "true",
+    "cf.first.check.clang-format": "false",
+    "cidr.known.project.marker": "true",
+    "git-widget-placeholder": "main",
+    "ignore.virus.scanning.warn.message": "true",
+    "node.js.detected.package.eslint": "true",
+    "node.js.detected.package.tslint": "true",
+    "node.js.selected.package.eslint": "(autodetect)",
+    "node.js.selected.package.tslint": "(autodetect)",
+    "nodejs_package_manager_path": "npm",
+    "org.rust.first.attach.projects": "true",
+    "settings.editor.selected.configurable": "vcs.Git",
+    "vue.rearranger.settings.migration": "true"
   }
-}</component>
+}]]></component>
   <component name="RecentsManager">
     <key name="MoveFile.RECENT_KEYS">
       <recent name="C:\Users\dyrel\Documents\Hal-1-SW\Core\Inc" />
-      <recent name="C:\Users\dyrel\Documents\Hal-1-SW\Core\Inc\Math" />
       <recent name="C:\Users\dyrel\Documents\Hal-1-SW\Core\Inc\lib" />
       <recent name="C:\Users\dyrel\Documents\Hal-1-SW\Core\Src" />
     </key>
   </component>
   <component name="RunManager" selected="OpenOCD Download &amp; Run.Hal-1-SW">
-    <configuration default="true" type="CLionExternalRunConfiguration" factoryName="Application" REDIRECT_INPUT="false" ELEVATE="false" USE_EXTERNAL_CONSOLE="false" EMULATE_TERMINAL="false" PASS_PARENT_ENVS_2="true">
-      <method v="2">
-        <option name="CLION.EXTERNAL.BUILD" enabled="true" />
-      </method>
-    </configuration>
     <configuration name="FatFs" type="CMakeRunConfiguration" factoryName="Application" REDIRECT_INPUT="false" ELEVATE="false" USE_EXTERNAL_CONSOLE="false" EMULATE_TERMINAL="false" PASS_PARENT_ENVS_2="true" PROJECT_NAME="Kingfisher-SW" TARGET_NAME="FatFs" CONFIG_NAME="Debug">
       <method v="2">
         <option name="com.jetbrains.cidr.execution.CidrBuildBeforeRunTaskProvider$BuildBeforeRunTask" enabled="true" />
@@ -189,41 +177,10 @@
         <option name="com.jetbrains.cidr.execution.CidrBuildBeforeRunTaskProvider$BuildBeforeRunTask" enabled="true" />
       </method>
     </configuration>
-    <configuration default="true" type="PythonConfigurationType" factoryName="Python">
-      <module name="HAL-1-SW" />
-      <option name="ENV_FILES" value="" />
-      <option name="INTERPRETER_OPTIONS" value="" />
-      <option name="PARENT_ENVS" value="true" />
-      <envs>
-        <env name="PYTHONUNBUFFERED" value="1" />
-      </envs>
-      <option name="SDK_HOME" value="" />
-      <option name="WORKING_DIRECTORY" value="" />
-      <option name="IS_MODULE_SDK" value="false" />
-      <option name="ADD_CONTENT_ROOTS" value="true" />
-      <option name="ADD_SOURCE_ROOTS" value="true" />
-      <option name="RUN_TOOL" value="" />
-      <option name="SCRIPT_NAME" value="" />
-      <option name="PARAMETERS" value="" />
-      <option name="SHOW_COMMAND_LINE" value="false" />
-      <option name="EMULATE_TERMINAL" value="false" />
-      <option name="MODULE_MODE" value="false" />
-      <option name="REDIRECT_INPUT" value="false" />
-      <option name="INPUT_FILE" value="" />
-      <method v="2" />
-    </configuration>
-    <configuration default="true" type="Tox" factoryName="Tox">
-      <module name="HAL-1-SW" />
-      <option name="ENV_FILES" value="" />
-      <option name="INTERPRETER_OPTIONS" value="" />
-      <option name="PARENT_ENVS" value="true" />
-      <option name="SDK_HOME" value="" />
-      <option name="WORKING_DIRECTORY" value="" />
-      <option name="IS_MODULE_SDK" value="false" />
-      <option name="ADD_CONTENT_ROOTS" value="true" />
-      <option name="ADD_SOURCE_ROOTS" value="true" />
-      <option name="RUN_TOOL" value="" />
-      <method v="2" />
+    <configuration default="true" type="CMakeRunConfiguration" factoryName="Application" REDIRECT_INPUT="false" ELEVATE="false" USE_EXTERNAL_CONSOLE="false" EMULATE_TERMINAL="false" PASS_PARENT_ENVS_2="true">
+      <method v="2">
+        <option name="com.jetbrains.cidr.execution.CidrBuildBeforeRunTaskProvider$BuildBeforeRunTask" enabled="true" />
+      </method>
     </configuration>
     <configuration name="Hal-1-SW" type="com.jetbrains.cidr.embedded.openocd.conf.type" factoryName="com.jetbrains.cidr.embedded.openocd.conf.factory" REDIRECT_INPUT="false" ELEVATE="false" USE_EXTERNAL_CONSOLE="false" EMULATE_TERMINAL="false" PASS_PARENT_ENVS_2="true" PROJECT_NAME="Kingfisher-SW" TARGET_NAME="Kingfisher-SW" CONFIG_NAME="Debug" version="1" RUN_TARGET_PROJECT_NAME="Kingfisher-SW" RUN_TARGET_NAME="Kingfisher-SW">
       <openocd version="1" gdb-port="3333" telnet-port="4444" board-config="board/st_nucleo_h743zi.cfg" reset-type="INIT" download-type="UPDATED_ONLY">
@@ -234,9 +191,9 @@
       </method>
     </configuration>
     <list>
-      <item itemvalue="CMake Application.Kingfisher-SW" />
       <item itemvalue="CMake Application.FatFs" />
       <item itemvalue="CMake Application.FreeRTOS" />
+      <item itemvalue="CMake Application.Kingfisher-SW" />
       <item itemvalue="CMake Application.STM32_Drivers" />
       <item itemvalue="OpenOCD Download &amp; Run.Hal-1-SW" />
     </list>
@@ -261,11 +218,6 @@
       <workItem from="1771364438456" duration="4519000" />
       <workItem from="1771709164480" duration="19048000" />
       <workItem from="1772141923121" duration="1080000" />
-      <workItem from="1772313476150" duration="7537000" />
-      <workItem from="1772325542701" duration="653000" />
-      <workItem from="1772505504678" duration="1435000" />
-      <workItem from="1772575450504" duration="181000" />
-      <workItem from="1772741710154" duration="5498000" />
     </task>
     <task id="LOCAL-00001" summary="Write LED blink code">
       <option name="closed" value="true" />
@@ -383,28 +335,18 @@
         </line-breakpoint>
         <line-breakpoint enabled="true" type="com.jetbrains.cidr.execution.debugger.OCBreakpointType">
           <url>file://$PROJECT_DIR$/Core/Src/TEST_FUNCTIONS.cpp</url>
-          <line>14</line>
+          <line>17</line>
           <option name="timeStamp" value="19" />
         </line-breakpoint>
         <line-breakpoint enabled="true" type="com.jetbrains.cidr.execution.debugger.OCBreakpointType">
           <url>file://$PROJECT_DIR$/Core/Src/TEST_FUNCTIONS.cpp</url>
-          <line>20</line>
+          <line>23</line>
           <option name="timeStamp" value="21" />
         </line-breakpoint>
         <line-breakpoint enabled="true" type="com.jetbrains.cidr.execution.debugger.OCBreakpointType">
           <url>file://$PROJECT_DIR$/Core/Src/TEST_FUNCTIONS.cpp</url>
-          <line>26</line>
+          <line>29</line>
           <option name="timeStamp" value="22" />
-        </line-breakpoint>
-        <line-breakpoint enabled="true" type="com.jetbrains.cidr.execution.debugger.OCBreakpointType">
-          <url>file://$PROJECT_DIR$/Core/Inc/Math/Math.h</url>
-          <line>6</line>
-          <option name="timeStamp" value="23" />
-        </line-breakpoint>
-        <line-breakpoint enabled="true" type="com.jetbrains.cidr.execution.debugger.OCBreakpointType">
-          <url>file://$PROJECT_DIR$/Core/Inc/SIMU_BMI323.h</url>
-          <line>7</line>
-          <option name="timeStamp" value="24" />
         </line-breakpoint>
       </breakpoints>
     </breakpoint-manager>

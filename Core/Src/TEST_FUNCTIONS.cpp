@@ -96,3 +96,16 @@ int TEST::RADIO_TEST() {
     }
 }
 
+int TEST::PYRO_TEST()
+{
+
+    vTaskDelay(pdMS_TO_TICKS(1000));
+
+    HAL_GPIO_TogglePin(DROUGE_MAIN_GPIO_Port, DROUGE_MAIN_Pin);
+    vTaskDelay(pdMS_TO_TICKS(2000));
+    HAL_GPIO_TogglePin(DROUGE_MAIN_GPIO_Port, DROUGE_MAIN_Pin);
+
+    while (1) {}
+
+}
+

@@ -20,6 +20,7 @@ public:
     int BMP_TEST();
     int LIS2_TEST();
     int RADIO_TEST();
+    int PYRO_TEST();
 };
 
 #endif //HAL_1_SW_TEST_FUNCTIONS_H
