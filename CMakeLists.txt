@@ -33,8 +33,42 @@ enable_language(C CXX ASM)
 
 # Create an executable object type
 add_executable(${CMAKE_PROJECT_NAME}
-        Core/Inc/GPS.h
-        Core/Inc/MAX-M10S.h
+        Core/Inc/Servo_Axon_Mini_MKII.h
+        Core/Inc/timing.h
+        Core/Inc/Math/Math.h
+        Core/Inc/TEST_FUNCTIONS.h
+        Core/Inc/ism6hg256x_reg.h
+        Core/Inc/IMU_ISM6HGx.h
+        Core/Inc/Math/Vector3D.h
+        Core/Src/Math/Vector3D.cpp
+        Core/Src/interrupt_override.cpp
+        Core/Inc/Sensors.h
+        Core/Inc/Math/Math.h
+        Core/Inc/bmi3.h
+        Core/Inc/bmi3_defs.h
+        Core/Inc/bmi323.h
+        Core/Inc/bmi323_defs.h
+        Core/Inc/SIMU_BMI323.h
+        Core/Inc/SIMU_BMI323.h
+        Core/Src/SIMU_BMI323.cpp
+        Core/Inc/Math/TripleModRedundancy.h
+        Core/Src/TripleModRedundancy.cpp
+        Core/Inc/IMUs.h
+        Core/Src/IMU.cpp
+        Core/Inc/Ebyte_E22_900T22S.h
+        Core/Inc/Ebyte_E22_900T22S_defs.h
+        Core/Src/Ebyte_E22_900T22S.cpp
+        Core/Inc/Telemetry.h
+        Core/Src/Telemetry.cpp
+        Core/Src/BMP3xx_platform.cpp
+        Core/Src/bmp3.c
+        Core/Inc/bmp3.h
+        Core/Inc/bmp3_defs.h
+        Core/Inc/BMP390.h
+        Core/Src/BMP390.cpp
+        Core/Inc/LIS2MDL.h
+        Core/Src/lis2mdl_reg.c
+        Core/Src/LIS2MDL.cpp
 )
 
 # Add STM32CubeMX generated sources
@@ -48,9 +82,15 @@ target_link_directories(${CMAKE_PROJECT_NAME} PRIVATE
 # Add sources to executable
 target_sources(${CMAKE_PROJECT_NAME} PRIVATE
     # Add user sources here
-        Core/Src/Buzzer.cpp
+        Core/Src/Servo_Axon_Mini_MKII.cpp
+        Core/Src/timing.cpp
+        Core/Src/Math/Math.cpp
+        Core/Src/TEST_FUNCTIONS.cpp
         Core/Src/main.cpp
-        Core/Src/GPS.cpp
+        Core/Src/ism6hg256x_reg.c
+        Core/Src/IMU_ISM6HGx.cpp
+        Core/Src/bmi3.c
+        Core/Src/bmi323.c
 )
 
 # Add include paths
@@ -68,6 +108,7 @@ list(REMOVE_ITEM CMAKE_C_IMPLICIT_LINK_LIBRARIES ob)
 
 # Add linked libraries
 target_link_libraries(${CMAKE_PROJECT_NAME}
+    stm32cubemx
+
     # Add user defined libraries
-        stm32cubemx
 )
