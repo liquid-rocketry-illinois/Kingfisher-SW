@@ -16,7 +16,7 @@ struct IMUsStatus {
     int8_t ISM = 0;
 };
 
-class IMU {
+class IMUs {
 private:
     SIMU_BMI323 BMI323_A = SIMU_BMI323(SENSOR1_I);
     SIMU_BMI323 BMI323_B = SIMU_BMI323(SENSOR2_I);
@@ -43,7 +43,7 @@ private:
     uint8_t Normal_Compute();
 
 public:
-    IMU(bool tmr_on);
+    IMUs(bool tmr_on);
 
     IMUsStatus Init();
     IMUsStatus Update();

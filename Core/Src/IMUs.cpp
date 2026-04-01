@@ -6,7 +6,7 @@
 
 //PRIVATE:
 
-uint8_t IMU::TMR_Compute() {
+uint8_t IMUs::TMR_Compute() {
     Vector3D<float> BMI_acc = tmrComp.Vote(Raw_BMI.BMIA_d.accel_linear,
                                     Raw_BMI.BMIB_d.accel_linear,
                                     Raw_BMI.BMIC_d.accel_linear);
@@ -17,7 +17,7 @@ uint8_t IMU::TMR_Compute() {
     Quaternion_BMI.q = MATHEMATICS::Quaternion_Madgwick(&Quaternion_BMI, BMI_acc, BMI_angVel);
     Quaternion_ISM.q = MATHEMATICS::Quaternion_Madgwick(&Quaternion_ISM, Data_ISM.acceleration, Data_ISM.angular_velocity);
 }
-uint8_t IMU::Normal_Compute() {
+uint8_t IMUs::Normal_Compute() {
     BMI_Data Data = BMI323_A.getRawData();
     Quaternion_BMI.q = MATHEMATICS::Quaternion_Madgwick(&Quaternion_BMI, Data.accel_linear, Data.ang_vel);
     Quaternion_ISM.q = MATHEMATICS::Quaternion_Madgwick(&Quaternion_ISM, Data_ISM.acceleration, Data_ISM.angular_velocity);
@@ -26,11 +26,11 @@ uint8_t IMU::Normal_Compute() {
 //PUBLIC:
 
 // Also initialize quaternions for BMI and ISM imus.
-IMU::IMU(bool tmr_on) : Quaternion_BMI(), Quaternion_ISM() {
+IMUs::IMUs(bool tmr_on) : Quaternion_BMI(), Quaternion_ISM() {
     TMR_STATE = tmr_on;
 }
 
-IMUsStatus IMU::Init() {
+IMUsStatus IMUs::Init() {
     sensorStatus.A = BMI323_A.Init();
     sensorStatus.A = BMI323_B.Init();
     sensorStatus.A = BMI323_C.Init();
@@ -39,7 +39,7 @@ IMUsStatus IMU::Init() {
     return sensorStatus;
 }
 
-IMUsStatus IMU::Update() {
+IMUsStatus IMUs::Update() {
     if (BMI323_A.Update() != 0) sensorStatus.A = false;
     else {
         Raw_BMI.BMIA_d = BMI323_A.getRawData();
@@ -67,7 +67,7 @@ IMUsStatus IMU::Update() {
 }
 
 // Index 0-2 for sensors A, B, and C. Sensor A is always on.
-BMI_Data IMU::getRawBMI(uint8_t index) {
+BMI_Data IMUs::getRawBMI(uint8_t index) {
     switch (index) {
         case 0: return Raw_BMI.BMIA_d;
         case 1: return Raw_BMI.BMIB_d;
@@ -75,6 +75,6 @@ BMI_Data IMU::getRawBMI(uint8_t index) {
     }
 }
 
-ISM_Data IMU::getRawISM() {
+ISM_Data IMUs::getRawISM() {
     return Data_ISM;
 }

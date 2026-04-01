@@ -10,8 +10,6 @@
 #include "spi.h"
 #include "Math/Math.h"
 
-#define _spi &hspi4
-
 typedef enum {
     SENSOR1_I,
     SENSOR2_I,
@@ -23,6 +21,14 @@ struct BMI_Data
     Vector3D<float> accel_linear;
     Vector3D<float> ang_vel;
 };
+
+typedef struct {
+    uint8_t TXDat[512], RXDat[2048] = {0};
+    SPI_HandleTypeDef* SPIbus;
+    BMI_INDEX index;
+    GPIO_TypeDef* cs_port;
+    uint16_t cs_pin;
+} BMIobjPtr;
 
 class SIMU_BMI323
 {
@@ -36,14 +42,8 @@ private:
     bmi3_dev device;
     bool _sensor_active;
     BMI_INDEX InitDev;
-
     BMI_Data _raw;
-
-    static int8_t SPI_Read(uint8_t reg, uint8_t* data, uint32_t len, void *intf_ptr);
-    static int8_t SPI_Write(uint8_t reg, const uint8_t* data, uint32_t len, void *intf_ptr);
-    void CS_Select();
-    void CS_Deselect();
-    static void platform_Delay(uint32_t microseconds, void *intf_ptr);
+    BMIobjPtr _obj;
 };
 
 #endif //KINGFISHER_SW_SIMU_BMI323_H

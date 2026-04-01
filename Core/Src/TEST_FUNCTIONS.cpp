@@ -38,7 +38,7 @@ int TEST::SERVO_TEST() {
 }
 
 int TEST::IMU_TEST() {
-    IMU IMU_ENGINE(false);
+    IMUs IMU_ENGINE(false);
     HAL_GPIO_TogglePin(USR_LED_GPIO_Port, USR_LED_Pin);
     IMUsStatus sensorStatuses = IMU_ENGINE.Init();
 
@@ -51,7 +51,7 @@ int TEST::IMU_TEST() {
 
 int TEST::BMP_TEST()
 {
-    Barometer BMP(&hspi2, Barometer::SENSOR2_I);
+    Barometer BMP(&hspi2, Barometer::SENSOR1_I);
     BMP_Data data;
     uint8_t status = 0;
     uint8_t init = BMP.Init(); // TODO: investigate bad calibration data read

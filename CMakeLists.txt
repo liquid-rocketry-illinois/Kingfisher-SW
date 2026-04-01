@@ -54,7 +54,7 @@ add_executable(${CMAKE_PROJECT_NAME}
         Core/Inc/Math/TripleModRedundancy.h
         Core/Src/TripleModRedundancy.cpp
         Core/Inc/IMUs.h
-        Core/Src/IMU.cpp
+        Core/Src/IMUs.cpp
         Core/Inc/Ebyte_E22_900T22S.h
         Core/Inc/Ebyte_E22_900T22S_defs.h
         Core/Src/Ebyte_E22_900T22S.cpp
@@ -69,6 +69,8 @@ add_executable(${CMAKE_PROJECT_NAME}
         Core/Inc/LIS2MDL.h
         Core/Src/lis2mdl_reg.c
         Core/Src/LIS2MDL.cpp
+        Core/Inc/BMI323_Platform.h
+        Core/Src/BMI323_Platform.cpp
 )
 
 # Add STM32CubeMX generated sources
