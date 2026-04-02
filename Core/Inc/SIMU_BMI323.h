@@ -9,6 +9,7 @@
 #include "main.h"
 #include "spi.h"
 #include "Math/Math.h"
+#include "BMI323_Platform.h"
 
 typedef enum {
     SENSOR1_I,

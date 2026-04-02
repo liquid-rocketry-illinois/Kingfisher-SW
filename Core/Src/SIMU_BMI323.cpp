@@ -3,7 +3,6 @@
 //
 
 #include "SIMU_BMI323.h"
-#include "BMI323_Platform.h"
 
 extern SPI_HandleTypeDef hspi4;
 
