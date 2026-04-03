@@ -35,13 +35,9 @@
     </configurations>
   </component>
   <component name="ChangeListManager">
-    <list default="true" id="b71e0858-14db-4924-8f99-4a29e2cf87f5" name="Changes" comment="Revise GPIO pin defs in CubeMX">
-      <change afterPath="$PROJECT_DIR$/Core/Inc/MAXM10S.h" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/Core/Src/MAXM10S.cpp" afterDir="false" />
+    <list default="true" id="b71e0858-14db-4924-8f99-4a29e2cf87f5" name="Changes" comment="Added GPS code (not working so far)">
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/CMakeLists.txt" beforeDir="false" afterPath="$PROJECT_DIR$/CMakeLists.txt" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/Core/Inc/MAX-M10S.h" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/Core/Src/main.cpp" beforeDir="false" afterPath="$PROJECT_DIR$/Core/Src/main.cpp" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/Core/Src/MAXM10S.cpp" beforeDir="false" afterPath="$PROJECT_DIR$/Core/Src/MAXM10S.cpp" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -56,7 +52,7 @@
       <list>
         <option value="212" />
         <option value="92" />
-        <option value="1096" />
+        <option value="840" />
       </list>
     </option>
     <option name="columnOrder">
@@ -231,7 +227,8 @@
       <workItem from="1772575450504" duration="181000" />
       <workItem from="1772741710154" duration="5498000" />
       <workItem from="1775075623463" duration="5549000" />
-      <workItem from="1775175475260" duration="326000" />
+      <workItem from="1775175475260" duration="3255000" />
+      <workItem from="1775178800935" duration="6000" />
     </task>
     <task id="LOCAL-00001" summary="Write LED blink code">
       <option name="closed" value="true" />
@@ -297,7 +294,15 @@
       <option name="project" value="LOCAL" />
       <updated>1772142188249</updated>
     </task>
-    <option name="localTasksCounter" value="9" />
+    <task id="LOCAL-00009" summary="Added GPS code (not working so far)">
+      <option name="closed" value="true" />
+      <created>1775175825793</created>
+      <option name="number" value="00009" />
+      <option name="presentableId" value="LOCAL-00009" />
+      <option name="project" value="LOCAL" />
+      <updated>1775175825793</updated>
+    </task>
+    <option name="localTasksCounter" value="10" />
     <servers />
   </component>
   <component name="TypeScriptGeneratedFilesManager">
@@ -333,7 +338,8 @@
     <MESSAGE value="Remove unused UBLX folders, attempt rewriting CMakeLists portions to link everything." />
     <MESSAGE value="Reset GPS dev folder to construct custom library." />
     <MESSAGE value="Build servo test code with encoder read error." />
-    <option name="LAST_COMMIT_MESSAGE" value="Build servo test code with encoder read error." />
+    <MESSAGE value="Added GPS code (not working so far)" />
+    <option name="LAST_COMMIT_MESSAGE" value="Added GPS code (not working so far)" />
   </component>
   <component name="XDebuggerManager">
     <breakpoint-manager>
