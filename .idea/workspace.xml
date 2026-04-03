@@ -35,12 +35,7 @@
     </configurations>
   </component>
   <component name="ChangeListManager">
-    <list default="true" id="b71e0858-14db-4924-8f99-4a29e2cf87f5" name="Changes" comment="Added GPS code (not working so far)">
-      <change beforePath="$PROJECT_DIR$/.idea/editor.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/editor.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/Core/Src/MAXM10S.cpp" beforeDir="false" afterPath="$PROJECT_DIR$/Core/Src/MAXM10S.cpp" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/Core/Src/main.cpp" beforeDir="false" afterPath="$PROJECT_DIR$/Core/Src/main.cpp" afterDir="false" />
-    </list>
+    <list default="true" id="b71e0858-14db-4924-8f99-4a29e2cf87f5" name="Changes" comment="Working reading GPS functioning code" />
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
     <option name="HIGHLIGHT_NON_ACTIVE_CHANGELIST" value="false" />
@@ -340,7 +335,15 @@
       <option name="project" value="LOCAL" />
       <updated>1775175825793</updated>
     </task>
-    <option name="localTasksCounter" value="10" />
+    <task id="LOCAL-00010" summary="Working reading GPS functioning code">
+      <option name="closed" value="true" />
+      <created>1775184626636</created>
+      <option name="number" value="00010" />
+      <option name="presentableId" value="LOCAL-00010" />
+      <option name="project" value="LOCAL" />
+      <updated>1775184626636</updated>
+    </task>
+    <option name="localTasksCounter" value="11" />
     <servers />
   </component>
   <component name="TypeScriptGeneratedFilesManager">
@@ -377,7 +380,8 @@
     <MESSAGE value="Reset GPS dev folder to construct custom library." />
     <MESSAGE value="Build servo test code with encoder read error." />
     <MESSAGE value="Added GPS code (not working so far)" />
-    <option name="LAST_COMMIT_MESSAGE" value="Added GPS code (not working so far)" />
+    <MESSAGE value="Working reading GPS functioning code" />
+    <option name="LAST_COMMIT_MESSAGE" value="Working reading GPS functioning code" />
   </component>
   <component name="XDebuggerManager">
     <breakpoint-manager>
