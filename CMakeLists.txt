@@ -69,6 +69,8 @@ add_executable(${CMAKE_PROJECT_NAME}
         Core/Inc/LIS2MDL.h
         Core/Src/lis2mdl_reg.c
         Core/Src/LIS2MDL.cpp
+        Core/Src/MAXM10S.cpp
+        Core/Inc/MAXM10S.h
 )
 
 # Add STM32CubeMX generated sources
