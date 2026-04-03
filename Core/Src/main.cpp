@@ -9,6 +9,7 @@
 #include "timing.h"
 #include "MAXM10S.h"
 #include "i2c.h"
+#include "TinyGPSPlus.h"
 void buzzerTOGGLE() {}
 
 extern "C" void task(void*) {
@@ -16,6 +17,7 @@ extern "C" void task(void*) {
     MICROS_DWT_Timebase_Init(); // Initialize micros() timer
     TEST test;
     MAXM10S gps(&hi2c4);
+    TinyGPSPlus gpsParser;
     osDelay(1000);
     static uint8_t gpsBuffer[2048]; // Buffer to hold the incoming data
 
@@ -29,7 +31,16 @@ extern "C" void task(void*) {
             }
             if (gps.readGPS(bytesWaiting, gpsBuffer) > 0)
             {
-                int breakPoint = 0;
+                for (int i = 0; i < bytesWaiting; i++) {
+                    gpsParser.encode(gpsBuffer[i]);
+                    if (gpsParser.location.isUpdated() && gpsParser.location.isValid()) {
+                        double latitude = gpsParser.location.lat();
+                        double longitude = gpsParser.location.lng();
+
+                        double altitudeMeters = gpsParser.altitude.meters();
+                        uint32_t satellitesVisible = gpsParser.satellites.value();
+                    }
+                }
             }
         }
         // wont get past here for tests

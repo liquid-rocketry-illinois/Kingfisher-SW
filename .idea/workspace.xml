@@ -35,7 +35,15 @@
     </configurations>
   </component>
   <component name="ChangeListManager">
-    <list default="true" id="b71e0858-14db-4924-8f99-4a29e2cf87f5" name="Changes" comment="Working reading GPS functioning code" />
+    <list default="true" id="b71e0858-14db-4924-8f99-4a29e2cf87f5" name="Changes" comment="Testing GPS code rn">
+      <change afterPath="$PROJECT_DIR$/Core/Inc/TinyGPSPlus.h" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/Core/Src/TinyGPSPlus.cpp" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/.idea/Hal-1-SW.iml" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/.idea/editor.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/editor.xml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/CMakeLists.txt" beforeDir="false" afterPath="$PROJECT_DIR$/CMakeLists.txt" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/Core/Src/main.cpp" beforeDir="false" afterPath="$PROJECT_DIR$/Core/Src/main.cpp" afterDir="false" />
+    </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
     <option name="HIGHLIGHT_NON_ACTIVE_CHANGELIST" value="false" />
@@ -102,7 +110,7 @@
     <urls />
   </component>
   <component name="ProblemsViewState">
-    <option name="selectedTabId" value="ProjectErrors" />
+    <option name="selectedTabId" value="CurrentFile" />
   </component>
   <component name="ProjectApplicationVersion">
     <option name="ide" value="CLion" />
@@ -262,6 +270,7 @@
       <workItem from="1775075623463" duration="5549000" />
       <workItem from="1775175475260" duration="3255000" />
       <workItem from="1775178800935" duration="6000" />
+      <workItem from="1775185550465" duration="1058000" />
     </task>
     <task id="LOCAL-00001" summary="Write LED blink code">
       <option name="closed" value="true" />
@@ -395,11 +404,6 @@
           <url>file://$PROJECT_DIR$/Core/Inc/Math/Math.h</url>
           <line>6</line>
           <option name="timeStamp" value="23" />
-        </line-breakpoint>
-        <line-breakpoint enabled="true" type="com.jetbrains.cidr.execution.debugger.OCBreakpointType">
-          <url>file://$PROJECT_DIR$/Core/Src/main.cpp</url>
-          <line>31</line>
-          <option name="timeStamp" value="44" />
         </line-breakpoint>
       </breakpoints>
     </breakpoint-manager>
