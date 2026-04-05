@@ -17,49 +17,36 @@ struct ISM_Data {
     Vector3D<float> acceleration;
     Vector3D<float> accelerationHighG;
     Vector3D<float> angular_velocity;
+    float temperature_degC;
 };
 
 class IMU_ISM6HGx {
-    static ISM_Data data;
+    ISM_Data data;
 
-    static int16_t data_raw_motion[3];
-    static int16_t data_raw_temperature;
-    static float_t temperature_degC;
-    static uint8_t whoamI;
-    static uint8_t tx_buffer[1000];
-    static ism6hg256x_filt_settling_mask_t filt_settling_mask;
+    int16_t data_raw_motion[3];
+    int16_t data_raw_temperature;
+    float_t temperature_degC;
+    uint8_t whoamI;
+    uint8_t tx_buffer[1000];
+    ism6hg256x_filt_settling_mask_t filt_settling_mask;
 
-    static ism6hg256x_pin_int_route_hg_t pin_int;
-    static double_t lowg_xl_sum[3], hg_xl_sum[3], gyro_sum[3], temp_sum;
-    static float_t acceleration_mg[3], angular_rate_mdps[3]; // Arrays for output data.
-    static uint16_t lowg_xl_cnt, hg_xl_cnt, gyro_cnt, temp_cnt;
+    ism6hg256x_pin_int_route_hg_t pin_int;
+    double_t lowg_xl_sum[3], hg_xl_sum[3], gyro_sum[3], temp_sum;
+    float_t acceleration_mg[3], angular_rate_mdps[3]; // Arrays for output data.
+    uint16_t lowg_xl_cnt, hg_xl_cnt, gyro_cnt, temp_cnt;
 
-    static int32_t platform_write(  void *handle,
-                                    uint8_t reg,
-                                    const uint8_t *bufp,
-                                    uint16_t len);
-    static int32_t platform_read(   void *handle,
-                                    uint8_t reg,
-                                    uint8_t *bufp,
-                                    uint16_t len);
-    static void platform_delay(uint32_t ms);
-    static void platform_init();
-
-    static   stmdev_ctx_t dev_ctx;
-    static   uint8_t lg_xl_data_valid;
-    static   uint8_t hg_xl_data_valid;
-    static   uint8_t gyro_data_valid;
-    static   uint8_t temp_data_valid;
-    static   uint8_t thread_wake;
-
-    static void cs_low();
-    static void cs_high();
+  stmdev_ctx_t dev_ctx;
+  uint8_t lg_xl_data_valid;
+  uint8_t hg_xl_data_valid;
+  uint8_t gyro_data_valid;
+  uint8_t temp_data_valid;
+  static volatile uint8_t thread_wake;
 
 public:
     IMU_ISM6HGx();
     static void ism6hg256x_read_data_drdy_handler();
-    static int Init();
-    static void Update();
+    int8_t Init();
+    int8_t Update();
     ISM_Data GetData();
 };
 

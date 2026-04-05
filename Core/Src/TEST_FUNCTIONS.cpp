@@ -45,7 +45,7 @@ int TEST::IMU_TEST() {
     while (1) {
         HAL_GPIO_TogglePin(USR_LED_GPIO_Port, USR_LED_Pin);
         sensorStatuses = IMU_ENGINE.Update();
-        vTaskDelay(100);
+        vTaskDelay(1);
     }
 }
 

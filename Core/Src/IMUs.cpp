@@ -31,36 +31,40 @@ IMUs::IMUs(bool tmr_on) : Quaternion_BMI(), Quaternion_ISM() {
 }
 
 IMUsStatus IMUs::Init() {
-    sensorStatus.A = BMI323_A.Init();
-    sensorStatus.A = BMI323_B.Init();
-    sensorStatus.A = BMI323_C.Init();
-    sensorStatus.A = ISM6HGx.Init();
+    sensorStatus.A = BMI323_A.Init(SENSOR1_I);
+    if (TMR_STATE) {
+        sensorStatus.B = BMI323_B.Init(SENSOR2_I);
+        sensorStatus.C = BMI323_C.Init(SENSOR3_I);
+    }
+
+    sensorStatus.ISM = ISM6HGx.Init();
 
     return sensorStatus;
 }
 
 IMUsStatus IMUs::Update() {
-    if (BMI323_A.Update() != 0) sensorStatus.A = false;
+    if (BMI323_A.Update() != 0) sensorStatus.A = 1;
     else {
         Raw_BMI.BMIA_d = BMI323_A.getRawData();
-        sensorStatus.A = true;
+        sensorStatus.A = 0;
     }
 
     if (TMR_STATE) {
-        if (BMI323_B.Update() != 0) sensorStatus.B = false;
+        if (BMI323_B.Update() != 0) sensorStatus.B = 1;
         else {
             Raw_BMI.BMIB_d = BMI323_B.getRawData();
-            sensorStatus.B = true;
+            sensorStatus.B = 0;
         }
 
 
-        if (BMI323_C.Update() != 0) sensorStatus.C = false;
+        if (BMI323_C.Update() != 0) sensorStatus.C = 1;
         else {
             Raw_BMI.BMIC_d = BMI323_C.getRawData();
-            sensorStatus.C = true;
+            sensorStatus.C = 0;
         }
     }
-    ISM6HGx.Update(); // Doesn't return status
+
+    sensorStatus.ISM = ISM6HGx.Update();
     Data_ISM = ISM6HGx.GetData();
 
     return sensorStatus;

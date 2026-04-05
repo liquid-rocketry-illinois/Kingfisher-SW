@@ -71,6 +71,8 @@ add_executable(${CMAKE_PROJECT_NAME}
         Core/Src/LIS2MDL.cpp
         Core/Inc/BMI323_Platform.h
         Core/Src/BMI323_Platform.cpp
+        Core/Src/ISM6_Platform.cpp
+        Core/Inc/ISM6_Platform.h
 )
 
 # Add STM32CubeMX generated sources

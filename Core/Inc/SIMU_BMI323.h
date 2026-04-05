@@ -24,7 +24,6 @@ struct BMI_Data
 };
 
 typedef struct {
-    uint8_t TXDat[512], RXDat[2048] = {0};
     SPI_HandleTypeDef* SPIbus;
     BMI_INDEX index;
     GPIO_TypeDef* cs_port;
@@ -34,8 +33,8 @@ typedef struct {
 class SIMU_BMI323
 {
 public:
-    SIMU_BMI323(BMI_INDEX DeviceNum);
-    int Init();
+    SIMU_BMI323();
+    int Init(BMI_INDEX DeviceNum);
     int Update();
     BMI_Data getRawData();
 
@@ -45,6 +44,26 @@ private:
     BMI_INDEX InitDev;
     BMI_Data _raw;
     BMIobjPtr _obj;
+
+    bmi3_sens_config config[2];
+    bmi3_map_int map_int = {0};
+
+    /*! @brief Converts raw sensor values(LSB) to G value
+ *
+ *  @param[in] val        : Raw sensor value.
+ *  @param[in] g_range    : Accel Range selected (4G).
+ *  @param[in] bit_width  : Resolution of the sensor.
+ *
+ *  @return Accel values in Gravity(G)
+ *
+ */
+    static float lsb_to_g(int16_t val, float g_range, uint8_t bit_width);
+
+    /*!
+     * @brief This function converts lsb to degree per second for 16 bit gyro at
+     * range 125, 250, 500, 1000 or 2000dps.
+     */
+    static float lsb_to_dps(int16_t val, float dps, uint8_t bit_width);
 };
 
 #endif //KINGFISHER_SW_SIMU_BMI323_H
