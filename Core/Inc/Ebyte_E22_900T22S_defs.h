@@ -70,7 +70,7 @@ typedef enum
 
 typedef enum
 {
-    E22_AIR_RATE_2_4K   = 0b000,  // 2.4 kbps
+    E22_AIR_RATE_2_4K   = 0b010,  // 2.4 kbps
     E22_AIR_RATE_4_8K   = 0b011,  // 4.8 kbps
     E22_AIR_RATE_9_6K   = 0b100,  // 9.6 kbps
     E22_AIR_RATE_19_2K  = 0b101,   // 19.2 kbps

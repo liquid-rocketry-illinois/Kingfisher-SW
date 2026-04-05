@@ -79,7 +79,7 @@ void MX_GPIO_Init(void)
   /*Configure GPIO pin : RADIO_AUX_Pin */
   GPIO_InitStruct.Pin = RADIO_AUX_Pin;
   GPIO_InitStruct.Mode = GPIO_MODE_INPUT;
-  GPIO_InitStruct.Pull = GPIO_NOPULL;
+  GPIO_InitStruct.Pull = GPIO_PULLUP;
   HAL_GPIO_Init(RADIO_AUX_GPIO_Port, &GPIO_InitStruct);
 
   /*Configure GPIO pin : SD_DET_Pin */

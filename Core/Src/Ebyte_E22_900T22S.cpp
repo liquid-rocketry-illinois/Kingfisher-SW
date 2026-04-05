@@ -115,13 +115,16 @@ int8_t init_e22_900t22s(config_e22_900t22s *cfg)
     if (e22_mutex == NULL)
         return E22_ERR_BUSY;
 
+    // Pretty sure it's supposed to be active-low, so this should turn the module on.
+    HAL_GPIO_WritePin(RADIO_RST_GPIO_Port, RADIO_RST_Pin, GPIO_PIN_SET);
+
     /* ensure radio is ready */
     if (waitAux_e22_900t22s(5000) != E22_OK)
         return E22_ERR_TIMEOUT;
 
     /* switch to configuration mode */
     changeMode(CONFIG);
-
+    // for safety
     if (waitAux_e22_900t22s(1000) != E22_OK)
         return E22_ERR_TIMEOUT;
 
@@ -176,7 +179,7 @@ static int8_t uartWrite(uint8_t *data, uint16_t len)
         &huart8,// e22_cfg.huart,
         data,
         len,
-        100) != HAL_OK)
+        5000) != HAL_OK)
         return E22_ERR_UART;
 
     return E22_OK;
@@ -202,26 +205,28 @@ int8_t writeConfig_e22_900t22s(
     const config_e22_900t22s *cfg,
     bool save_to_flash)
 {
-    uint8_t frame[6];
+    uint8_t frame[9]; // Overcompensate? maybe set to 32 or 64
 
     // Head command byte
     frame[0] = save_to_flash ?
         COMMAND_BYTE_WRITE_CFG_SAVE_FLASH :
         COMMAND_BYTE_WRITE_CFG_NOSAVE_FLASH;
-
+    frame[1] = 0x00;
+    frame[2] = 0x06;
     // REG3 is for more advanced functions and is not included
-    frame[1] = cfg->ADDH;
-    frame[2] = cfg->ADDL;
-    frame[3] = cfg->REG0; // odd ordering specified in datasheet. cfg expects this
-    frame[4] = cfg->REG2;
-    frame[5] = cfg->REG1;
+    frame[3] = cfg->ADDH;
+    frame[4] = cfg->ADDL;
+    frame[5] = cfg->NETID;
+    frame[6] = cfg->REG0;
+    frame[7] = cfg->REG1;
+    frame[8] = cfg->REG2;
 
     xSemaphoreTake(e22_mutex, portMAX_DELAY);
 
     changeMode(CONFIG);
 
     // Construct and write config commands
-    int8_t status = uartWrite(frame, 6);
+    int8_t status = uartWrite(frame, 10);
     if(status != E22_OK)
     {
         xSemaphoreGive(e22_mutex);
@@ -243,17 +248,20 @@ int8_t readConfig_e22_900t22s(config_e22_900t22s *cfg)
 {
     uint8_t cmd[3];
     cmd[0] = COMMAND_BYTE_READ_CFG;
-    cmd[1] = 0x00; // Start from REG0
+    cmd[1] = 0x00; // Start from ADDH
     cmd[2] = 0x06; // Read all necessary registers
     uint8_t resp[9];
+    // resp: {c1, 00, 06, addh, addl, netid, reg0, reg1, reg2}
 
     xSemaphoreTake(e22_mutex, portMAX_DELAY);
 
     changeMode(CONFIG);
 
-    uartWrite(cmd,sizeof(cmd));
-    waitAux_e22_900t22s(10000);
-    if(uartRead(resp,9) != E22_OK)
+    waitAux_e22_900t22s(1000);
+    uartWrite(cmd,3);
+
+    waitAux_e22_900t22s(1000);
+    if(uartRead(resp,12) != E22_OK)
     {
         xSemaphoreGive(e22_mutex);
         return E22_ERR_UART;
@@ -262,8 +270,8 @@ int8_t readConfig_e22_900t22s(config_e22_900t22s *cfg)
     changeMode(TRANS);
 
     // first three values are just repetition of sent data
-    if (resp[0] != cmd[0] &&
-        resp[1] != cmd[1] &&
+    if (resp[0] != cmd[0] ||
+        resp[1] != cmd[1] ||
         resp[2] != cmd[2])
         static int8_t E22_INIT_WARNING = E22_ERR_DATA_VERIFICATION; // sohws up in debugger if flagged
 
@@ -271,8 +279,8 @@ int8_t readConfig_e22_900t22s(config_e22_900t22s *cfg)
     cfg->ADDL   = resp[4];
     cfg->NETID  = resp[5];
     cfg->REG0   = resp[6];
-    cfg->REG2   = resp[7];
-    cfg->REG1   = resp[8];
+    cfg->REG1   = resp[7];
+    cfg->REG2   = resp[8];
 
     xSemaphoreGive(e22_mutex);
 

@@ -18,7 +18,7 @@ extern "C" void task(void*) {
     /* Infinite loop */
     for(;;)
     {
-        test.IMU_TEST();
+        test.RADIO_TEST();
         // wont get past here for tests
         osDelay(1);
     }
