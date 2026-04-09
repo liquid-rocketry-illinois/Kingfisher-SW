@@ -73,28 +73,28 @@ static volatile DSTATUS Stat = STA_NOINIT;
 /* USER CODE END DECL */
 
 /* Private function prototypes -----------------------------------------------*/
-DSTATUS USER_initialize (BYTE pdrv);
-DSTATUS USER_status (BYTE pdrv);
-DRESULT USER_read (BYTE pdrv, BYTE *buff, DWORD sector, UINT count);
-#if _USE_WRITE == 1
-  DRESULT USER_write (BYTE pdrv, const BYTE *buff, DWORD sector, UINT count);
-#endif /* _USE_WRITE == 1 */
-#if _USE_IOCTL == 1
-  DRESULT USER_ioctl (BYTE pdrv, BYTE cmd, void *buff);
-#endif /* _USE_IOCTL == 1 */
-
-Diskio_drvTypeDef  USER_Driver =
-{
-  USER_initialize,
-  USER_status,
-  USER_read,
-#if  _USE_WRITE
-  USER_write,
-#endif  /* _USE_WRITE == 1 */
-#if  _USE_IOCTL == 1
-  USER_ioctl,
-#endif /* _USE_IOCTL == 1 */
-};
+// DSTATUS USER_initialize (BYTE pdrv);
+// DSTATUS USER_status (BYTE pdrv);
+// DRESULT USER_read (BYTE pdrv, BYTE *buff, DWORD sector, UINT count);
+// #if _USE_WRITE == 1
+//   DRESULT USER_write (BYTE pdrv, const BYTE *buff, DWORD sector, UINT count);
+// #endif /* _USE_WRITE == 1 */
+// #if _USE_IOCTL == 1
+//   DRESULT USER_ioctl (BYTE pdrv, BYTE cmd, void *buff);
+// #endif /* _USE_IOCTL == 1 */
+//
+// Diskio_drvTypeDef  USER_Driver =
+// {
+//   USER_initialize,
+//   USER_status,
+//   USER_read,
+// #if  _USE_WRITE
+//   USER_write,
+// #endif  /* _USE_WRITE == 1 */
+// #if  _USE_IOCTL == 1
+//   USER_ioctl,
+// #endif /* _USE_IOCTL == 1 */
+// };
 
 /* Private functions ---------------------------------------------------------*/
 

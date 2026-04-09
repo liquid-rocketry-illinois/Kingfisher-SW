@@ -14,6 +14,7 @@ public:
     TEST();
     int SERVO_TEST();
     int IMU_TEST();
+    static void SD_TEST();
 };
 
 #endif //HAL_1_SW_TEST_FUNCTIONS_H

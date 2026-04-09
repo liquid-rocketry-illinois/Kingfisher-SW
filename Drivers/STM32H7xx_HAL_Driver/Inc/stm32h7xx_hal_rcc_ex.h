@@ -18,7 +18,6 @@
 /* Define to prevent recursive inclusion -------------------------------------*/
 #ifndef STM32H7xx_HAL_RCC_EX_H
 #define STM32H7xx_HAL_RCC_EX_H
-#include "user_diskio_spi.h"
 
 #ifdef __cplusplus
 extern "C" {
