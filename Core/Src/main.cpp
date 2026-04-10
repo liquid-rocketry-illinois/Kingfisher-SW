@@ -33,7 +33,7 @@ extern "C" void task(void*) {
             {
                 for (int i = 0; i < bytesWaiting; i++) {
 
-                    if (gpsBuffer[i] != 0xFF) {
+                    if (gpsBuffer[i] != 0xFF && gpsBuffer[i] != 0x00) { //if error check this (0x00)
                         gpsParser.encode(gpsBuffer[i]);
                     }
                     currentFlight.islocated=gpsParser.location.isValid();
