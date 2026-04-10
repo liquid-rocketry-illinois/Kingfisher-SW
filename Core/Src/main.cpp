@@ -33,12 +33,15 @@ extern "C" void task(void*) {
             {
                 for (int i = 0; i < bytesWaiting; i++) {
                     gpsParser.encode(gpsBuffer[i]);
-                    if (gpsParser.location.isUpdated() && gpsParser.location.isValid()) {
+
+                    if (gpsParser.location.isUpdated() && gpsParser.location.isValid())
+                    {
                         double latitude = gpsParser.location.lat();
                         double longitude = gpsParser.location.lng();
-
+                    }
+                    if (gpsParser.altitude.isUpdated() && gpsParser.altitude.isValid())
+                    {
                         double altitudeMeters = gpsParser.altitude.meters();
-                        uint32_t satellitesVisible = gpsParser.satellites.value();
                     }
                 }
             }
