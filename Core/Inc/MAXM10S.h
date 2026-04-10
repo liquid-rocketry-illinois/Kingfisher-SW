@@ -22,5 +22,12 @@ private:
     static const uint16_t REG_DATA_STREAM = 0xFF;
 };
 
-
+struct RocketData
+{
+    double latitude=0.0;
+    double longitude=0.0;
+    double altitude=0.0;
+    bool islocated=false;
+    bool isaltituded=false;
+};
 #endif //KINGFISHER_SW_MAXM10S_H

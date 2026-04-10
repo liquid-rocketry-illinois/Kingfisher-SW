@@ -35,9 +35,9 @@
     </configurations>
   </component>
   <component name="ChangeListManager">
-    <list default="true" id="b71e0858-14db-4924-8f99-4a29e2cf87f5" name="Changes" comment="Testing GPS code rn">
-      <change beforePath="$PROJECT_DIR$/.idea/editor.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/editor.xml" afterDir="false" />
+    <list default="true" id="b71e0858-14db-4924-8f99-4a29e2cf87f5" name="Changes" comment="GPS works tested outside on thursday, latitude, longitude works, altitude needs further testing">
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/Core/Inc/MAXM10S.h" beforeDir="false" afterPath="$PROJECT_DIR$/Core/Inc/MAXM10S.h" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/Core/Src/main.cpp" beforeDir="false" afterPath="$PROJECT_DIR$/Core/Src/main.cpp" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
@@ -312,7 +312,15 @@
       <option name="project" value="LOCAL" />
       <updated>1775184626636</updated>
     </task>
-    <option name="localTasksCounter" value="11" />
+    <task id="LOCAL-00011" summary="GPS works tested outside on thursday, latitude, longitude works, altitude needs further testing">
+      <option name="closed" value="true" />
+      <created>1775786219261</created>
+      <option name="number" value="00011" />
+      <option name="presentableId" value="LOCAL-00011" />
+      <option name="project" value="LOCAL" />
+      <updated>1775786219261</updated>
+    </task>
+    <option name="localTasksCounter" value="12" />
     <servers />
   </component>
   <component name="TypeScriptGeneratedFilesManager">
@@ -350,7 +358,8 @@
     <MESSAGE value="Build servo test code with encoder read error." />
     <MESSAGE value="Added GPS code (not working so far)" />
     <MESSAGE value="Working reading GPS functioning code" />
-    <option name="LAST_COMMIT_MESSAGE" value="Working reading GPS functioning code" />
+    <MESSAGE value="GPS works tested outside on thursday, latitude, longitude works, altitude needs further testing" />
+    <option name="LAST_COMMIT_MESSAGE" value="GPS works tested outside on thursday, latitude, longitude works, altitude needs further testing" />
   </component>
   <component name="XDebuggerManager">
     <breakpoint-manager>

@@ -11,7 +11,7 @@
 #include "i2c.h"
 #include "TinyGPSPlus.h"
 void buzzerTOGGLE() {}
-
+RocketData currentFlight;
 extern "C" void task(void*) {
     /* USER CODE BEGIN StartDefaultTask */
     MICROS_DWT_Timebase_Init(); // Initialize micros() timer
@@ -32,16 +32,21 @@ extern "C" void task(void*) {
             if (gps.readGPS(bytesWaiting, gpsBuffer) > 0)
             {
                 for (int i = 0; i < bytesWaiting; i++) {
-                    gpsParser.encode(gpsBuffer[i]);
 
-                    if (gpsParser.location.isUpdated() && gpsParser.location.isValid())
-                    {
-                        double latitude = gpsParser.location.lat();
-                        double longitude = gpsParser.location.lng();
+                    if (gpsBuffer[i] != 0xFF) {
+                        gpsParser.encode(gpsBuffer[i]);
                     }
-                    if (gpsParser.altitude.isUpdated() && gpsParser.altitude.isValid())
+                    currentFlight.islocated=gpsParser.location.isValid();
+                    currentFlight.isaltituded=gpsParser.altitude.isValid();
+                    if (gpsParser.location.isUpdated() && currentFlight.islocated)
                     {
-                        double altitudeMeters = gpsParser.altitude.meters();
+                        currentFlight.latitude = gpsParser.location.lat();
+                        currentFlight.longitude = gpsParser.location.lng();
+
+                    }
+                    if (gpsParser.altitude.isUpdated() && currentFlight.isaltituded)
+                    {
+                        currentFlight.altitude = gpsParser.altitude.meters();
                     }
                 }
             }
