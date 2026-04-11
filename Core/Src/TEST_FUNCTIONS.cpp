@@ -96,3 +96,20 @@ int TEST::RADIO_TEST() {
     }
 }
 
+int TEST::PYRO_TEST()
+{
+
+    vTaskDelay(pdMS_TO_TICKS(1000));
+
+    HAL_GPIO_WritePin(DROUGE_MAIN_GPIO_Port, DROUGE_MAIN_Pin, GPIO_PIN_SET);
+    HAL_GPIO_TogglePin(USR_LED_GPIO_Port, USR_LED_Pin);
+    vTaskDelay(pdMS_TO_TICKS(5000));
+    HAL_GPIO_WritePin(DROUGE_MAIN_GPIO_Port, DROUGE_MAIN_Pin, GPIO_PIN_RESET);
+
+    while (1) {
+        HAL_GPIO_TogglePin(USR_LED_GPIO_Port, USR_LED_Pin);
+        vTaskDelay(pdMS_TO_TICKS(100));
+    }
+
+}
+
