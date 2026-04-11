@@ -20,19 +20,18 @@ int TEST::SERVO_TEST() {
     // Track status of servos
     static int status = 0;
     if (status == 0 && initState) {
-        servoSet.Update(90, -90);
-        vTaskDelay(10);
+        while (1) {
+            for (int8_t i = 0; i < 90; i++) {
+                servoSet.Update(i*0.5F, i*0.5F);
+                vTaskDelay(2);
+            }
+            for (int8_t i = 90; i > -90; i--) {
+                servoSet.Update(i*0.5F, i*0.5F);
+                vTaskDelay(2);
+            }
+            vTaskDelay(1000);
+        }
     }
-    // Error - Not initialized within tolerance.
-    else if (!initState) {
-        // Attempt init again
-        initState = servoSet.Init({0,0}, PRECISION::TENTH_DEGREE, true);
-        vTaskDelay(500);
-        return -2;
-    }
-    // Something else went wrong (This should never really happen
-    // but it is there cause muscle memory)
-    else return -1;
 
     return status;
 }
