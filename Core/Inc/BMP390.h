@@ -8,6 +8,9 @@
 #include "BMP3xx_platform.h"
 #include "bmp3.h"
 
+/* Sea level reference pressure for altitude calculation */
+#define SEA_LEVEL_PRESSURE 101325.0f
+
 typedef struct
 {
     float heightMeters = 0.0F;

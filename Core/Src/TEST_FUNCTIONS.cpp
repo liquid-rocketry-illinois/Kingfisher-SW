@@ -38,7 +38,7 @@ int TEST::SERVO_TEST() {
 }
 
 int TEST::IMU_TEST() {
-    IMUs IMU_ENGINE(false);
+    IMUs IMU_ENGINE(true);
     HAL_GPIO_TogglePin(USR_LED_GPIO_Port, USR_LED_Pin);
     IMUsStatus sensorStatuses = IMU_ENGINE.Init();
 
@@ -49,17 +49,15 @@ int TEST::IMU_TEST() {
     }
 }
 
-int TEST::BMP_TEST()
+int TEST::BARO_TEST()
 {
-    Barometer BMP(&hspi2, Barometer::SENSOR1_I);
-    BMP_Data data;
-    uint8_t status = 0;
-    uint8_t init = BMP.Init(); // TODO: investigate bad calibration data read
+    Baro_Unified BaroEngine;
+    auto init = BaroEngine.Init(true);
 
     while (1)
     {
-        status = BMP.Update();
-        data = BMP.getRawData();
+        auto status = BaroEngine.Update();
+        auto data = BaroEngine.getData();
         HAL_GPIO_TogglePin(USR_LED_GPIO_Port, USR_LED_Pin);
         //vTaskDelay(100); TODO: vTaskDelay causing hard fault- memory bad? overflow? div by 0?
         HAL_Delay(100);

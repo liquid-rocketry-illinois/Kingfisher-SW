@@ -31,7 +31,7 @@ const void BMP_CS_Deselect(bmp3_spi_intf* intf_ptr) {
  * SPI read
  * Bosch SPI protocol:
  * bit7 = 1 for read
- */ // TODO: make read and write discoverable within bmp390 class init()
+ */
 int8_t BMP_SPI_Read(uint8_t reg, uint8_t* data, uint32_t len, void *ptr)
 {
     auto *intf_ptr = static_cast<bmp3_spi_intf*>(ptr);

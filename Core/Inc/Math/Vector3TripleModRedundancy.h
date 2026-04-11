@@ -7,18 +7,13 @@
 
 #include "Vector3D.h"
 
-class TMR
-{
-public:
-
+typedef struct {
     static Vector3D<float> Vote(const Vector3D<float>& v1,
                             const Vector3D<float>& v2,
                             const Vector3D<float>& v3);
-
 private:
-
     static float distance(const Vector3D<float>& a, const Vector3D<float>& b);
     static Vector3D<float> average(const Vector3D<float>& a, const Vector3D<float>& b);
-};
+} TMR;
 
 #endif //KINGFISHER_SW_TRIPLEMODREDUNDANCY_H

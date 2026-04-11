@@ -8,7 +8,7 @@
 #include <stdint.h>
 #include "Servo_Axon_Mini_MKII.h"
 #include "IMUs.h"
-#include "BMP390.h"
+#include "Barometer.h"
 #include "LIS2MDL.h"
 #include "Telemetry.h"
 
@@ -17,7 +17,7 @@ public:
     TEST();
     int SERVO_TEST();
     int IMU_TEST();
-    int BMP_TEST();
+    int BARO_TEST();
     int LIS2_TEST();
     int RADIO_TEST();
     int PYRO_TEST();

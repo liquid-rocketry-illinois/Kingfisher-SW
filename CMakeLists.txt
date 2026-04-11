@@ -51,8 +51,8 @@ add_executable(${CMAKE_PROJECT_NAME}
         Core/Inc/SIMU_BMI323.h
         Core/Inc/SIMU_BMI323.h
         Core/Src/SIMU_BMI323.cpp
-        Core/Inc/Math/TripleModRedundancy.h
-        Core/Src/TripleModRedundancy.cpp
+        Core/Inc/Math/Vector3TripleModRedundancy.h
+        Core/Src/Vector3TripleModRedundancy.cpp
         Core/Inc/IMUs.h
         Core/Src/IMUs.cpp
         Core/Inc/Ebyte_E22_900T22S.h
@@ -73,6 +73,10 @@ add_executable(${CMAKE_PROJECT_NAME}
         Core/Src/BMI323_Platform.cpp
         Core/Src/ISM6_Platform.cpp
         Core/Inc/ISM6_Platform.h
+        Core/Inc/Barometer.h
+        Core/Src/Barometer.cpp
+        Core/Inc/Math/FloatTripleModRedundancy.h
+        Core/Src/FloatTripleModRedundancy.cpp
 )
 
 # Add STM32CubeMX generated sources

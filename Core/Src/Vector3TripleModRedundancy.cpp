@@ -2,11 +2,11 @@
 // Created by dyrel on 3/5/2026.
 //
 
-#include "Math/TripleModRedundancy.h"
+#include "Math/Vector3TripleModRedundancy.h"
 
 Vector3D<float> TMR::Vote(const Vector3D<float>& v1,
-                           const Vector3D<float>& v2,
-                           const Vector3D<float>& v3)
+                          const Vector3D<float>& v2,
+                          const Vector3D<float>& v3)
 {
     float d12 = distance(v1, v2);
     float d13 = distance(v1, v3);

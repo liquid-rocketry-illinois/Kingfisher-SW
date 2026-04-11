@@ -12,9 +12,6 @@
 #include "task.h"
 #include "Math/Math.h"
 
-/* Sea level reference pressure for altitude calculation */
-static constexpr float SEA_LEVEL_PRESSURE = 101325.0f;
-
 /* -------------------------------------------------------------------------- */
 /* Constructor                                                                */
 /* -------------------------------------------------------------------------- */

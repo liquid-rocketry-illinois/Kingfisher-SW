@@ -19,6 +19,7 @@ extern "C" void task(void*) {
     for(;;)
     {
         //final loop goes here!!
+        test.BARO_TEST();
     }
     /* USER CODE END StartDefaultTask */
 }

@@ -7,7 +7,7 @@
 
 #include "SIMU_BMI323.h"
 #include "IMU_ISM6HGx.h"
-#include "Math/TripleModRedundancy.h"
+#include "Math/Vector3TripleModRedundancy.h"
 
 struct IMUsStatus {
     int8_t A = 0;
