@@ -66,7 +66,7 @@ void MX_ADC3_Init(void)
   */
   sConfig.Channel = ADC_CHANNEL_0;
   sConfig.Rank = ADC_REGULAR_RANK_1;
-  sConfig.SamplingTime = ADC_SAMPLETIME_1CYCLE_5;
+  sConfig.SamplingTime = ADC_SAMPLETIME_810CYCLES_5;
   sConfig.SingleDiff = ADC_SINGLE_ENDED;
   sConfig.OffsetNumber = ADC_OFFSET_NONE;
   sConfig.Offset = 0;
@@ -106,18 +106,11 @@ void HAL_ADC_MspInit(ADC_HandleTypeDef* adcHandle)
     PC2_C     ------> ADC3_INP0
     PC3_C     ------> ADC3_INP1
     */
+    HAL_SYSCFG_AnalogSwitchConfig(SYSCFG_SWITCH_PC2, SYSCFG_SWITCH_PC2_OPEN);
 
+    HAL_SYSCFG_AnalogSwitchConfig(SYSCFG_SWITCH_PC3, SYSCFG_SWITCH_PC3_OPEN);
 
   /* USER CODE BEGIN ADC3_MspInit 1 */
-    HAL_SYSCFG_AnalogSwitchConfig(SYSCFG_SWITCH_PC2, SYSCFG_SWITCH_PC2_CLOSE);
-    HAL_SYSCFG_AnalogSwitchConfig(SYSCFG_SWITCH_PC3, SYSCFG_SWITCH_PC3_CLOSE);
-
-    // Read back the SYSCFG register directly to verify
-    uint32_t pmcr = SYSCFG->PMCR;
-    // Bit 2 = PC2 switch, Bit 3 = PC3 switch
-    // If CLOSE, bits should be 0. If OPEN, bits should be 1.
-    volatile uint32_t pc2_switch = (pmcr >> 2) & 0x1;
-    volatile uint32_t pc3_switch = (pmcr >> 3) & 0x1;
 
   /* USER CODE END ADC3_MspInit 1 */
   }

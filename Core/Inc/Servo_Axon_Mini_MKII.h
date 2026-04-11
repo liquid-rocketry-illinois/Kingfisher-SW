@@ -13,6 +13,10 @@
  */
 
 #include <stdint.h>
+#include "FreeRTOS.h"
+#include "task.h"
+#include "portmacro.h"
+#include "projdefs.h"
 
 enum PRECISION {
     ONE_DEGREE,
@@ -33,6 +37,7 @@ struct DATA_Axon_Mini_MKII{
     SAsym<float> trackedError;
     SAsym<float> trackedAngle;
     SAsym<bool> Nominal = {false, false};
+    SAsym<float> smoothedCorrection = {0.0f, 0.0f};
 };
 
 struct CFG_Axon_Mini_MKII{

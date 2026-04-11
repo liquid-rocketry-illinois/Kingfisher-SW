@@ -24,12 +24,40 @@ SAsym<float> Servo_Axon_Mini_MKII::readCurrentAngle() {
     // Current angle is derived from the voltage reading from
     // the servo pin. 0 is 0deg, 1.65V is 180deg, 3.3V is 360deg.
 
-    uint32_t raw1 = Servo_ADC_ENC_Data[0];
-    uint32_t raw2 = Servo_ADC_ENC_Data[1];
+    // Configure channel with raw1 channel
+    ADC_ChannelConfTypeDef sConfig = {0};
+    sConfig.Channel = ADC_CHANNEL_0;
+    sConfig.Rank = ADC_REGULAR_RANK_1;
+    sConfig.SamplingTime = ADC_SAMPLETIME_810CYCLES_5;
+    sConfig.SingleDiff = ADC_SINGLE_ENDED;
+    sConfig.OffsetNumber = ADC_OFFSET_NONE;
+    sConfig.Offset = 0;
+    sConfig.OffsetSignedSaturation = DISABLE;
+    if (HAL_ADC_ConfigChannel(&hadc3, &sConfig) != HAL_OK)
+    {
+        return {};
+    }
+    /* Convert raw1 */
+    HAL_ADC_Start(&hadc3);
+    HAL_ADC_PollForConversion(&hadc3, 100);
+    uint32_t raw1 = HAL_ADC_GetValue(&hadc3);
+    HAL_ADC_Stop(&hadc3);
 
-    // Convert 12-bit ADC to voltage
-    float reading1 = (3.3f * raw1) / 65536.0f; // read voltage from SERVO1_ENC_Pin / SERVO1_ENC_GPIO
-    float reading2 = (3.3f * raw2) / 65536.0f; // vice versa
+    // Swap to raw2 channel
+    sConfig.Channel = ADC_CHANNEL_1;
+    if (HAL_ADC_ConfigChannel(&hadc3, &sConfig) != HAL_OK)
+    {
+        return {};
+    }
+    /* Convert raw1 */
+    HAL_ADC_Start(&hadc3);
+    HAL_ADC_PollForConversion(&hadc3, 100);
+    uint32_t raw2 = HAL_ADC_GetValue(&hadc3);
+    HAL_ADC_Stop(&hadc3);
+
+    // Convert 16-bit ADC to voltage
+    float reading1 = (3.3f * raw1) / 65535.0f; // read voltage from SERVO1_ENC_Pin / SERVO1_ENC_GPIO
+    float reading2 = (3.3f * raw2) / 65535.0f; // vice versa
 
     // Linearly map readings to between 0 and 360 degree angles
     SAsym<float> output = {
@@ -47,13 +75,15 @@ SAsym<float> Servo_Axon_Mini_MKII::readCurrentAngle() {
  * @return calculated error, as a scalar
  */
 SAsym<float> Servo_Axon_Mini_MKII::calculateError() {
-    // Expected angle is data.trackedAngle - We compare this
-    // value to readCurrentAngle().
     SAsym<float> value = readCurrentAngle();
 
+    // Guard against divide by zero when trackedAngle is near 0
+    float denom1 = fabsf(data.trackedAngle.S1) > 0.001f ? fabsf(data.trackedAngle.S1) : 1.0f;
+    float denom2 = fabsf(data.trackedAngle.S2) > 0.001f ? fabsf(data.trackedAngle.S2) : 1.0f;
+
     SAsym<float> output = {
-        (value.S1 - data.trackedAngle.S1) / data.trackedAngle.S1,
-        (value.S2 - data.trackedAngle.S2) / data.trackedAngle.S2
+        (value.S1 - data.trackedAngle.S1) / denom1,
+        (value.S2 - data.trackedAngle.S2) / denom2
     };
     return output;
 }
@@ -62,19 +92,14 @@ SAsym<float> Servo_Axon_Mini_MKII::calculateError() {
  *  Actuate servos to the specified positional input.
  */
 void Servo_Axon_Mini_MKII::Actuate(SAsym<float> input) {
-    // Calculate the required number of increments for CCR1 and CCR2.
-    // Then, actuate to specified values as quickly as possible. We
-    // assume that the increments will change little each time due
-    // to the high frequency and CPU speed.
-
     float sf = 5.55555555556f; // µs per degree
 
     float us1 = 500.0f + (input.S1 + config.AngleOffsetDEGREES.S1) * sf;
     float us2 = 500.0f + (input.S2 + config.AngleOffsetDEGREES.S2) * sf;
 
-    // Convert µs to timer counts (1 µs = 200 counts @ 200 MHz)
-    uint32_t ccr1 = (uint32_t)(us1 * 200.0f);
-    uint32_t ccr2 = (uint32_t)(us2 * 200.0f);
+    // 1µs = 2 counts @ 2MHz
+    uint32_t ccr1 = (uint32_t)(us1 * 2.0f);
+    uint32_t ccr2 = (uint32_t)(us2 * 2.0f);
 
     TIM3->CCR1 = ccr1;
     TIM3->CCR2 = ccr2;
@@ -92,85 +117,69 @@ void Servo_Axon_Mini_MKII::Actuate(SAsym<float> input) {
  * return false = hardware fault or tolerance not nominal
  */
 bool Servo_Axon_Mini_MKII::Init(SAsym<float> AngOffset,
-                                PRECISION precision = PRECISION::HUNDREDTH_DEGREE,
-                                bool debug = false) {
-    // Start ADC calibration earlier
-    HAL_ADCEx_Calibration_Start(&hadc3, ADC_CALIB_OFFSET, ADC_SINGLE_ENDED);
-
+                                PRECISION precision,
+                                bool debug) {
     CFG_Axon_Mini_MKII configDesired;
     configDesired.AngleOffsetDEGREES = AngOffset;
     configDesired.Precision = precision;
     configDesired.ENABLE_DEBUG = debug;
     config = configDesired;
-    float targetErr = 0.02f; // 2% error margin
-    float targetAng = 0.0f;
-    float increment = 0.0f;
-    float sf = 5.55555555556f; // microseconds of pwm per degree rotated
 
-    HAL_ADC_Start_DMA(&hadc3, Servo_ADC_ENC_Data, 2);
+    // Calibrate ADC before any reads
+    HAL_ADCEx_Calibration_Start(&hadc3, ADC_CALIB_OFFSET_LINEARITY, ADC_SINGLE_ENDED);
 
-    // We'll work in degrees in Init() just for ease.
-    switch (config.Precision){
-        case PRECISION::ONE_DEGREE:
-            targetAng = 5.0f;
-            increment = 1.0f;
-            break;
-
-        case PRECISION::TENTH_DEGREE:
-            targetAng = 5.5f;
-            increment = 0.1f;
-            break;
-
-        case PRECISION::HUNDREDTH_DEGREE:
-            targetAng = 5.55f;
-            increment = 0.01f;
-            break;
-
-        case PRECISION::THOUSANTHS_DEGREE:
-            targetAng = 5.555f;
-            increment = 0.001f;
-            break;
-
-        default:
-            targetAng = 5.0f;
-            increment = 1.0f;
-            break;
-    }
-
-    //Init TIM3 channels 1 and 2 which are the servos' channels.
-    TIM3->ARR = 4000000 - 1;
+    // Start TIM3 PWM channels
     HAL_TIM_PWM_Start(&htim3, TIM_CHANNEL_1);
     HAL_TIM_PWM_Start(&htim3, TIM_CHANNEL_2);
-    float CCR1_us = 500.0f + config.AngleOffsetDEGREES.S1 * sf;
-    float CCR2_us = 500.0f + config.AngleOffsetDEGREES.S2 * sf;
 
-    // Scaling factor will give us the precision we need, then we
-    // truncate the decimals.
-    TIM3->CCR1 = (uint32_t)(CCR1_us * 200.0f);
-    TIM3->CCR2 = (uint32_t)(CCR2_us * 200.0f);
-    osDelay(10); //Give time to rotate motor
+    // Tolerance based on precision setting
+    float tolerance = 0.0f;
+    switch (config.Precision) {
+        case PRECISION::ONE_DEGREE:         tolerance = 1.0f;    break;
+        case PRECISION::TENTH_DEGREE:       tolerance = 0.1f;    break;
+        case PRECISION::HUNDREDTH_DEGREE:   tolerance = 0.01f;   break;
+        case PRECISION::THOUSANTHS_DEGREE:  tolerance = 0.001f;  break;
+        default:                            tolerance = 0.1f;    break;
+    }
 
-    float testAngle = targetAng;
+    // Target is 0deg + offset for both motors
+    const float target1 = config.AngleOffsetDEGREES.S1;
+    const float target2 = config.AngleOffsetDEGREES.S2;
 
-    // PWM range is from 500us to 2500us. We assume that 0deg is
-    // 500us and 360 is 2500us
-    float test_us1 = 500.0f + (testAngle + config.AngleOffsetDEGREES.S1) * sf;
-    uint32_t testCCR1 = (uint32_t)(test_us1 * 200.0f);
-    float test_us2 = 500.0f + (testAngle + config.AngleOffsetDEGREES.S2) * sf;
-    uint32_t testCCR2 = (uint32_t)(test_us2 * 200.0f);
+    const TickType_t timeout   = pdMS_TO_TICKS(3000);  // 3s total
+    const TickType_t poll_rate = pdMS_TO_TICKS(5);     // poll at 200Hz
+    const TickType_t start     = xTaskGetTickCount();
 
-    TIM3->CCR1 = testCCR1;
-    TIM3->CCR2 = testCCR2;
+    TickType_t last_wake = xTaskGetTickCount();
 
-    osDelay(50);  // again
+    while ((xTaskGetTickCount() - start) < timeout) {
+        data.currentAngle = readCurrentAngle();
 
+        float err1 = fabsf(data.currentAngle.S1 - target1);
+        float err2 = fabsf(data.currentAngle.S2 - target2);
+
+        data.Nominal.S1 = (err1 <= tolerance);
+        data.Nominal.S2 = (err2 <= tolerance);
+
+        if (data.Nominal.S1 && data.Nominal.S2) {
+            // Both motors at target — stop and return success
+            Actuate({target1, target2});
+            return true;
+        }
+
+        // Drive toward target
+        Actuate({target1, target2});
+
+        // Yield to RTOS scheduler, wake at precise interval
+        vTaskDelayUntil(&last_wake, poll_rate);
+    }
+
+    // Timeout — record final error state
     data.currentAngle = readCurrentAngle();
-
-    data.trackedError.S1 = fabsf(data.currentAngle.S1 - targetAng) / targetAng;
-    data.trackedError.S2 = fabsf(data.currentAngle.S2 - targetAng) / targetAng;
-
-    data.Nominal.S1 = (data.trackedError.S1 <= targetErr);
-    data.Nominal.S2 = (data.trackedError.S2 <= targetErr);
+    data.trackedError.S1 = fabsf(data.currentAngle.S1 - target1);
+    data.trackedError.S2 = fabsf(data.currentAngle.S2 - target2);
+    data.Nominal.S1 = (data.trackedError.S1 <= tolerance);
+    data.Nominal.S2 = (data.trackedError.S2 <= tolerance);
 
     return data.Nominal.S1 && data.Nominal.S2;
 }
@@ -182,26 +191,42 @@ bool Servo_Axon_Mini_MKII::Init(SAsym<float> AngOffset,
  *
  * 0.00 degrees corresponds to no angle of attack. Positive
  * angle corresponds to positive roll moment, and vice versa.
+ *
+ * @attention There are const values in this functions which should be tuned!!!!!
  */
 void Servo_Axon_Mini_MKII::Update(float S1_Target_Deg, float S2_Target_Deg) {
     data.targetAngle = {S1_Target_Deg, S2_Target_Deg};
     data.currentAngle = readCurrentAngle();
-    // Add the target angle to the tracked angle, which is
-    // independent from read angle data. This serves as a
-    // perfect-scenario angle state.
+
     data.trackedAngle.S1 += S1_Target_Deg;
     data.trackedAngle.S2 += S2_Target_Deg;
 
-    // Separate actual code to a lower level private function
-    Actuate(data.targetAngle);
+    const float kP       = 0.3f;   // proportional gain
+    const float deadband = 0.5f;   // degrees
+    const float alpha    = 0.05f;  // smoothing factor — lower = smoother, higher = more responsive
+    // 0.1-0.2 is a good starting range for a rocket servo
 
-    // Tracked error builds over time. When this value reaches a
-    // certain threshold, we should correct the servo position if
-    // possible. Ideally this remains low enough but let's shoot
-    // for a max error of 2% deviation. Here we calculate the
-    // tracked error, continuously adding on calculated error
-    // (positive and negative errors cancel out so we just get the
-    // overall error) from each update cycle.
-    data.trackedError.S1 += calculateError().S1;
-    data.trackedError.S2 += calculateError().S2;
+    float err1 = data.targetAngle.S1 - data.currentAngle.S1;
+    float err2 = data.targetAngle.S2 - data.currentAngle.S2;
+
+    float correction1 = fabsf(err1) > deadband ? kP * err1 : 0.0f;
+    float correction2 = fabsf(err2) > deadband ? kP * err2 : 0.0f;
+
+    // Low-pass filter on the correction — exponential moving average
+    // smoothed = alpha * new_value + (1 - alpha) * previous_value
+    data.smoothedCorrection.S1 = (alpha * correction1) + ((1.0f - alpha) * data.smoothedCorrection.S1);
+    data.smoothedCorrection.S2 = (alpha * correction2) + ((1.0f - alpha) * data.smoothedCorrection.S2);
+
+    SAsym<float> corrected = {
+        data.targetAngle.S1 + data.smoothedCorrection.S1,
+        data.targetAngle.S2 + data.smoothedCorrection.S2
+    };
+
+    Actuate(corrected);
+
+    float denom1 = fabsf(data.trackedAngle.S1) > 0.001f ? fabsf(data.trackedAngle.S1) : 1.0f;
+    float denom2 = fabsf(data.trackedAngle.S2) > 0.001f ? fabsf(data.trackedAngle.S2) : 1.0f;
+
+    data.trackedError.S1 += fabsf(err1) / denom1;
+    data.trackedError.S2 += fabsf(err2) / denom2;
 }
