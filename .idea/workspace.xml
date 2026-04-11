@@ -35,14 +35,14 @@
     </configurations>
   </component>
   <component name="ChangeListManager">
-    <list default="true" id="b71e0858-14db-4924-8f99-4a29e2cf87f5" name="Changes" comment="Revise GPIO pin defs in CubeMX">
-      <change afterPath="$PROJECT_DIR$/Core/Src/SIMU_BMI323.cpp" afterDir="false" />
+    <list default="true" id="b71e0858-14db-4924-8f99-4a29e2cf87f5" name="Changes" comment="Solve radio initialization error, block semaphore temporarily. Edit ioc, revert uart swap. Edit transmission packet (unfinished)">
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/CMakeLists.txt" beforeDir="false" afterPath="$PROJECT_DIR$/CMakeLists.txt" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/Core/Inc/Math/Math.h" beforeDir="false" afterPath="$PROJECT_DIR$/Core/Inc/Math/Math.h" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/Core/Inc/SIMU_BMI323.h" beforeDir="false" afterPath="$PROJECT_DIR$/Core/Inc/SIMU_BMI323.h" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/Core/Src/Math/Math.cpp" beforeDir="false" afterPath="$PROJECT_DIR$/Core/Src/Math/Math.cpp" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/Core/Src/interrupt_override.cpp" beforeDir="false" afterPath="$PROJECT_DIR$/Core/Src/interrupt_override.cpp" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/Core/Src/Servo_Axon_Mini_MKII.cpp" beforeDir="false" afterPath="$PROJECT_DIR$/Core/Src/Servo_Axon_Mini_MKII.cpp" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/Core/Src/TEST_FUNCTIONS.cpp" beforeDir="false" afterPath="$PROJECT_DIR$/Core/Src/TEST_FUNCTIONS.cpp" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/Core/Src/adc.c" beforeDir="false" afterPath="$PROJECT_DIR$/Core/Src/adc.c" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/Core/Src/freertos.c" beforeDir="false" afterPath="$PROJECT_DIR$/Core/Src/freertos.c" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/Core/Src/main.cpp" beforeDir="false" afterPath="$PROJECT_DIR$/Core/Src/main.cpp" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/Hal-1-SW.ioc" beforeDir="false" afterPath="$PROJECT_DIR$/Hal-1-SW.ioc" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -79,7 +79,7 @@
   <component name="Git.Settings">
     <option name="RECENT_BRANCH_BY_REPOSITORY">
       <map>
-        <entry key="$PROJECT_DIR$" value="main" />
+        <entry key="$PROJECT_DIR$" value="radio-debug" />
       </map>
     </option>
     <option name="RECENT_GIT_ROOT_PATH" value="$PROJECT_DIR$" />
@@ -101,7 +101,7 @@
 }</component>
   <component name="HighlightingSettingsPerFile">
     <setting file="file://$PROJECT_DIR$/Core/Inc/ism6hg256x_reg.h" root0="FORCE_HIGHLIGHTING" />
-    <setting file="file://$PROJECT_DIR$/Core/Src/Servo_Axon_Mini_MKII.cpp" root0="SKIP_HIGHLIGHTING" />
+    <setting file="file://$PROJECT_DIR$/Core/Src/Servo_Axon_Mini_MKII.cpp" root0="FORCE_HIGHLIGHTING" />
     <setting file="file://$PROJECT_DIR$/Core/Src/TEST_FUNCTIONS.cpp" root0="FORCE_HIGHLIGHTING" />
     <setting file="file://$PROJECT_DIR$/Drivers/CMSIS/Device/ST/STM32H7xx/Include/stm32h753xx.h" root0="SKIP_HIGHLIGHTING" />
   </component>
@@ -128,35 +128,36 @@
     <option name="hideEmptyMiddlePackages" value="true" />
     <option name="showLibraryContents" value="true" />
   </component>
-  <component name="PropertiesComponent">{
-  &quot;keyToString&quot;: {
-    &quot;ModuleVcsDetector.initialDetectionPerformed&quot;: &quot;true&quot;,
-    &quot;OpenOCD Download &amp; Run.Hal-1-SW.executor&quot;: &quot;Run&quot;,
-    &quot;OpenOCD Download &amp; Run.Kingfisher-SW.executor&quot;: &quot;Run&quot;,
-    &quot;RunOnceActivity.RadMigrateCodeStyle&quot;: &quot;true&quot;,
-    &quot;RunOnceActivity.ShowReadmeOnStart&quot;: &quot;true&quot;,
-    &quot;RunOnceActivity.TerminalTabsStorage.copyFrom.TerminalArrangementManager.252&quot;: &quot;true&quot;,
-    &quot;RunOnceActivity.cidr.known.project.marker&quot;: &quot;true&quot;,
-    &quot;RunOnceActivity.git.unshallow&quot;: &quot;true&quot;,
-    &quot;RunOnceActivity.readMode.enableVisualFormatting&quot;: &quot;true&quot;,
-    &quot;RunOnceActivity.typescript.service.memoryLimit.init&quot;: &quot;true&quot;,
-    &quot;RunOnceActivity.west.config.association.type.startup.service&quot;: &quot;true&quot;,
-    &quot;cf.first.check.clang-format&quot;: &quot;false&quot;,
-    &quot;cidr.known.project.marker&quot;: &quot;true&quot;,
-    &quot;git-widget-placeholder&quot;: &quot;SIMU-BMI323-dev&quot;,
-    &quot;ignore.virus.scanning.warn.message&quot;: &quot;true&quot;,
-    &quot;node.js.detected.package.eslint&quot;: &quot;true&quot;,
-    &quot;node.js.detected.package.tslint&quot;: &quot;true&quot;,
-    &quot;node.js.selected.package.eslint&quot;: &quot;(autodetect)&quot;,
-    &quot;node.js.selected.package.tslint&quot;: &quot;(autodetect)&quot;,
-    &quot;nodejs_package_manager_path&quot;: &quot;npm&quot;,
-    &quot;org.rust.first.attach.projects&quot;: &quot;true&quot;,
-    &quot;settings.editor.selected.configurable&quot;: &quot;vcs.Git&quot;,
-    &quot;vue.rearranger.settings.migration&quot;: &quot;true&quot;
+  <component name="PropertiesComponent"><![CDATA[{
+  "keyToString": {
+    "ModuleVcsDetector.initialDetectionPerformed": "true",
+    "OpenOCD Download & Run.Hal-1-SW.executor": "Debug",
+    "OpenOCD Download & Run.Kingfisher-SW.executor": "Run",
+    "RunOnceActivity.RadMigrateCodeStyle": "true",
+    "RunOnceActivity.ShowReadmeOnStart": "true",
+    "RunOnceActivity.TerminalTabsStorage.copyFrom.TerminalArrangementManager.252": "true",
+    "RunOnceActivity.cidr.known.project.marker": "true",
+    "RunOnceActivity.git.unshallow": "true",
+    "RunOnceActivity.readMode.enableVisualFormatting": "true",
+    "RunOnceActivity.typescript.service.memoryLimit.init": "true",
+    "RunOnceActivity.west.config.association.type.startup.service": "true",
+    "cf.first.check.clang-format": "false",
+    "cidr.known.project.marker": "true",
+    "git-widget-placeholder": "servo-debug",
+    "ignore.virus.scanning.warn.message": "true",
+    "node.js.detected.package.eslint": "true",
+    "node.js.detected.package.tslint": "true",
+    "node.js.selected.package.eslint": "(autodetect)",
+    "node.js.selected.package.tslint": "(autodetect)",
+    "nodejs_package_manager_path": "npm",
+    "org.rust.first.attach.projects": "true",
+    "settings.editor.selected.configurable": "vcs.Git",
+    "vue.rearranger.settings.migration": "true"
   }
-}</component>
+}]]></component>
   <component name="RecentsManager">
     <key name="MoveFile.RECENT_KEYS">
+      <recent name="C:\Users\dyrel\Documents\HAL-1-SW\Core\Inc" />
       <recent name="C:\Users\dyrel\Documents\Hal-1-SW\Core\Inc" />
       <recent name="C:\Users\dyrel\Documents\Hal-1-SW\Core\Inc\Math" />
       <recent name="C:\Users\dyrel\Documents\Hal-1-SW\Core\Inc\lib" />
@@ -164,11 +165,6 @@
     </key>
   </component>
   <component name="RunManager" selected="OpenOCD Download &amp; Run.Hal-1-SW">
-    <configuration default="true" type="CLionExternalRunConfiguration" factoryName="Application" REDIRECT_INPUT="false" ELEVATE="false" USE_EXTERNAL_CONSOLE="false" EMULATE_TERMINAL="false" PASS_PARENT_ENVS_2="true">
-      <method v="2">
-        <option name="CLION.EXTERNAL.BUILD" enabled="true" />
-      </method>
-    </configuration>
     <configuration name="FatFs" type="CMakeRunConfiguration" factoryName="Application" REDIRECT_INPUT="false" ELEVATE="false" USE_EXTERNAL_CONSOLE="false" EMULATE_TERMINAL="false" PASS_PARENT_ENVS_2="true" PROJECT_NAME="Kingfisher-SW" TARGET_NAME="FatFs" CONFIG_NAME="Debug">
       <method v="2">
         <option name="com.jetbrains.cidr.execution.CidrBuildBeforeRunTaskProvider$BuildBeforeRunTask" enabled="true" />
@@ -185,6 +181,11 @@
       </method>
     </configuration>
     <configuration name="STM32_Drivers" type="CMakeRunConfiguration" factoryName="Application" REDIRECT_INPUT="false" ELEVATE="false" USE_EXTERNAL_CONSOLE="false" EMULATE_TERMINAL="false" PASS_PARENT_ENVS_2="true" PROJECT_NAME="Kingfisher-SW" TARGET_NAME="STM32_Drivers" CONFIG_NAME="Debug">
+      <method v="2">
+        <option name="com.jetbrains.cidr.execution.CidrBuildBeforeRunTaskProvider$BuildBeforeRunTask" enabled="true" />
+      </method>
+    </configuration>
+    <configuration default="true" type="CMakeRunConfiguration" factoryName="Application" REDIRECT_INPUT="false" ELEVATE="false" USE_EXTERNAL_CONSOLE="false" EMULATE_TERMINAL="false" PASS_PARENT_ENVS_2="true">
       <method v="2">
         <option name="com.jetbrains.cidr.execution.CidrBuildBeforeRunTaskProvider$BuildBeforeRunTask" enabled="true" />
       </method>
@@ -266,6 +267,7 @@
       <workItem from="1772505504678" duration="1435000" />
       <workItem from="1772575450504" duration="181000" />
       <workItem from="1772741710154" duration="5498000" />
+      <workItem from="1775779427698" duration="8970000" />
     </task>
     <task id="LOCAL-00001" summary="Write LED blink code">
       <option name="closed" value="true" />
@@ -331,7 +333,39 @@
       <option name="project" value="LOCAL" />
       <updated>1772142188249</updated>
     </task>
-    <option name="localTasksCounter" value="9" />
+    <task id="LOCAL-00009" summary="Reformat platform function implementation to closely match BMP390 code.">
+      <option name="closed" value="true" />
+      <created>1775163975821</created>
+      <option name="number" value="00009" />
+      <option name="presentableId" value="LOCAL-00009" />
+      <option name="project" value="LOCAL" />
+      <updated>1775163975821</updated>
+    </task>
+    <task id="LOCAL-00010" summary="Move platform implementations out of ISM library and reference new implementations to existing working platform implementations.">
+      <option name="closed" value="true" />
+      <created>1775418375336</created>
+      <option name="number" value="00010" />
+      <option name="presentableId" value="LOCAL-00010" />
+      <option name="project" value="LOCAL" />
+      <updated>1775418375336</updated>
+    </task>
+    <task id="LOCAL-00011" summary="Change pin radio_aux to pull-up, reassume that RST is driven active-low, fix command byte structure for write, add bytes to read, and fix order of data tx/rx data arrays.">
+      <option name="closed" value="true" />
+      <created>1775424487734</created>
+      <option name="number" value="00011" />
+      <option name="presentableId" value="LOCAL-00011" />
+      <option name="project" value="LOCAL" />
+      <updated>1775424487734</updated>
+    </task>
+    <task id="LOCAL-00012" summary="Solve radio initialization error, block semaphore temporarily. Edit ioc, revert uart swap. Edit transmission packet (unfinished)">
+      <option name="closed" value="true" />
+      <created>1775869932733</created>
+      <option name="number" value="00012" />
+      <option name="presentableId" value="LOCAL-00012" />
+      <option name="project" value="LOCAL" />
+      <updated>1775869932733</updated>
+    </task>
+    <option name="localTasksCounter" value="13" />
     <servers />
   </component>
   <component name="TypeScriptGeneratedFilesManager">
@@ -367,7 +401,12 @@
     <MESSAGE value="Remove unused UBLX folders, attempt rewriting CMakeLists portions to link everything." />
     <MESSAGE value="Reset GPS dev folder to construct custom library." />
     <MESSAGE value="Build servo test code with encoder read error." />
-    <option name="LAST_COMMIT_MESSAGE" value="Build servo test code with encoder read error." />
+    <MESSAGE value="Edit logic" />
+    <MESSAGE value="Reformat platform function implementation to closely match BMP390 code." />
+    <MESSAGE value="Move platform implementations out of ISM library and reference new implementations to existing working platform implementations." />
+    <MESSAGE value="Change pin radio_aux to pull-up, reassume that RST is driven active-low, fix command byte structure for write, add bytes to read, and fix order of data tx/rx data arrays." />
+    <MESSAGE value="Solve radio initialization error, block semaphore temporarily. Edit ioc, revert uart swap. Edit transmission packet (unfinished)" />
+    <option name="LAST_COMMIT_MESSAGE" value="Solve radio initialization error, block semaphore temporarily. Edit ioc, revert uart swap. Edit transmission packet (unfinished)" />
   </component>
   <component name="XDebuggerManager">
     <breakpoint-manager>
@@ -382,29 +421,74 @@
           <option name="timeStamp" value="12" />
         </line-breakpoint>
         <line-breakpoint enabled="true" type="com.jetbrains.cidr.execution.debugger.OCBreakpointType">
-          <url>file://$PROJECT_DIR$/Core/Src/TEST_FUNCTIONS.cpp</url>
-          <line>14</line>
-          <option name="timeStamp" value="19" />
-        </line-breakpoint>
-        <line-breakpoint enabled="true" type="com.jetbrains.cidr.execution.debugger.OCBreakpointType">
-          <url>file://$PROJECT_DIR$/Core/Src/TEST_FUNCTIONS.cpp</url>
-          <line>20</line>
-          <option name="timeStamp" value="21" />
-        </line-breakpoint>
-        <line-breakpoint enabled="true" type="com.jetbrains.cidr.execution.debugger.OCBreakpointType">
-          <url>file://$PROJECT_DIR$/Core/Src/TEST_FUNCTIONS.cpp</url>
-          <line>26</line>
-          <option name="timeStamp" value="22" />
-        </line-breakpoint>
-        <line-breakpoint enabled="true" type="com.jetbrains.cidr.execution.debugger.OCBreakpointType">
           <url>file://$PROJECT_DIR$/Core/Inc/Math/Math.h</url>
           <line>6</line>
           <option name="timeStamp" value="23" />
         </line-breakpoint>
         <line-breakpoint enabled="true" type="com.jetbrains.cidr.execution.debugger.OCBreakpointType">
-          <url>file://$PROJECT_DIR$/Core/Inc/SIMU_BMI323.h</url>
-          <line>7</line>
-          <option name="timeStamp" value="24" />
+          <url>file://$PROJECT_DIR$/Core/Inc/bmi323.h</url>
+          <line>60</line>
+          <option name="timeStamp" value="27" />
+        </line-breakpoint>
+        <line-breakpoint enabled="true" type="com.jetbrains.cidr.execution.debugger.OCBreakpointType">
+          <url>file://$PROJECT_DIR$/Core/Src/TEST_FUNCTIONS.cpp</url>
+          <line>73</line>
+          <option name="timeStamp" value="57" />
+        </line-breakpoint>
+        <line-breakpoint enabled="true" type="com.jetbrains.cidr.execution.debugger.OCBreakpointType">
+          <url>file://$PROJECT_DIR$/Core/Src/TEST_FUNCTIONS.cpp</url>
+          <line>74</line>
+          <option name="timeStamp" value="60" />
+        </line-breakpoint>
+        <line-breakpoint enabled="true" type="com.jetbrains.cidr.execution.debugger.OCBreakpointType">
+          <url>file://$PROJECT_DIR$/Core/Src/LIS2MDL.cpp</url>
+          <line>83</line>
+          <option name="timeStamp" value="61" />
+        </line-breakpoint>
+        <line-breakpoint enabled="true" type="com.jetbrains.cidr.execution.debugger.OCBreakpointType">
+          <url>file://$PROJECT_DIR$/Core/Src/BMP390.cpp</url>
+          <line>152</line>
+          <option name="timeStamp" value="68" />
+        </line-breakpoint>
+        <line-breakpoint enabled="true" type="com.jetbrains.cidr.execution.debugger.OCBreakpointType">
+          <url>file://$PROJECT_DIR$/Core/Src/TEST_FUNCTIONS.cpp</url>
+          <line>91</line>
+          <option name="timeStamp" value="122" />
+        </line-breakpoint>
+        <line-breakpoint enabled="true" type="com.jetbrains.cidr.execution.debugger.OCBreakpointType">
+          <url>file://$PROJECT_DIR$/Core/Src/Ebyte_E22_900T22S.cpp</url>
+          <line>180</line>
+          <option name="timeStamp" value="130" />
+        </line-breakpoint>
+        <line-breakpoint enabled="true" type="com.jetbrains.cidr.execution.debugger.OCBreakpointType">
+          <url>file://$PROJECT_DIR$/Core/Src/Telemetry.cpp</url>
+          <line>57</line>
+          <option name="timeStamp" value="135" />
+        </line-breakpoint>
+        <line-breakpoint enabled="true" type="com.jetbrains.cidr.execution.debugger.OCBreakpointType">
+          <url>file://$PROJECT_DIR$/Core/Src/Ebyte_E22_900T22S.cpp</url>
+          <line>156</line>
+          <option name="timeStamp" value="136" />
+        </line-breakpoint>
+        <line-breakpoint enabled="true" type="com.jetbrains.cidr.execution.debugger.OCBreakpointType">
+          <url>file://$PROJECT_DIR$/Core/Src/Servo_Axon_Mini_MKII.cpp</url>
+          <line>173</line>
+          <option name="timeStamp" value="140" />
+        </line-breakpoint>
+        <line-breakpoint enabled="true" type="com.jetbrains.cidr.execution.debugger.OCBreakpointType">
+          <url>file://$PROJECT_DIR$/Core/Src/TEST_FUNCTIONS.cpp</url>
+          <line>23</line>
+          <option name="timeStamp" value="142" />
+        </line-breakpoint>
+        <line-breakpoint enabled="true" type="com.jetbrains.cidr.execution.debugger.OCBreakpointType">
+          <url>file://$PROJECT_DIR$/Core/Src/Servo_Axon_Mini_MKII.cpp</url>
+          <line>28</line>
+          <option name="timeStamp" value="143" />
+        </line-breakpoint>
+        <line-breakpoint enabled="true" type="com.jetbrains.cidr.execution.debugger.OCBreakpointType">
+          <url>file://$PROJECT_DIR$/Core/Src/adc.c</url>
+          <line>119</line>
+          <option name="timeStamp" value="146" />
         </line-breakpoint>
       </breakpoints>
     </breakpoint-manager>

@@ -10,6 +10,8 @@
 #include "tim.h"
 #include "Math/Math.h"
 
+static uint32_t Servo_ADC_ENC_Data[2] = {};
+
 // PRIVATE
 /** @brief readCurrentAngle(void);
  *  Reads the current angle of the servo. This is basically just here for
@@ -22,13 +24,8 @@ SAsym<float> Servo_Axon_Mini_MKII::readCurrentAngle() {
     // Current angle is derived from the voltage reading from
     // the servo pin. 0 is 0deg, 1.65V is 180deg, 3.3V is 360deg.
 
-    HAL_ADC_Start(&hadc3);
-    HAL_ADC_PollForConversion(&hadc3, HAL_MAX_DELAY);
-    uint32_t raw1 = HAL_ADC_GetValue(&hadc3);
-
-    HAL_ADC_Start(&hadc3);
-    HAL_ADC_PollForConversion(&hadc3, HAL_MAX_DELAY);
-    uint32_t raw2 = HAL_ADC_GetValue(&hadc3);
+    uint32_t raw1 = Servo_ADC_ENC_Data[0];
+    uint32_t raw2 = Servo_ADC_ENC_Data[1];
 
     // Convert 12-bit ADC to voltage
     float reading1 = (3.3f * raw1) / 65536.0f; // read voltage from SERVO1_ENC_Pin / SERVO1_ENC_GPIO
@@ -97,6 +94,9 @@ void Servo_Axon_Mini_MKII::Actuate(SAsym<float> input) {
 bool Servo_Axon_Mini_MKII::Init(SAsym<float> AngOffset,
                                 PRECISION precision = PRECISION::HUNDREDTH_DEGREE,
                                 bool debug = false) {
+    // Start ADC calibration earlier
+    HAL_ADCEx_Calibration_Start(&hadc3, ADC_CALIB_OFFSET, ADC_SINGLE_ENDED);
+
     CFG_Axon_Mini_MKII configDesired;
     configDesired.AngleOffsetDEGREES = AngOffset;
     configDesired.Precision = precision;
@@ -106,6 +106,8 @@ bool Servo_Axon_Mini_MKII::Init(SAsym<float> AngOffset,
     float targetAng = 0.0f;
     float increment = 0.0f;
     float sf = 5.55555555556f; // microseconds of pwm per degree rotated
+
+    HAL_ADC_Start_DMA(&hadc3, Servo_ADC_ENC_Data, 2);
 
     // We'll work in degrees in Init() just for ease.
     switch (config.Precision){
@@ -162,7 +164,6 @@ bool Servo_Axon_Mini_MKII::Init(SAsym<float> AngOffset,
 
     osDelay(50);  // again
 
-
     data.currentAngle = readCurrentAngle();
 
     data.trackedError.S1 = fabsf(data.currentAngle.S1 - targetAng) / targetAng;
@@ -192,7 +193,7 @@ void Servo_Axon_Mini_MKII::Update(float S1_Target_Deg, float S2_Target_Deg) {
     data.trackedAngle.S2 += S2_Target_Deg;
 
     // Separate actual code to a lower level private function
-    Actuate(data.currentAngle);
+    Actuate(data.targetAngle);
 
     // Tracked error builds over time. When this value reaches a
     // certain threshold, we should correct the servo position if

@@ -28,7 +28,8 @@ int TEST::SERVO_TEST() {
         // Attempt init again
         initState = servoSet.Init({0,0}, PRECISION::TENTH_DEGREE, true);
         vTaskDelay(500);
-        return -2;
+        if (!initState)
+            return -2;
     }
     // Something else went wrong (This should never really happen
     // but it is there cause muscle memory)
