@@ -6,6 +6,8 @@
 #include "usart.h"
 #include <cstring>
 
+#include "task.h"
+
 //TODO include all sensor files
 
 config_e22_900t22s Telemetry::des_cfg;
@@ -28,23 +30,29 @@ uint8_t Telemetry::Init()
     des_cfg.E22_M1_PIN = M1_Radio_Pin;
     des_cfg.E22_M1_PORT = M1_Radio_GPIO_Port;
 
-    // These are default values, we can use functions
-    // to change them later.
     // See pg. 15 of datasheet
-    des_cfg.ADDH = 0b00;
-    des_cfg.ADDL = 0b00;
+    des_cfg.ADDH = HAL1_RADIO_ADDRHIGH;
+    des_cfg.ADDL = HAL1_RADIO_ADDRLOW;
+    des_cfg.NETID = HAL1_RADIO_NETID;
 
     // REG0 -> 9600 baud, 8N1 parity, 9600 wireless data rate
     des_cfg.REG0 =     R0_765_E22_UART_BAUD::E22_UART_BAUD_9600
                     | R0_43_SERIAL_PORT_PARITY_BIT::MODE_8N1
                     | R0_210_E22_AIR_DATA_RATE::E22_AIR_RATE_9_6K;
-    // REG2 -> channel
-    des_cfg.REG2 = CH915;
     // REG1 -> 240 bytes sub packet, off, reserved, off, 22dBm
     des_cfg.REG1 =    R1_76_SUB_PACKET_SETTING::BYTES_240
                     | R1_5_RSSI_ENVIRONMENTAL_NOISE_MEASURE_DISABLE
+    // bits 4, 3: reserved and not usable
                     | R1_2_SOFTWARE_MODE_SWITCHING_OFF
                     | R1_10_E22_TX_POWER::E22_TX_POWER_22DBM;
+    // REG2 -> channel
+    des_cfg.REG2 = CH915; // Change according to radio band list at IREC
+    des_cfg.REG3 =      R3_7_RSSI_BYTE_ENABLE
+                    |   R3_6_TRANSFER_METHOD_TRANSPARENT
+                    |   R3_5_REPEATER_OFF
+                    |   R3_4_LBT_DISABLED
+                    |   R3_3_WOR_MODE_RECIEVER
+                    |   R3_210_WOR_CYCLE_TIME::_2000_ms;
 
     // Examples of changing params using functions
     // changeOpFreq_e22_900t22s(R2_E22Channel915::CH915);
@@ -57,6 +65,9 @@ uint8_t Telemetry::Init()
         return 1;
 
     changeMode(TRANS);
+
+    // Finish config and delay to init
+    vTaskDelay(pdMS_TO_TICKS(400));
     return 0;
 }
 
@@ -68,6 +79,12 @@ uint8_t Telemetry::Update()
     receiveData(gnd);
 
     // TODO replace all values with current sensor values
+    t.altitude = 0.0F;
+
+    t.longitude = 0.0F;
+    t.latitude = 0.0F;
+    t.GPSaltitude = 0.0F;
+
     t.mAccX = 0.0F;
     t.mAccY = 0.0F;
     t.mAccZ = 0.0F;
@@ -88,32 +105,22 @@ uint8_t Telemetry::Update()
     return 0;
 }
 
+// Send a packet in the format of telemetryData. Each value inside of the
+// 'data' object should be appended to the packet and sent.
 uint8_t Telemetry::sendData(const telemetryData &data)
 {
-    uint16_t index = 0;
+    uint8_t index = 1;
+    tx_buffer[0] = HAL1_RADIO_STARTBIT;
+    tx_buffer[1] = HAL1_INDC_CALLSIGNC;
+    tx_buffer[2] = HAL1_INDC_CALLSIGNS;
 
-    tx_buffer[index++] = TELEMETRY_SYNC1;
-    tx_buffer[index++] = TELEMETRY_SYNC2;
+    tx_buffer[3] = ;
 
-    tx_buffer[index++] = sizeof(telemetryData);   // payload length
+    uint8_t max_index = index;
 
-    tx_buffer[index++] = (uint8_t)(seq & 0xFF);
-    tx_buffer[index++] = (uint8_t)(seq >> 8);
-
-    memcpy(&tx_buffer[index], &data, sizeof(telemetryData));
-    index += sizeof(telemetryData);
-
-    uint16_t crc = Checksum(tx_buffer, index);
-
-    tx_buffer[index++] = crc & 0xFF;
-    tx_buffer[index++] = crc >> 8;
-
-    int8_t status = transmit_e22_900t22s(tx_buffer, index);
+    int8_t status = transmit_e22_900t22s(tx_buffer, max_index);
     if(status != E22_OK)
         return status;
-
-    seq++;
-
     return 0;
 }
 

@@ -108,7 +108,7 @@ void MX_UART8_Init(void)
   {
     Error_Handler();
   }
-  if (HAL_UARTEx_DisableFifoMode(&huart8) != HAL_OK)
+  if (HAL_UARTEx_EnableFifoMode(&huart8) != HAL_OK)
   {
     Error_Handler();
   }
@@ -166,6 +166,9 @@ void HAL_UART_MspInit(UART_HandleTypeDef* uartHandle)
     GPIO_InitStruct.Alternate = GPIO_AF8_UART8;
     HAL_GPIO_Init(GPIOE, &GPIO_InitStruct);
 
+    /* UART8 interrupt Init */
+    HAL_NVIC_SetPriority(UART8_IRQn, 5, 0);
+    HAL_NVIC_EnableIRQ(UART8_IRQn);
   /* USER CODE BEGIN UART8_MspInit 1 */
 
   /* USER CODE END UART8_MspInit 1 */
@@ -207,6 +210,8 @@ void HAL_UART_MspDeInit(UART_HandleTypeDef* uartHandle)
     */
     HAL_GPIO_DeInit(GPIOE, RADIO_TX_Pin|RADIO_RX_Pin);
 
+    /* UART8 interrupt Deinit */
+    HAL_NVIC_DisableIRQ(UART8_IRQn);
   /* USER CODE BEGIN UART8_MspDeInit 1 */
 
   /* USER CODE END UART8_MspDeInit 1 */

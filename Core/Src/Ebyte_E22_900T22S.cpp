@@ -4,6 +4,7 @@
 #include "task.h"
 #include <string.h>
 
+#include "cmsis_os2.h"
 #include "main.h"
 #include "semphr.h"
 
@@ -22,14 +23,14 @@ static bool initialized = false;
 // give bad data. Here, the semaphore stuff prevents
 // cases like config commands being sent, then in the
 // middle of its execution, starting a data transfer.
-static SemaphoreHandle_t e22_mutex = NULL;
+//static SemaphoreHandle_t e22_mutex = NULL;
 
 /* ================= AUX HANDLING ================= */
 
 // Use aux to detect transmitted data via wireless, or if
 // data won't go through UART, or if modules are still
 // initializing/etc.+
-static inline bool auxHigh(void)
+static bool auxHigh(void)
 {
     return HAL_GPIO_ReadPin(
         e22_cfg.E22_AUX_PORT,
@@ -37,6 +38,8 @@ static inline bool auxHigh(void)
     ) == GPIO_PIN_SET;
 }
 
+// true if aux low -> means e22 is sending data.
+// false if ready for input
 bool e22_isBusy(void)
 {
     return !auxHigh();
@@ -109,28 +112,26 @@ int8_t init_e22_900t22s(config_e22_900t22s *cfg)
     e22_cfg = *cfg;
 
     /* ensure mutex exists */
-    if (e22_mutex == NULL)
-        e22_mutex = xSemaphoreCreateMutex();
+    // if (e22_mutex == NULL)
+    //     e22_mutex = xSemaphoreCreateMutex();
+    //
+    // if (e22_mutex == NULL)
+    //     return E22_ERR_BUSY;
 
-    if (e22_mutex == NULL)
-        return E22_ERR_BUSY;
-
-    // Pretty sure it's supposed to be active-low, so this should turn the module on.
+    // active-low
     HAL_GPIO_WritePin(RADIO_RST_GPIO_Port, RADIO_RST_Pin, GPIO_PIN_SET);
 
     /* ensure radio is ready */
-    if (waitAux_e22_900t22s(5000) != E22_OK)
-        return E22_ERR_TIMEOUT;
+    waitAux_e22_900t22s(5000);
 
     /* switch to configuration mode */
     changeMode(CONFIG);
     // for safety
-    if (waitAux_e22_900t22s(1000) != E22_OK)
-        return E22_ERR_TIMEOUT;
+    waitAux_e22_900t22s(1000);
 
     /* read current radio configuration */
-    config_e22_900t22s current_cfg;
-    // TODO stuck here. uart timing issue? cubemx config issue? uart read result weird
+    config_e22_900t22s current_cfg = {};
+
     if (readConfig_e22_900t22s(&current_cfg) != E22_OK)
         return E22_ERR_UART;
 
@@ -138,6 +139,7 @@ int8_t init_e22_900t22s(config_e22_900t22s *cfg)
     bool config_matches =
         (current_cfg.ADDH == cfg->ADDH)   &&
         (current_cfg.ADDL == cfg->ADDL)   &&
+        (current_cfg.NETID == cfg->NETID)   &&
         (current_cfg.REG0 == cfg->REG0)   &&
         (current_cfg.REG2 == cfg->REG2)   &&
         (current_cfg.REG1 == cfg->REG1);
@@ -145,18 +147,29 @@ int8_t init_e22_900t22s(config_e22_900t22s *cfg)
     /* only write if configuration differs */
     if (!config_matches)
     {
-        if (writeConfig_e22_900t22s(cfg, true) != E22_OK)
+        if (writeConfig_e22_900t22s(cfg, false) != E22_OK)
             return E22_ERR_UART;
 
         if (waitAux_e22_900t22s(1000) != E22_OK)
             return E22_ERR_TIMEOUT;
     }
 
+    if (readConfig_e22_900t22s(&current_cfg) != E22_OK)
+        return E22_ERR_UART;
+    config_matches =
+        (current_cfg.ADDH == cfg->ADDH)   &&
+        (current_cfg.ADDL == cfg->ADDL)   &&
+        (current_cfg.REG0 == cfg->REG0)   &&
+        (current_cfg.REG2 == cfg->REG2)   &&
+        (current_cfg.REG1 == cfg->REG1);
+    if (!config_matches) return 1; // ensure that the config set in module is the config given to it
+
     /* return to normal transmit mode */
     changeMode(TRANS);
 
     if (waitAux_e22_900t22s(1000) != E22_OK)
         return E22_ERR_TIMEOUT;
+    vTaskDelay(pdMS_TO_TICKS(400)); // Allow to initialize properly
 
     initialized = true;
 
@@ -192,6 +205,8 @@ static int8_t uartRead(uint8_t *data, uint16_t len)
         data,
         len,
         5000); // Make a generous amount of time
+
+    while (!auxHigh()) {} // wait for read to finish in case
     if(status != HAL_OK) return E22_ERR_UART;
 
     return E22_OK;
@@ -213,6 +228,7 @@ int8_t writeConfig_e22_900t22s(
         COMMAND_BYTE_WRITE_CFG_NOSAVE_FLASH;
     frame[1] = 0x00;
     frame[2] = 0x06;
+
     // REG3 is for more advanced functions and is not included
     frame[3] = cfg->ADDH;
     frame[4] = cfg->ADDL;
@@ -221,26 +237,21 @@ int8_t writeConfig_e22_900t22s(
     frame[7] = cfg->REG1;
     frame[8] = cfg->REG2;
 
-    xSemaphoreTake(e22_mutex, portMAX_DELAY);
+    //xSemaphoreTake(e22_mutex, portMAX_DELAY);
 
     changeMode(CONFIG);
 
     // Construct and write config commands
-    int8_t status = uartWrite(frame, 10);
-    if(status != E22_OK)
+
+    if(uartWrite(frame, 9) != E22_OK)
     {
-        xSemaphoreGive(e22_mutex);
-        return status;
+        //xSemaphoreGive(e22_mutex);
+        return E22_ERR_UART;
     }
-
-    waitAux_e22_900t22s(200);
-
     changeMode(TRANS);
 
     e22_cfg = *cfg;
-
-    xSemaphoreGive(e22_mutex);
-
+    //xSemaphoreGive(e22_mutex);
     return E22_OK;
 }
 
@@ -250,20 +261,22 @@ int8_t readConfig_e22_900t22s(config_e22_900t22s *cfg)
     cmd[0] = COMMAND_BYTE_READ_CFG;
     cmd[1] = 0x00; // Start from ADDH
     cmd[2] = 0x06; // Read all necessary registers
-    uint8_t resp[9];
+    uint8_t resp[9] = {0};
     // resp: {c1, 00, 06, addh, addl, netid, reg0, reg1, reg2}
 
-    xSemaphoreTake(e22_mutex, portMAX_DELAY);
+    //xSemaphoreTake(e22_mutex, portMAX_DELAY);
 
     changeMode(CONFIG);
 
-    waitAux_e22_900t22s(1000);
-    uartWrite(cmd,3);
+    // Process mode switch in case aux pin logic is messed
+    HAL_Delay(500);
+    waitAux_e22_900t22s(1000); // shouldn't need this but just in case
 
-    waitAux_e22_900t22s(1000);
-    if(uartRead(resp,12) != E22_OK)
+    uartWrite(cmd,3);
+    int8_t rslt = uartRead(resp,9);
+    if(rslt != E22_OK)
     {
-        xSemaphoreGive(e22_mutex);
+        //xSemaphoreGive(e22_mutex);
         return E22_ERR_UART;
     }
 
@@ -282,7 +295,7 @@ int8_t readConfig_e22_900t22s(config_e22_900t22s *cfg)
     cfg->REG1   = resp[7];
     cfg->REG2   = resp[8];
 
-    xSemaphoreGive(e22_mutex);
+    //xSemaphoreGive(e22_mutex);
 
     return E22_OK;
 }
@@ -294,15 +307,16 @@ int8_t transmit_e22_900t22s(uint8_t *data, size_t length)
     if(!initialized)
         return E22_ERR_NOT_INITIALIZED;
 
-    xSemaphoreTake(e22_mutex, portMAX_DELAY);
+    int8_t status = E22_OK;
+
+    //xSemaphoreTake(e22_mutex, portMAX_DELAY);
 
     waitAux_e22_900t22s(200);
-
-    int8_t status = uartWrite(data, length);
-
+    if (auxHigh) // double check. dont want to skip sent bytes
+        status = uartWrite(data, length);
     waitAux_e22_900t22s(200);
 
-    xSemaphoreGive(e22_mutex);
+    //xSemaphoreGive(e22_mutex);
 
     return status;
 }
