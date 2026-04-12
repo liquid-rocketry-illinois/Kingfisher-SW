@@ -11,6 +11,7 @@
 #include "Barometer.h"
 #include "LIS2MDL.h"
 #include "Telemetry.h"
+#include "fatfs.h"
 
 class TEST{
 public:
@@ -21,6 +22,7 @@ public:
     int LIS2_TEST();
     int RADIO_TEST();
     int PYRO_TEST();
+    int SD_TEST();
 };
 
 #endif //HAL_1_SW_TEST_FUNCTIONS_H

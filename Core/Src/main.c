@@ -135,7 +135,6 @@ int main(void)
   {
     /* USER CODE END WHILE */
 
-
     /* USER CODE BEGIN 3 */
   }
   /* USER CODE END 3 */
@@ -225,7 +224,7 @@ void PeriphCommonClock_Config(void)
   PeriphClkInitStruct.PLL3.PLL3M = 5;
   PeriphClkInitStruct.PLL3.PLL3N = 30;
   PeriphClkInitStruct.PLL3.PLL3P = 15;
-  PeriphClkInitStruct.PLL3.PLL3Q = 6;
+  PeriphClkInitStruct.PLL3.PLL3Q = 5;
   PeriphClkInitStruct.PLL3.PLL3R = 3;
   PeriphClkInitStruct.PLL3.PLL3RGE = RCC_PLL3VCIRANGE_2;
   PeriphClkInitStruct.PLL3.PLL3VCOSEL = RCC_PLL3VCOMEDIUM;

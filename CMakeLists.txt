@@ -77,6 +77,8 @@ add_executable(${CMAKE_PROJECT_NAME}
         Core/Src/Barometer.cpp
         Core/Inc/Math/FloatTripleModRedundancy.h
         Core/Src/FloatTripleModRedundancy.cpp
+        MIDWARE/FATFS_SD/FATFS_SD.h
+        MIDWARE/FATFS_SD/FATFS_SD.c
 )
 
 # Add STM32CubeMX generated sources
@@ -104,6 +106,7 @@ target_sources(${CMAKE_PROJECT_NAME} PRIVATE
 # Add include paths
 target_include_directories(${CMAKE_PROJECT_NAME} PRIVATE
     # Add user defined include paths
+        MIDWARE/FATFS_SD
 )
 
 # Add project symbols (macros)

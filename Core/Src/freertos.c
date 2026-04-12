@@ -58,6 +58,21 @@ const osThreadAttr_t defaultTask_attributes = {
 /* Private function prototypes -----------------------------------------------*/
 /* USER CODE BEGIN FunctionPrototypes */
 
+// TODO added for sd test
+
+extern uint16_t Timer1, Timer2;
+
+void vApplicationTickHook(void) {
+  // runs every SysTick interrupt — keep it SHORT
+  // no blocking calls, no vTaskDelay, no osDelay here
+  HAL_IncTick();  // if you need HAL timing to work
+
+  if(Timer1 > 0)
+    Timer1--;
+  if(Timer2 > 0)
+    Timer2--;
+}
+
 /* USER CODE END FunctionPrototypes */
 
 void StartDefaultTask(void *argument);
