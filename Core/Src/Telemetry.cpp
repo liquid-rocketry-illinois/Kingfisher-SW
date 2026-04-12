@@ -109,35 +109,48 @@ uint8_t Telemetry::Update()
 // 'data' object should be appended to the packet and sent.
 uint8_t Telemetry::sendData(const telemetryData &data)
 {
-    uint8_t index = 1;
-    tx_buffer[0] = HAL1_RADIO_STARTBIT;
-    tx_buffer[1] = HAL1_INDC_CALLSIGNC;
-    tx_buffer[2] = HAL1_INDC_CALLSIGNS;
+    static_assert(sizeof(telemetryData) <= TELEMETRY_MAX_PAYLOAD - 7, "telemetryData exceeds TX buffer size");
 
-    tx_buffer[3] = ;
+    uint8_t payload_len = sizeof(telemetryData);
 
-    uint8_t max_index = index;
+    tx_buffer[0] = TELEMETRY_SYNC1;
+    tx_buffer[1] = TELEMETRY_SYNC2;
+    tx_buffer[2] = payload_len;
+    tx_buffer[3] = lastSeq & 0xFF;         // seq_lo
+    tx_buffer[4] = (lastSeq >> 8) & 0xFF;  // seq_hi
 
-    int8_t status = transmit_e22_900t22s(tx_buffer, max_index);
+    memcpy(&tx_buffer[5], &data, payload_len);
+
+    uint16_t crc = Checksum(tx_buffer, 5 + payload_len);
+    tx_buffer[5 + payload_len] = crc & 0xFF;        // crc_lo
+    tx_buffer[6 + payload_len] = (crc >> 8) & 0xFF; // crc_hi
+
+    int8_t status = transmit_e22_900t22s(tx_buffer, 7 + payload_len);
     if(status != E22_OK)
         return status;
+
+    lastSeq++;
     return 0;
 }
 
 uint8_t Telemetry::receiveData(GndStationData &gnd)
 {
     if(!e22_available())
-        return 0;
+        return E22_NO_DATA;
 
     int16_t len = recieve_e22_900t22s(rx_buffer, sizeof(rx_buffer));
 
     if(len <= 0)
-        return 1;
+        return E22_RECEIVE_ERR;
+
+    // sanity check: must have at least the 7 bytes of overhead
+    if(len < 7)
+        return E22_BAD_LENGTH;
 
     return decodeData(gnd);
 }
 
-uint8_t Telemetry::decodeData(GndStationData &gnd)
+int8_t Telemetry::decodeData(GndStationData &gnd)
 {
     if(rx_buffer[0] != TELEMETRY_SYNC1)
         return -1;
@@ -146,6 +159,13 @@ uint8_t Telemetry::decodeData(GndStationData &gnd)
         return -2;
 
     uint8_t payload_len = rx_buffer[2];
+
+    // ensure payload won't read out of bounds
+    if(payload_len != sizeof(GndStationData))
+        return -3;
+
+    if((5 + payload_len + 2) > RX_BUFFER_SIZE)
+        return -4;
 
     uint16_t seq_rx =
         rx_buffer[3] |
@@ -158,13 +178,11 @@ uint8_t Telemetry::decodeData(GndStationData &gnd)
     uint16_t crc_calc = Checksum(rx_buffer, 5 + payload_len);
 
     if(crc_rx != crc_calc)
-        return -3;
+        return -5;
 
     memcpy(&gnd, &rx_buffer[5], sizeof(GndStationData));
 
-    /* update internal telemetry state */
     lastSeq = seq_rx;
-
     return 0;
 }
 

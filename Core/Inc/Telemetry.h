@@ -34,6 +34,11 @@
 #define HAL1_INDC_SERVO2ROTATION1   0x31        // 1
 #define HAL1_INDC_SERVO2ROTATION2   0x32        // 2
 
+// data error codes
+#define E22_NO_DATA      2
+#define E22_RECEIVE_ERR  3
+#define E22_BAD_LENGTH   4
+
 typedef struct
 {
     // KE9ERI_ALEPH
@@ -50,9 +55,20 @@ typedef struct
 } telemetryData;
 // Transmission structure: data = {HAL1_RADIO_STARTBIT, telemetryData t, HAL1_RADIO_ENDBIT}
 
+// Reduce the chances of a stray signal triggering the pyros
+// these numbers are the "keys" to active pyro devices. If the
+// recieved pyro activation key is not exactly these numbers,
+// pyros will not be triggered except by in-flight conditions.
+typedef enum {
+    PYRO1 = 1221734683,
+    PYRO2 = 4102746912,
+    PYRO3 = 2493656272
+} pyroActivateKeys;
+
 typedef struct
 {
-    uint8_t keepAliveIn;
+    uint8_t keepAliveIn; // 0 = nominal,
+    uint32_t pyroActivation[3] = {0,0,0};
 } GndStationData;
 
 class Telemetry {
@@ -63,12 +79,12 @@ class Telemetry {
     uint16_t lastSeq = 0;
 
     // buffers to transmit and recieve data
-    uint8_t tx_buffer[64];
-    uint8_t rx_buffer[64];
+    uint8_t tx_buffer[TELEMETRY_MAX_PAYLOAD];
+    uint8_t rx_buffer[TELEMETRY_MAX_PAYLOAD];
 
     uint8_t sendData(const telemetryData &data);
     uint8_t receiveData(GndStationData &gnd);
-    uint8_t decodeData(GndStationData &gnd);
+    int8_t decodeData(GndStationData &gnd);
     uint16_t Checksum(uint8_t *data, uint16_t length);
 
 public:
