@@ -127,6 +127,7 @@ int8_t init_e22_900t22s(config_e22_900t22s *cfg)
     /* switch to configuration mode */
     changeMode(CONFIG);
     // for safety
+    vTaskDelay(pdMS_TO_TICKS(500));
     waitAux_e22_900t22s(1000);
 
     /* read current radio configuration */
@@ -147,7 +148,7 @@ int8_t init_e22_900t22s(config_e22_900t22s *cfg)
     /* only write if configuration differs */
     if (!config_matches)
     {
-        if (writeConfig_e22_900t22s(cfg, false) != E22_OK)
+        if (writeConfig_e22_900t22s(cfg, true) != E22_OK)
             return E22_ERR_UART;
 
         if (waitAux_e22_900t22s(1000) != E22_OK)
@@ -162,14 +163,15 @@ int8_t init_e22_900t22s(config_e22_900t22s *cfg)
         (current_cfg.REG0 == cfg->REG0)   &&
         (current_cfg.REG2 == cfg->REG2)   &&
         (current_cfg.REG1 == cfg->REG1);
-    if (!config_matches) return 1; // ensure that the config set in module is the config given to it
+    if (!config_matches)
+        return 1; // ensure that the config set in module is the config given to it
 
     /* return to normal transmit mode */
     changeMode(TRANS);
 
     if (waitAux_e22_900t22s(1000) != E22_OK)
         return E22_ERR_TIMEOUT;
-    vTaskDelay(pdMS_TO_TICKS(400)); // Allow to initialize properly
+    vTaskDelay(pdMS_TO_TICKS(500)); // Allow to initialize properly
 
     initialized = true;
 
@@ -240,6 +242,8 @@ int8_t writeConfig_e22_900t22s(
     //xSemaphoreTake(e22_mutex, portMAX_DELAY);
 
     changeMode(CONFIG);
+    // Ensure that config can be written
+    vTaskDelay(pdMS_TO_TICKS(400));
 
     // Construct and write config commands
 

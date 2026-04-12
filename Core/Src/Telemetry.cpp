@@ -164,7 +164,7 @@ int8_t Telemetry::decodeData(GndStationData &gnd)
     if(payload_len != sizeof(GndStationData))
         return -3;
 
-    if((5 + payload_len + 2) > RX_BUFFER_SIZE)
+    if((5 + payload_len + 2) > TELEMETRY_MAX_PAYLOAD)
         return -4;
 
     uint16_t seq_rx =
