@@ -74,12 +74,6 @@ void Error_Handler(void);
 #define SD_DET_GPIO_Port GPIOA
 #define SD_CS1_Pin GPIO_PIN_4
 #define SD_CS1_GPIO_Port GPIOA
-#define SCK6_Pin GPIO_PIN_5
-#define SCK6_GPIO_Port GPIOA
-#define MISO6_Pin GPIO_PIN_6
-#define MISO6_GPIO_Port GPIOA
-#define MOSI6_Pin GPIO_PIN_7
-#define MOSI6_GPIO_Port GPIOA
 #define SIMU_INT3_Pin GPIO_PIN_2
 #define SIMU_INT3_GPIO_Port GPIOB
 #define SIMU_CS3_Pin GPIO_PIN_7
@@ -164,10 +158,10 @@ void Error_Handler(void);
 #define GPS_I2CSCL_GPIO_Port GPIOB
 #define GPS_I2CSDA_Pin GPIO_PIN_9
 #define GPS_I2CSDA_GPIO_Port GPIOB
-#define RADIO_RX_Pin GPIO_PIN_0
-#define RADIO_RX_GPIO_Port GPIOE
-#define RADIO_TX_Pin GPIO_PIN_1
+#define RADIO_TX_Pin GPIO_PIN_0
 #define RADIO_TX_GPIO_Port GPIOE
+#define RADIO_RX_Pin GPIO_PIN_1
+#define RADIO_RX_GPIO_Port GPIOE
 
 /* USER CODE BEGIN Private defines */
 

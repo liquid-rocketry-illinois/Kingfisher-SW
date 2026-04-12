@@ -55,6 +55,8 @@ add_executable(${CMAKE_PROJECT_NAME}
         Core/Src/TripleModRedundancy.cpp
         Core/Inc/IMUs.h
         Core/Src/IMU.cpp
+        Core/Inc/user_diskio_spi.h
+        Core/Src/user_diskio_spi.c
 )
 
 # Add STM32CubeMX generated sources
