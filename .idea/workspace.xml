@@ -36,13 +36,8 @@
   </component>
   <component name="ChangeListManager">
     <list default="true" id="b71e0858-14db-4924-8f99-4a29e2cf87f5" name="Changes" comment="Build servo test code with encoder read error.">
-      <change beforePath="$PROJECT_DIR$/.idea/editor.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/editor.xml" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/Core/Inc/TEST_FUNCTIONS.h" beforeDir="false" afterPath="$PROJECT_DIR$/Core/Inc/TEST_FUNCTIONS.h" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/Core/Src/TEST_FUNCTIONS.cpp" beforeDir="false" afterPath="$PROJECT_DIR$/Core/Src/TEST_FUNCTIONS.cpp" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/Core/Src/i2c.c" beforeDir="false" afterPath="$PROJECT_DIR$/Core/Src/i2c.c" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/Core/Src/main.c" beforeDir="false" afterPath="$PROJECT_DIR$/Core/Src/main.c" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/Core/Src/main.cpp" beforeDir="false" afterPath="$PROJECT_DIR$/Core/Src/main.cpp" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -137,7 +132,7 @@
     "RunOnceActivity.west.config.association.type.startup.service": "true",
     "cf.first.check.clang-format": "false",
     "cidr.known.project.marker": "true",
-    "git-widget-placeholder": "main",
+    "git-widget-placeholder": "pyro-debug",
     "ignore.virus.scanning.warn.message": "true",
     "node.js.detected.package.eslint": "true",
     "node.js.detected.package.tslint": "true",
@@ -319,7 +314,8 @@
     <MESSAGE value="Remove unused UBLX folders, attempt rewriting CMakeLists portions to link everything." />
     <MESSAGE value="Reset GPS dev folder to construct custom library." />
     <MESSAGE value="Build servo test code with encoder read error." />
-    <option name="LAST_COMMIT_MESSAGE" value="Build servo test code with encoder read error." />
+    <MESSAGE value="Implement data send from rocket side board" />
+    <option name="LAST_COMMIT_MESSAGE" value="Implement data send from rocket side board" />
   </component>
   <component name="XDebuggerManager">
     <breakpoint-manager>
