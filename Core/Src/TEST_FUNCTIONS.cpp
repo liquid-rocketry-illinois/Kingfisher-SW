@@ -21,15 +21,11 @@ int TEST::SERVO_TEST() {
     static int status = 0;
     if (status == 0 && initState) {
         while (1) {
-            for (int8_t i = 0; i < 90; i++) {
-                servoSet.Update(i*0.5F, i*0.5F);
-                vTaskDelay(2);
-            }
-            for (int8_t i = 90; i > -90; i--) {
-                servoSet.Update(i*0.5F, i*0.5F);
-                vTaskDelay(2);
-            }
+            servoSet.Update(90.0F, -33.0F);
             vTaskDelay(1000);
+            servoSet.Update(-45.0F, 45.0F);
+            vTaskDelay(1000);
+            servoSet.Update(0.0F, 0.0F);
         }
     }
 
