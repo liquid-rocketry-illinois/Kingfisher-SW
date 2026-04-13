@@ -62,6 +62,7 @@ void Error_Handler(void);
 #define RADIO_RST_GPIO_Port GPIOE
 #define RADIO_AUX_Pin GPIO_PIN_3
 #define RADIO_AUX_GPIO_Port GPIOE
+#define RADIO_AUX_EXTI_IRQn EXTI3_IRQn
 #define M0_Radio_Pin GPIO_PIN_4
 #define M0_Radio_GPIO_Port GPIOE
 #define M1_Radio_Pin GPIO_PIN_5

@@ -5,11 +5,19 @@
 #include "main.h"
 #include "Sensors.h"
 
+extern volatile bool e22_data_ready;
+
 extern "C" void HAL_GPIO_EXTI_Callback(uint16_t GPIO_Pin)
 {
-    if (GPIO_Pin == ISM_INT_Pin)  // Replace with your actual INT pin
+    if (GPIO_Pin == ISM_INT_Pin)
     {
         IMU_ISM6HGx::ism6hg256x_read_data_drdy_handler();
+    }
+
+    if(GPIO_Pin == RADIO_AUX_Pin)
+    {
+        // AUX high
+        e22_data_ready = true;
     }
 
     // Note: LIS2MDL uses a different approach to interrupts in 4-wire SPI mode.
