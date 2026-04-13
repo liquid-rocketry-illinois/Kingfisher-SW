@@ -2,48 +2,48 @@
 #define KINGFISHER_SW_TELEMETRY_H
 
 #include "Ebyte_E22_900T22S.h"
-#include <cstdint>
+#include "main.h"
 
-#define TELEMETRY_SYNC1 0xAA
-#define TELEMETRY_SYNC2 0x55
+#define TELEMETRY_SYNC1         0xAA
+#define TELEMETRY_SYNC2         0x55
 #define TELEMETRY_MAX_PAYLOAD 240 // set to maximum payload size
 #define HAL1_RADIO_NETID 0xE6
-#define HAL1_RADIO_ADDRLOW 0x12
-#define HAL1_RADIO_ADDRHIGH 0x34
+#define HAL1_RADIO_ADDRLOW 0x06
+#define HAL1_RADIO_ADDRHIGH 0x07
 
-// Data defs
-#define HAL1_RADIO_STARTBIT         0x02        //
-#define HAL1_RADIO_ENDBIT           0x03        //
-#define HAL1_RADIO_SEPARATOR        0x7C        // |
-#define HAL1_INDC_CALLSIGNC         0x43        // C
-#define HAL1_INDC_CALLSIGNS         0x53        // S
-#define HAL1_INDC_KEEPALIVEk        0x6b        // k
-#define HAL1_INDC_KEEPALIVEA        0x41        // A
-#define HAL1_INDC_LOWGRAVA          0x41        // A
-#define HAL1_INDC_w                 0x77        // w
-#define HAL1_INDC_x                 0x78        // x
-#define HAL1_INDC_y                 0x79        // y
-#define HAL1_INDC_z                 0x7A        // z
-#define HAL1_INDC_HIGHGRAVACCH      0x48        // H
-#define HAL1_INDC_HIGHGRAVACCG      0x47        // G
-#define HAL1_INDC_QUATERNIONS       0x51        // Q
-#define HAL1_INDC_PITCH             0x50        // P
-#define HAL1_INDC_YAW               0x59        // Y
-#define HAL1_INDC_ROLL              0x52        // R
-#define HAL1_INDC_SERVO1ROTATIONS   0x53        // S
-#define HAL1_INDC_SERVO2ROTATION1   0x31        // 1
-#define HAL1_INDC_SERVO2ROTATION2   0x32        // 2
+#define GND_RADIO_ADDRLOW 0x4A
+#define GND_RADIO_ADDRHIGH 0x4A
 
-// data error codes
-#define E22_NO_DATA      2
-#define E22_RECEIVE_ERR  3
-#define E22_BAD_LENGTH   4
+#define SHUTDOWN_KEEPALIVE      0xDE
+#define SHUTDOWN_HOLDOFF_MS     5000
+
+#define E22_NO_DATA             2
+#define E22_RECEIVE_ERR         3
+#define E22_BAD_LENGTH          4
+
+// for exti catch
+extern volatile bool e22_data_ready;
+
+typedef enum {
+    TELEMETRY_MODE_FLIGHT,   // rocket — sends telemetry, receives GND commands
+    TELEMETRY_MODE_GROUND    // ground station — sends commands, receives telemetry
+} TelemetryMode;
+
+typedef enum {
+    PYROMAIN        = 121734683,
+    PYRODROGUEBKP   = 402746912,
+    PYRODROGUEMAIN  = 243656272
+} pyroActivateKeys;
 
 typedef struct
 {
-    // KE9ERI_ALEPH
+    uint8_t keepAliveIn;
+    uint32_t pyroActivation[3] = {0, 0, 0};
+} GndStationData;
+
+typedef struct
+{
     const uint8_t callsign[12] = {75, 69, 57, 69, 82, 73, 95, 65, 76, 69, 80, 72};
-    // Repeat back keepalive received from ground station
     uint8_t keepAliveStatus;
     float altitude;
     float longitude, latitude, GPSaltitude;
@@ -53,46 +53,47 @@ typedef struct
     float pitch, yaw, roll;
     float servoPos1, servoPos2;
 } telemetryData;
-// Transmission structure: data = {HAL1_RADIO_STARTBIT, telemetryData t, HAL1_RADIO_ENDBIT}
-
-// Reduce the chances of a stray signal triggering the pyros
-// these numbers are the "keys" to active pyro devices. If the
-// recieved pyro activation key is not exactly these numbers,
-// pyros will not be triggered except by in-flight conditions.
-typedef enum {
-    PYRO1 = 1221734683,
-    PYRO2 = 4102746912,
-    PYRO3 = 2493656272
-} pyroActivateKeys;
-
-typedef struct
-{
-    uint8_t keepAliveIn; // 0 = nominal,
-    uint32_t pyroActivation[3] = {0,0,0};
-} GndStationData;
 
 class Telemetry {
-
-    static config_e22_900t22s des_cfg;
-
-    uint16_t seq = 0;
-    uint16_t lastSeq = 0;
-
-    // buffers to transmit and recieve data
-    uint8_t tx_buffer[TELEMETRY_MAX_PAYLOAD];
-    uint8_t rx_buffer[TELEMETRY_MAX_PAYLOAD];
-
-    uint8_t sendData(const telemetryData &data);
-    uint8_t receiveData(GndStationData &gnd);
-    int8_t decodeData(GndStationData &gnd);
-    uint16_t Checksum(uint8_t *data, uint16_t length);
-
 public:
-    Telemetry();
+    Telemetry(TelemetryMode mode);
 
     uint8_t Init();
     uint8_t Update();
-    void Reconfigure(const config_e22_900t22s* cfg_new);
+
+    // exposed so the application can read latest decoded data
+    telemetryData   HALOutData;   // flight → populated by sensors (FC) or decoded RX (GND)
+    GndStationData  GNDOutData;   // GND → populated by operator (GND) or decoded RX (FC)
+
+    bool shutdownFlag = false;
+
+private:
+    TelemetryMode mode;
+
+    static config_e22_900t22s des_cfg;
+
+    uint8_t  tx_buffer[TELEMETRY_MAX_PAYLOAD];
+    uint8_t  rx_buffer[TELEMETRY_MAX_PAYLOAD];
+    uint16_t lastSeq = 0;
+
+    uint32_t shutdownHoldStart = 0;
+
+    // FC-side
+    uint8_t sendData(const telemetryData &data);
+    uint8_t receiveCommands(GndStationData &gnd);
+    void    processKeepalive(uint8_t keepAliveIn);
+    void    processPyros(uint32_t pyroActivation[3]);
+
+    // GND-side
+    uint8_t sendCommands(const GndStationData &gnd);
+    uint8_t receiveTelemetry(telemetryData &data);
+
+    // shared
+    template<typename T> int8_t decodeData(T &payload);
+    template<typename T> uint8_t encodeAndSend(const T &payload);
+    uint16_t Checksum(uint8_t *data, uint16_t length);
+
+    void Reconfigure(const config_e22_900t22s *cfg_new);
 };
 
 #endif

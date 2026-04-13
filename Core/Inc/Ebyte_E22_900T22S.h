@@ -19,9 +19,10 @@ size_t length);
 
 // Receive data into user buffer
 // Returns number of bytes received or negative error
-int16_t recieve_e22_900t22s(uint8_t *buffer, size_t max_length);
+int16_t recieve_e22_900t22s(uint8_t *buffer, uint16_t max_len);
 
 // Check if data is available from the module
+inline volatile bool e22_data_ready = false;
 bool e22_available(void);
 
 // Switch from trans, WOR, config, and off modes

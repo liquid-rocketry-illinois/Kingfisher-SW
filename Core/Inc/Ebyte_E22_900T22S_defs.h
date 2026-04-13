@@ -142,7 +142,7 @@ typedef enum {
 // REG3
 
 #define R3_7_RSSI_BYTE_ENABLE               0b0 << 7
-#define R3_6_RSSI_BYTE_DISABLE              0b1 << 7
+#define R3_7_RSSI_BYTE_DISABLE              0b1 << 7
 #define R3_6_TRANSFER_METHOD_TRANSPARENT    0b0 << 6
 #define R3_6_TRANSFER_METHOD_FIXED_POINT    0b1 << 6
 #define R3_5_REPEATER_OFF                   0b0 << 5
@@ -175,8 +175,7 @@ typedef struct
     uint8_t REG0;
     uint8_t REG1;
     uint8_t REG2;
-    uint8_t REG3;   // Not needed for current application
-                    // thus is not implemented.
+    uint8_t REG3;
 
     UART_HandleTypeDef *huart;
 

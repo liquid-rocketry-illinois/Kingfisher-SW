@@ -138,12 +138,13 @@ int8_t init_e22_900t22s(config_e22_900t22s *cfg)
 
     /* compare relevant fields */
     bool config_matches =
-        (current_cfg.ADDH == cfg->ADDH)   &&
-        (current_cfg.ADDL == cfg->ADDL)   &&
+        (current_cfg.ADDH == cfg->ADDH)     &&
+        (current_cfg.ADDL == cfg->ADDL)     &&
         (current_cfg.NETID == cfg->NETID)   &&
-        (current_cfg.REG0 == cfg->REG0)   &&
-        (current_cfg.REG2 == cfg->REG2)   &&
-        (current_cfg.REG1 == cfg->REG1);
+        (current_cfg.REG0 == cfg->REG0)     &&
+        (current_cfg.REG1 == cfg->REG1)     &&
+        (current_cfg.REG2 == cfg->REG2)     &&
+        (current_cfg.REG3 == cfg->REG3)    ;
 
     /* only write if configuration differs */
     if (!config_matches)
@@ -158,11 +159,13 @@ int8_t init_e22_900t22s(config_e22_900t22s *cfg)
     if (readConfig_e22_900t22s(&current_cfg) != E22_OK)
         return E22_ERR_UART;
     config_matches =
-        (current_cfg.ADDH == cfg->ADDH)   &&
-        (current_cfg.ADDL == cfg->ADDL)   &&
-        (current_cfg.REG0 == cfg->REG0)   &&
-        (current_cfg.REG2 == cfg->REG2)   &&
-        (current_cfg.REG1 == cfg->REG1);
+        (current_cfg.ADDH == cfg->ADDH)     &&
+        (current_cfg.ADDL == cfg->ADDL)     &&
+        (current_cfg.NETID == cfg->NETID)   &&
+        (current_cfg.REG0 == cfg->REG0)     &&
+        (current_cfg.REG1 == cfg->REG1)     &&
+        (current_cfg.REG2 == cfg->REG2)     &&
+        (current_cfg.REG3 == cfg->REG3);
     if (!config_matches)
         return 1; // ensure that the config set in module is the config given to it
 
@@ -222,14 +225,14 @@ int8_t writeConfig_e22_900t22s(
     const config_e22_900t22s *cfg,
     bool save_to_flash)
 {
-    uint8_t frame[9]; // Overcompensate? maybe set to 32 or 64
+    uint8_t frame[10];
 
     // Head command byte
     frame[0] = save_to_flash ?
         COMMAND_BYTE_WRITE_CFG_SAVE_FLASH :
         COMMAND_BYTE_WRITE_CFG_NOSAVE_FLASH;
     frame[1] = 0x00;
-    frame[2] = 0x06;
+    frame[2] = 0x07;
 
     // REG3 is for more advanced functions and is not included
     frame[3] = cfg->ADDH;
@@ -238,6 +241,7 @@ int8_t writeConfig_e22_900t22s(
     frame[6] = cfg->REG0;
     frame[7] = cfg->REG1;
     frame[8] = cfg->REG2;
+    frame[9] = cfg->REG3;
 
     //xSemaphoreTake(e22_mutex, portMAX_DELAY);
 
@@ -247,7 +251,7 @@ int8_t writeConfig_e22_900t22s(
 
     // Construct and write config commands
 
-    if(uartWrite(frame, 9) != E22_OK)
+    if(uartWrite(frame, 10) != E22_OK)
     {
         //xSemaphoreGive(e22_mutex);
         return E22_ERR_UART;
@@ -264,9 +268,9 @@ int8_t readConfig_e22_900t22s(config_e22_900t22s *cfg)
     uint8_t cmd[3];
     cmd[0] = COMMAND_BYTE_READ_CFG;
     cmd[1] = 0x00; // Start from ADDH
-    cmd[2] = 0x06; // Read all necessary registers
-    uint8_t resp[9] = {0};
-    // resp: {c1, 00, 06, addh, addl, netid, reg0, reg1, reg2}
+    cmd[2] = 0x07; // Read all necessary registers
+    uint8_t resp[10] = {0};
+    // resp: {c1, 00, 06, addh, addl, netid, reg0, reg1, reg2, reg3}
 
     //xSemaphoreTake(e22_mutex, portMAX_DELAY);
 
@@ -277,7 +281,7 @@ int8_t readConfig_e22_900t22s(config_e22_900t22s *cfg)
     waitAux_e22_900t22s(1000); // shouldn't need this but just in case
 
     uartWrite(cmd,3);
-    int8_t rslt = uartRead(resp,9);
+    int8_t rslt = uartRead(resp,10);
     if(rslt != E22_OK)
     {
         //xSemaphoreGive(e22_mutex);
@@ -298,6 +302,7 @@ int8_t readConfig_e22_900t22s(config_e22_900t22s *cfg)
     cfg->REG0   = resp[6];
     cfg->REG1   = resp[7];
     cfg->REG2   = resp[8];
+    cfg->REG3   = resp[9];
 
     //xSemaphoreGive(e22_mutex);
 
@@ -316,7 +321,7 @@ int8_t transmit_e22_900t22s(uint8_t *data, size_t length)
     //xSemaphoreTake(e22_mutex, portMAX_DELAY);
 
     waitAux_e22_900t22s(200);
-    if (auxHigh) // double check. dont want to skip sent bytes
+    if (auxHigh()) // double check. dont want to skip sent bytes
         status = uartWrite(data, length);
     waitAux_e22_900t22s(200);
 
@@ -349,27 +354,43 @@ int8_t transmit_fixed_e22_900t22s(
 
 /* ================= RECEIVE ================= */
 
-bool e22_available(void)
+bool e22_available()
 {
-    return !e22_isBusy();
+    if(e22_data_ready)
+    {
+        e22_data_ready = false;
+        return true;
+    }
+    return false;
 }
 
-int16_t recieve_e22_900t22s(uint8_t *buffer, size_t max_length)
+int16_t recieve_e22_900t22s(uint8_t *buffer, uint16_t max_len)
 {
-    if(!initialized)
-        return E22_ERR_NOT_INITIALIZED;
-
-    if(e22_isBusy())
-        return 0;
-
-    if(HAL_UART_Receive(
-        e22_cfg.huart,
+    // read UART with a timeout — the module will clock out the full packet
+    HAL_StatusTypeDef status = HAL_UART_Receive(
+        e22_cfg.huart,        // your UART handle
         buffer,
-        max_length,
-        10) != HAL_OK)
-        return E22_ERR_UART;
+        max_len,
+        500             // timeout in ms, tune to your air data rate
+    );
 
-    return max_length;
+    if(status == HAL_OK)
+    {
+        // HAL_OK means max_len bytes were received, which may not be what you want
+        // this is a problem — see below
+        return max_len;
+    }
+    else if(status == HAL_TIMEOUT)
+    {
+        // timeout means UART stopped receiving before max_len bytes
+        // this is actually the normal case — compute how many bytes arrived
+        uint16_t received = max_len - e22_cfg.huart->RxXferCount;
+        if(received == 0)
+            return -2;
+        return (int16_t)received;
+    }
+
+    return -3;  // HAL_ERROR or HAL_BUSY
 }
 
 /* ================= ADDRESS ================= */

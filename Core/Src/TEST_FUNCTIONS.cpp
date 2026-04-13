@@ -83,9 +83,7 @@ int TEST::LIS2_TEST()
 }
 
 int TEST::RADIO_TEST() {
-    Telemetry telem;
-    telemetryData dataE22;
-    GndStationData keepalive;
+    Telemetry telem = Telemetry(TelemetryMode::TELEMETRY_MODE_FLIGHT); // or TelemetryMode::TELEMETRY_MODE_FLIGHT
     uint8_t status = 0;
     uint8_t init = telem.Init();
 

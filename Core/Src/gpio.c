@@ -76,11 +76,11 @@ void MX_GPIO_Init(void)
   GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
   HAL_GPIO_Init(GPIOE, &GPIO_InitStruct);
 
-  /*Configure GPIO pin : RADIO_AUX_Pin */
-  GPIO_InitStruct.Pin = RADIO_AUX_Pin;
-  GPIO_InitStruct.Mode = GPIO_MODE_INPUT;
-  GPIO_InitStruct.Pull = GPIO_PULLUP;
-  HAL_GPIO_Init(RADIO_AUX_GPIO_Port, &GPIO_InitStruct);
+  /*Configure GPIO pins : RADIO_AUX_Pin SIMU_INT2_Pin SIMU_INT1_Pin */
+  GPIO_InitStruct.Pin = RADIO_AUX_Pin|SIMU_INT2_Pin|SIMU_INT1_Pin;
+  GPIO_InitStruct.Mode = GPIO_MODE_IT_RISING;
+  GPIO_InitStruct.Pull = GPIO_NOPULL;
+  HAL_GPIO_Init(GPIOE, &GPIO_InitStruct);
 
   /*Configure GPIO pin : SD_DET_Pin */
   GPIO_InitStruct.Pin = SD_DET_Pin;
@@ -100,12 +100,6 @@ void MX_GPIO_Init(void)
   GPIO_InitStruct.Mode = GPIO_MODE_IT_RISING;
   GPIO_InitStruct.Pull = GPIO_NOPULL;
   HAL_GPIO_Init(SIMU_INT3_GPIO_Port, &GPIO_InitStruct);
-
-  /*Configure GPIO pins : SIMU_INT2_Pin SIMU_INT1_Pin */
-  GPIO_InitStruct.Pin = SIMU_INT2_Pin|SIMU_INT1_Pin;
-  GPIO_InitStruct.Mode = GPIO_MODE_IT_RISING;
-  GPIO_InitStruct.Pull = GPIO_NOPULL;
-  HAL_GPIO_Init(GPIOE, &GPIO_InitStruct);
 
   /*Configure GPIO pins : BMP390_CS1_Pin BMP390_CS2_Pin BMP390_CS3_Pin USR_LED_Pin
                            CS_ISM_Pin CS1_Pin */
@@ -147,6 +141,10 @@ void MX_GPIO_Init(void)
   GPIO_InitStruct.Pull = GPIO_NOPULL;
   GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
   HAL_GPIO_Init(GPS_RST_GPIO_Port, &GPIO_InitStruct);
+
+  /* EXTI interrupt init*/
+  HAL_NVIC_SetPriority(EXTI3_IRQn, 5, 0);
+  HAL_NVIC_EnableIRQ(EXTI3_IRQn);
 
 }
 
