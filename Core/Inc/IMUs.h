@@ -17,7 +17,6 @@ struct IMUsStatus {
 };
 
 class IMUs {
-private:
     SIMU_BMI323 BMI323_A;
     SIMU_BMI323 BMI323_B;
     SIMU_BMI323 BMI323_C;
@@ -43,9 +42,9 @@ private:
     uint8_t Normal_Compute();
 
 public:
-    IMUs(bool tmr_on);
+    IMUs();
 
-    IMUsStatus Init();
+    IMUsStatus Init(bool tmr_on);
     IMUsStatus Update();
     BMI_Data getRawBMI(uint8_t index);
     ISM_Data getRawISM();

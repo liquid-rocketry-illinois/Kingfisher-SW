@@ -26,16 +26,16 @@ int TEST::SERVO_TEST() {
             servoSet.Update(-45.0F, 45.0F);
             vTaskDelay(1000);
             servoSet.Update(0.0F, 0.0F);
-        }+
+        }
     }
 
     return status;
 }
 
 int TEST::IMU_TEST() {
-    IMUs IMU_ENGINE(true);
+    IMUs IMU_ENGINE = IMUs();
     HAL_GPIO_TogglePin(USR_LED_GPIO_Port, USR_LED_Pin);
-    IMUsStatus sensorStatuses = IMU_ENGINE.Init();
+    IMUsStatus sensorStatuses = IMU_ENGINE.Init(true);
 
     while (1) {
         HAL_GPIO_TogglePin(USR_LED_GPIO_Port, USR_LED_Pin);
@@ -76,9 +76,9 @@ int TEST::LIS2_TEST()
 }
 
 int TEST::RADIO_TEST() {
-    Telemetry telem = Telemetry(TelemetryMode::TELEMETRY_MODE_FLIGHT); // or TelemetryMode::TELEMETRY_MODE_FLIGHT
+    Telemetry telem = Telemetry(); // or TelemetryMode::TELEMETRY_MODE_FLIGHT
     uint8_t status = 0;
-    uint8_t init = telem.Init();
+    uint8_t init = telem.Init(TelemetryMode::TELEMETRY_MODE_GROUND);
 
     while (1) {
         status = telem.Update();

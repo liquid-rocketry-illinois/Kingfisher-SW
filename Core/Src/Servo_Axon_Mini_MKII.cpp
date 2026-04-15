@@ -106,6 +106,12 @@ void Servo_Axon_Mini_MKII::Actuate(SAsym<float> input) {
 }
 
 // PUBLIC
+
+Servo_Axon_Mini_MKII::Servo_Axon_Mini_MKII() {
+
+}
+
+
 /** @brief Init({offset 1, offset 2} (degrees), PRECISION::xxx, true/false); \n
  * Return true if the rotated degree matches commanded degree.
  * Initializing servo outputs PWM to servo pin, then checks

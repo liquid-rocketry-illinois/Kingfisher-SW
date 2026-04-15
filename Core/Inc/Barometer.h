@@ -25,7 +25,7 @@ class Baro_Unified {
 
     BMP_Status status;
 
-    public:
+public:
     Baro_Unified();
     BMP_Status Init(bool TMR_Toggle = false);
     BMP_Status Update();

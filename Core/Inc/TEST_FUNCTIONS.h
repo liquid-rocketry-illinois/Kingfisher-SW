@@ -11,6 +11,9 @@
 #include "Barometer.h"
 #include "LIS2MDL.h"
 #include "Telemetry.h"
+#include "usart.h"
+#include <cstring>
+#include "task.h"
 
 class TEST{
 public:

@@ -26,11 +26,11 @@ uint8_t IMUs::Normal_Compute() {
 //PUBLIC:
 
 // Also initialize quaternions for BMI and ISM imus.
-IMUs::IMUs(bool tmr_on) : Quaternion_BMI(), Quaternion_ISM() {
-    TMR_STATE = tmr_on;
-}
+IMUs::IMUs() : Quaternion_BMI(), Quaternion_ISM(), Data_ISM() {}
 
-IMUsStatus IMUs::Init() {
+IMUsStatus IMUs::Init(bool tmr_on) {
+    TMR_STATE = tmr_on;
+
     sensorStatus.A = BMI323_A.Init(SENSOR1_I);
     if (TMR_STATE) {
         sensorStatus.B = BMI323_B.Init(SENSOR2_I);

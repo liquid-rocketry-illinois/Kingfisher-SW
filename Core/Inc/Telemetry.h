@@ -55,25 +55,12 @@ typedef struct
 } telemetryData;
 
 class Telemetry {
-public:
-    Telemetry(TelemetryMode mode);
+    uint8_t mode;
 
-    uint8_t Init();
-    uint8_t Update();
+    config_e22_900t22s des_cfg = {};
 
-    // exposed so the application can read latest decoded data
-    telemetryData   HALOutData;   // flight → populated by sensors (FC) or decoded RX (GND)
-    GndStationData  GNDOutData;   // GND → populated by operator (GND) or decoded RX (FC)
-
-    bool shutdownFlag = false;
-
-private:
-    TelemetryMode mode;
-
-    static config_e22_900t22s des_cfg;
-
-    uint8_t  tx_buffer[TELEMETRY_MAX_PAYLOAD];
-    uint8_t  rx_buffer[TELEMETRY_MAX_PAYLOAD];
+    uint8_t  tx_buffer[TELEMETRY_MAX_PAYLOAD]{};
+    uint8_t  rx_buffer[TELEMETRY_MAX_PAYLOAD]{};
     uint16_t lastSeq = 0;
 
     uint32_t shutdownHoldStart = 0;
@@ -94,6 +81,18 @@ private:
     uint16_t Checksum(uint8_t *data, uint16_t length);
 
     void Reconfigure(const config_e22_900t22s *cfg_new);
+
+public:
+    Telemetry();
+
+    uint8_t Init(TelemetryMode Mode);
+    uint8_t Update();
+
+    // exposed so the application can read latest decoded data
+    telemetryData   HALOutData = {};   // flight → populated by sensors (FC) or decoded RX (GND)
+    GndStationData  GNDOutData = {};   // GND → populated by operator (GND) or decoded RX (FC)
+
+    bool shutdownFlag = false;
 };
 
 #endif

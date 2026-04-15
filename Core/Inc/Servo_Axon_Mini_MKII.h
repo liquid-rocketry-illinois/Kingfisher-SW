@@ -56,6 +56,8 @@ private:
     void Actuate(SAsym<float> input);
 
 public:
+    Servo_Axon_Mini_MKII();
+
     bool Init(  SAsym<float> AngOffset,
                 PRECISION precision,
                 bool debug);

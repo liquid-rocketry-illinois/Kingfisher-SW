@@ -1,17 +1,17 @@
 #include "Telemetry.h"
 #include "usart.h"
-#include <cstring>
 #include "task.h"
+#include <cstring>
 
-config_e22_900t22s Telemetry::des_cfg;
-
-Telemetry::Telemetry(TelemetryMode mode) : mode(mode)
+Telemetry::Telemetry()
 {
+    mode = 255; // no mode yet
     lastSeq = 0;
 }
 
-uint8_t Telemetry::Init()
+uint8_t Telemetry::Init(const TelemetryMode Mode)
 {
+    mode = Mode;
     des_cfg.huart = &huart8;
 
     des_cfg.E22_AUX_PIN  = RADIO_AUX_Pin;
@@ -92,7 +92,11 @@ uint8_t Telemetry::Update()
 
         // TODO: populate GNDOutData from operator input
         // GNDOutData.keepAliveIn = ...; // not sending anything for now
-        GNDOutData.pyroActivation[1] = PYRODROGUEBKP;
+        if (HAL_GPIO_ReadPin(USR_BUTTON_GPIO_Port, USR_BUTTON_Pin) == GPIO_PIN_SET) {
+            GNDOutData.pyroActivation[0] = 0;
+            GNDOutData.pyroActivation[1] = PYRODROGUEBKP;
+            GNDOutData.pyroActivation[2] = 0;
+        }
 
         status = sendCommands(GNDOutData);
     }
@@ -151,24 +155,47 @@ uint8_t Telemetry::encodeAndSend(const T &payload)
 template<typename T>
 int8_t Telemetry::decodeData(T &payload)
 {
-    uint8_t s = rx_buffer[0];
-    uint8_t s2 = rx_buffer[1];
-    if(rx_buffer[0] != TELEMETRY_SYNC1) return -1;
-    if(rx_buffer[1] != TELEMETRY_SYNC2) return -2;
+    // search for SYNC1 followed by SYNC2
+    int16_t sync_idx = -1;
+    for(int16_t i = 0; i < (int16_t)(TELEMETRY_MAX_PAYLOAD - 1); i++)
+    {
+        if(rx_buffer[i] == TELEMETRY_SYNC1 && rx_buffer[i + 1] == TELEMETRY_SYNC2)
+        {
+            sync_idx = i;
+            break;
+        }
+    }
 
-    uint8_t payload_len = rx_buffer[2];
+    if(sync_idx == -1)
+        return -1;  // sync bytes not found anywhere in buffer
 
-    if(payload_len != sizeof(T))              return -3;
-    if((5 + payload_len + 2) > TELEMETRY_MAX_PAYLOAD) return -4;
+    // ensure enough bytes remain after sync for the full header
+    // [SYNC1][SYNC2][len][seq_lo][seq_hi] = 5 bytes minimum before payload
+    if((sync_idx + 5) >= TELEMETRY_MAX_PAYLOAD)
+        return -2;  // not enough room for header after sync
 
-    uint16_t seq_rx = rx_buffer[3] | (rx_buffer[4] << 8);
+    uint8_t payload_len = rx_buffer[sync_idx + 2];
 
-    uint16_t crc_rx   = rx_buffer[5 + payload_len] | (rx_buffer[6 + payload_len] << 8);
-    uint16_t crc_calc = Checksum(rx_buffer, 5 + payload_len);
+    if(payload_len != sizeof(T))
+        return -3;
 
-    if(crc_rx != crc_calc) return -5;
+    // ensure full packet fits in buffer
+    // sync_idx + 5 header bytes + payload + 2 crc bytes
+    if((sync_idx + 5 + payload_len + 2) > TELEMETRY_MAX_PAYLOAD)
+        return -4;
 
-    memcpy(&payload, &rx_buffer[5], sizeof(T));
+    uint16_t seq_rx = rx_buffer[sync_idx + 3] | (rx_buffer[sync_idx + 4] << 8);
+
+    uint16_t crc_rx =
+        rx_buffer[sync_idx + 5 + payload_len] |
+        (rx_buffer[sync_idx + 6 + payload_len] << 8);
+
+    uint16_t crc_calc = Checksum(&rx_buffer[sync_idx], 5 + payload_len);
+
+    if(crc_rx != crc_calc)
+        return -5;
+
+    memcpy(&payload, &rx_buffer[sync_idx + 5], sizeof(T));
 
     lastSeq = seq_rx;
     return 0;
