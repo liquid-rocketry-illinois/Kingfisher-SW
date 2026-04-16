@@ -62,6 +62,7 @@ public:
                 PRECISION precision,
                 bool debug);
     void Update(float S1_Target_Deg, float S2_Target_Deg);
+    DATA_Axon_Mini_MKII getData() const;
 };
 
 #endif //KINGFISHER_SW_SERVO_AXON_MINI_MKII_H

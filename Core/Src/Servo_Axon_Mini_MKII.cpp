@@ -236,3 +236,7 @@ void Servo_Axon_Mini_MKII::Update(float S1_Target_Deg, float S2_Target_Deg) {
     data.trackedError.S1 += fabsf(err1) / denom1;
     data.trackedError.S2 += fabsf(err2) / denom2;
 }
+
+DATA_Axon_Mini_MKII Servo_Axon_Mini_MKII::getData() const {
+    return data;
+}

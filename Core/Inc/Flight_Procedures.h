@@ -12,6 +12,7 @@
 #include "LIS2MDL.h"
 #include "Telemetry.h"
 #include "constants.h"
+#include "SDCard.h"
 
 typedef enum : int8_t {
     STATUS_ABORT_ACTIVE     = -4,  // Abort already latched, redundant trigger
@@ -59,15 +60,6 @@ typedef struct {
     // Magnetometer         dev_Magnetometer;  (add when integrated)
     // GnssSensor           dev_GPS;           (add when integrated)
 } Devices;
-
-
-// ════════════════════════════════════════════════════════════════════════════
-//  SHARED SD LOGGING  (FatFS-backed: f_printf + f_sync internally)
-// ════════════════════════════════════════════════════════════════════════════
-
-int8_t SD_LogNewline(const char* msg);  // f_printf(msg + "\n"), f_sync
-int8_t SD_LogInline (const char* msg);  // f_printf(msg),        f_sync
-
 
 
 // ════════════════════════════════════════════════════════════════════════════

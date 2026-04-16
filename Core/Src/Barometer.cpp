@@ -32,9 +32,12 @@ Baro_Unified::BMP_Status Baro_Unified::Update() {
             data.SensorB = SensorB.getRawData();
             data.SensorC = SensorC.getRawData();
 
-            data.Filtered.Pressure = TMRFloat::Vote(data.SensorA.Pressure, data.SensorB.Pressure, data.SensorC.Pressure);
+            data.Filtered.Pressure    = TMRFloat::Vote(data.SensorA.Pressure,     data.SensorB.Pressure,     data.SensorC.Pressure);
             data.Filtered.heightMeters = TMRFloat::Vote(data.SensorA.heightMeters, data.SensorB.heightMeters, data.SensorC.heightMeters);
-            data.Filtered.Temperature = TMRFloat::Vote(data.SensorA.Temperature, data.SensorB.Temperature, data.SensorC.Temperature);
+            data.Filtered.Temperature  = TMRFloat::Vote(data.SensorA.Temperature,  data.SensorB.Temperature,  data.SensorC.Temperature);
+        } else {
+            // single-sensor mode: Filtered mirrors primary sensor
+            data.Filtered = data.SensorA;
         }
     }
     return status;
