@@ -11,9 +11,7 @@
 #include "Barometer.h"
 #include "LIS2MDL.h"
 #include "Telemetry.h"
-#include "usart.h"
-#include <cstring>
-#include "task.h"
+#include "constants.h"
 
 typedef enum : int8_t {
     STATUS_ABORT_ACTIVE     = -4,  // Abort already latched, redundant trigger
@@ -29,304 +27,414 @@ typedef enum : int8_t {
     STATUS_ABORT_TRIGGERED  =  127 // Abort signal freshly activated
 } ProcedureStatus;
 
-// Both ground and fc record the same data down
+typedef enum {
+    PREFLIGHT,
+    ASCENT,
+    CONTROLS_TEST,
+    APOGEE_APPROACH,
+    APOGEE,
+    APOGEE_PASS,
+    DESCENT,
+    MAIN_APPROACH,
+    MAIN,
+    FINAL_DESCENT
+} STAGE;
+
+// Both ground and FC record the same data
 typedef struct {
-    GndStationData dat_GND_Data;
-    telemetryData dat_FC_Data;
-    DATA_Axon_Mini_MKII dat_Servos;
-    BMI_Data dat_BMI_IMUs;
-    BARO_DATA dat_Barometers;
-    // GPS data struct here
+    GndStationData          dat_GND_Data;
+    telemetryData           dat_FC_Data;
+    DATA_Axon_Mini_MKII     dat_Servos;
+    BMI_Data                dat_BMI_IMUs;
+    BARO_DATA               dat_Barometers;
+    // GnssData             dat_GPS;   (add when GPS is integrated)
 } Data;
 
-// devices used on both gnd and flight computers. Gnd station records,
-// flight computer sends and records
+// Devices shared by both ground and flight computers
 typedef struct {
-    Telemetry dev_telemetry;
-    Baro_Unified dev_BarometerEngine;
-    Servo_Axon_Mini_MKII dev_servoSet;
-    IMUs dev_IMU_Engine;
-    // GPS device here
+    Telemetry               dev_telemetry;
+    Baro_Unified            dev_BarometerEngine;
+    Servo_Axon_Mini_MKII    dev_servoSet;
+    IMUs                    dev_IMU_Engine;
+    // Magnetometer         dev_Magnetometer;  (add when integrated)
+    // GnssSensor           dev_GPS;           (add when integrated)
 } Devices;
 
+
+// ════════════════════════════════════════════════════════════════════════════
+//  SHARED SD LOGGING  (FatFS-backed: f_printf + f_sync internally)
+// ════════════════════════════════════════════════════════════════════════════
+
+int8_t SD_LogNewline(const char* msg);  // f_printf(msg + "\n"), f_sync
+int8_t SD_LogInline (const char* msg);  // f_printf(msg),        f_sync
+
+
+
+// ════════════════════════════════════════════════════════════════════════════
+//  GROUND STATION
+// ════════════════════════════════════════════════════════════════════════════
+
 class GroundStation {
-    Data    GNDData = {};
+
+    // ── State ────────────────────────────────────────────────────────────────
+    bool     initDone          = false;
+    bool     abortLatched      = false;
+    bool     pendingLocalLog   = false;
+    uint32_t lastLocalUpdateMs = 0;
+    uint32_t holdStartMs       = 0;     // millis() when button first went active
+    uint32_t lastLEDToggleMs   = 0;     // rate-limits abort LED blink
+
+    Data    GNDData    = {};
     Devices GNDDevices = {};
 
 public:
     GroundStation();
 
-    /* PSEUDOCODE — Init()
- *
- * Init telemetry, barometer engine, IMU engine, GPS, and servos.
- *
- *      If any device Init() returns != STATUS_OK,
- *          return STATUS_INIT_FAILURE
- *
- * Verify communication handshake:
- *
- *      Send keepAlive byte from GND to FC.
- *
- *      FC waits up to 2s to receive byte.
- *
- *          If received byte == sent byte,
- *              FC sends verify byte back to GND.
- *          Else,
- *              return STATUS_COMMS_FAILURE
- *
- *      GND waits up to 2s to receive verify byte.
- *
- *          If received byte == expected verify byte,
- *              begin bidirectional data stream.
- *          Else,
- *              return STATUS_COMMS_FAILURE
- *
- * Verify sensor accuracy:
- *
- *      Update all GND sensors 5 times.
- *
- *          If any update status != STATUS_OK,
- *              return STATUS_LOCAL_READ_ERR
- *
- *      Read and store GND sensor data into respective buffers.
- *
- *          If any buffered value is out of expected range,
- *              return STATUS_LOCAL_DATA_ERR
- *
- *      Wait up to 2s to receive FC sensor data.
- *
- *          If FC data received,
- *
- *              Compare GND buffers vs FC data (±5% tolerance).
- *
- *              If delta > 5%,
- *                  log warning.
- *                  return STATUS_SENSOR_MISMATCH
- *
- *              FC sends STATUS_OK to GND.
- *
- *          If 2s elapses with no FC data,
- *              flag no radio signal.
- *              return STATUS_TIMEOUT
- *
- * Verify servo accuracy:
- *
- *      Command servos to ±1, 3, 5, 10, 20, 30, 45 degrees
- *      in both directions. Read back actual angle each step.
- *
- *          If cumulative error > 2%,
- *              return STATUS_LOCAL_DATA_ERR  // reuse — servo angle is local sensor data
- *
- *          If cumulative error > 1% but <= 2%,
- *              log warning, continue.
- *
- *          If cumulative error <= 1%,
- *              return STATUS_OK
- */
+    /* Init()
+     *
+     * Init all devices; aggregate return values.
+     * If any Init() != 0: return STATUS_INIT_FAILURE
+     *
+     * Handshake (poll via osDelay(10) loops, 2s timeout each):
+     *   set GNDData.dat_GND_Data.keepAliveIn = HANDSHAKE_GND_BYTE, call UpdateTelemetry()
+     *   poll UpdateTelemetry() until dat_FC_Data.keepAliveStatus == HANDSHAKE_FC_BYTE
+     *   if 2s elapsed without valid response: return STATUS_COMMS_FAILURE
+     *
+     * Sensor verification:
+     *   call UpdateSensors() 5 times
+     *   if any call != STATUS_OK: return STATUS_LOCAL_READ_ERR
+     *   if any sensor value out of expected range: return STATUS_LOCAL_DATA_ERR
+     *   poll UpdateTelemetry() up to 2s for FC sensor data
+     *   if timeout: return STATUS_TIMEOUT
+     *   if |GND reading - FC reading| > 5%: return STATUS_SENSOR_FAIL
+     *
+     * Servo verification:
+     *   for each angle in {±1, ±3, ±5, ±10, ±20, ±30, ±45}:
+     *     dev_servoSet.Update(angle, angle); read back currentAngle; accumulate error
+     *   if cumulative error > 2%: return STATUS_LOCAL_DATA_ERR
+     *   if cumulative error > 1%: SD_LogNewline("SERVO WARN")
+     *
+     * initDone = true
+     * return STATUS_OK
+     */
     int8_t Init();
 
 
-    /* PSEUDOCODE — Update()
- *
- * If init status != STATUS_OK,
- *      return STATUS_INIT_FAILURE  // Guard: do not run without successful init
- *
- * Begin loop timer.
- *
- * While loop timer < 3s:
- *
- *      Every 3s:
- *          Update local sensors.
- *          If any sensor update != STATUS_OK,
- *              log STATUS_LOCAL_READ_ERR warning, attempt to continue.
- *          Flag: UpdateLocalLog = true
- *
- *      Run UpdateKeepAlive()
- *
- *          If status == STATUS_ABORT_TRIGGERED,
- *              transmit abort signal to FC.
- *
- *          If status == STATUS_ABORT_ACTIVE,
- *              log warning: abort already latched, skip retransmit.
- *
- *      Update radio.
- *          If radio update != STATUS_OK,
- *              log STATUS_REMOTE_READ_ERR warning, attempt to continue.
- *
- *      Run UpdateLogging()
- *          If status != STATUS_OK,
- *              log warning, attempt to continue.
- *
- *      return STATUS_OK
- *
- * Log STATUS_TIMEOUT error.
- * return STATUS_TIMEOUT
- *
- * [Guard path]
- * return STATUS_INIT_FAILURE
- */
-    int8_t Update(); // Send/Receive from RCP
+    /* Update()  — called every FreeRTOS task iteration
+     *
+     * if !initDone: return STATUS_INIT_FAILURE
+     *
+     * if millis() - lastLocalUpdateMs >= GND_SENSOR_PERIOD_MS:
+     *   if UpdateSensors() != STATUS_OK: SD_LogNewline("LOCAL SENSOR WARN")
+     *   pendingLocalLog   = true
+     *   lastLocalUpdateMs = millis()
+     *
+     * status = UpdateKeepAlive()
+     * if status == STATUS_ABORT_TRIGGERED:
+     *   GNDData.dat_GND_Data.keepAliveIn = SHUTDOWN_KEEPALIVE
+     *
+     * UpdateTelemetry()
+     * UpdateLogging()
+     * return STATUS_OK
+     */
+    int8_t Update();
+
+private:
+
+    /* UpdateSensors()
+     *
+     * dev_BarometerEngine.Update() → GNDData.dat_Barometers
+     * dev_IMU_Engine.Update()      → GNDData.dat_BMI_IMUs
+     * // dev_Magnetometer.Update() (when integrated)
+     * if any update failed: return STATUS_LOCAL_READ_ERR
+     * return STATUS_OK
+     */
+    int8_t UpdateSensors();
 
 
+    /* UpdateTelemetry()
+     *
+     * dev_telemetry.GNDOutData = GNDData.dat_GND_Data
+     * if dev_telemetry.Update() != STATUS_OK: return STATUS_REMOTE_READ_ERR
+     * GNDData.dat_FC_Data = dev_telemetry.HALOutData
+     * return STATUS_OK
+     */
+    int8_t UpdateTelemetry();
 
-    /* PSEUDOCODE — UpdateKeepAlive()
- *
- * If keepAlive already == active,
- *      return STATUS_ABORT_ACTIVE     // Abort already latched
- *
- * Read USR_BUTTON pin.
- *
- *      If pin is active (TODO: confirm active HIGH or LOW),
- *          set AbortFlag = active.
- *
- * If AbortFlag == active:
- *
- *      Start/continue hold timer.
- *      Toggle abort LED (on↔off).
- *
- *      If hold timer >= 1.5s:
- *          Set keepAlive = active.
- *          Log and flag abort event.
- *          return STATUS_ABORT_TRIGGERED
- *
- * Else:
- *      Reset hold timer.   // Button released before threshold
- *
- * return STATUS_OK
- */
+
+    /* UpdateKeepAlive()
+     *
+     * if abortLatched: return STATUS_ABORT_ACTIVE
+     *
+     * buttonActive = (HAL_GPIO_ReadPin(USR_BUTTON_GPIO_Port, USR_BUTTON_Pin) == USR_BUTTON_ACTIVE_STATE)
+     *
+     * // NOTE TODO: ensure that 1.5ms include 0.1 grace for button release
+     * if buttonActive:
+     *   if holdStartMs == 0: holdStartMs = millis()
+     *   if millis() - lastLEDToggleMs >= 200:          // blink at 2.5 Hz while held
+     *     HAL_GPIO_TogglePin(USR_LED_GPIO_Port, USR_LED_Pin)
+     *     lastLEDToggleMs = millis()
+     *   if millis() - holdStartMs >= ABORT_ACCUM_MS:
+     *     abortLatched = true
+     *     SD_LogNewline("ABORT TRIGGERED")
+     *     return STATUS_ABORT_TRIGGERED
+     * else:
+     *   holdStartMs = 0                                 // button released — reset hold timer
+     *   stop the timer completely, until next button activation
+     *
+     * return STATUS_OK
+     */
     int8_t UpdateKeepAlive();
 
 
-    /* PSEUDOCODE — UpdateLogging()
-  *
-  * Call radio Update().
-  *
-  *      If radio Update() returns STATUS_OK:
-  *
-  *          Pull FC sensor data from radio into remote data buffers.
-  *
-  *              If data pull fails or values out of range,
-  *                  return STATUS_REMOTE_DATA_ERR
-  *
-  *          Log timestamp + remote data.
-  *
-  *          If UpdateLocalLog == true:
-  *              Log timestamp + local sensor data.
-  *              Set UpdateLocalLog = false.
-  *
-  *          return STATUS_OK
-  *
-  *      Else:
-  *          return STATUS_REMOTE_READ_ERR
-  */
+    /* UpdateLogging()
+     *
+     * if pendingLocalLog:
+     *   SD_LogNewline(timestamp + GNDData local sensor fields)
+     *   pendingLocalLog = false
+     * SD_LogNewline(timestamp + GNDData.dat_FC_Data fields)
+     * return STATUS_OK
+     */
     int8_t UpdateLogging();
 };
 
 
 
-
-/// FLIGHT COMPUTER
+// ════════════════════════════════════════════════════════════════════════════
+//  FLIGHT COMPUTER
+// ════════════════════════════════════════════════════════════════════════════
 
 class FlightComputer {
-    Data    FCData;
-    Devices FCDevices;
+
+    // ── CONOPS state ─────────────────────────────────────────────────────────
+    STAGE    currentStage          = PREFLIGHT;
+    bool     initDone              = false;
+    float    launchAltM            = 0.0f;   // altitude at launch pad (AGL reference, metres)
+    uint32_t liftoffDetectMs       = 0;      // millis() when liftoff accel first exceeded threshold
+
+    // ── Abort accumulator ────────────────────────────────────────────────────
+    bool     abortLatched          = false;
+    uint32_t abortAccumMs          = 0;      // accumulated active-signal time
+    uint32_t abortDropoutMs        = 0;      // elapsed time since signal went inactive
+    uint32_t lastAbortUpdateMs     = 0;      // last millis() sample for delta-time
+
+    // ── Pyro state ───────────────────────────────────────────────────────────
+    bool     pyroMainDrogueFired   = false;
+    bool     pyroBackupDrogueFired = false;
+    bool     pyroMainChuteFired    = false;
+
+    // ── Telemetry health ─────────────────────────────────────────────────────
+    int8_t   commsErrCount         = 0;      // consecutive TX/RX failures
+
+    // ── Vertical velocity (barometric dAlt/dt) ───────────────────────────────
+    float    vertVelocityMs        = 0.0f;   // positive = ascending, negative = descending
+    float    prevAltM              = 0.0f;
+    uint32_t prevAltTimeMs         = 0;
+
+    Data    FCData    = {};
+    Devices FCDevices = {};
 
 public:
     FlightComputer();
 
-    /* PSEUDOCODE:
-     * Init all sensors.
+    /* Init()
      *
-     * If any sensor init statuses aren't 0,
+     * Init IMU engine and barometer engine.
+     * // magnetometer + GPS init here when integrated
+     * If any status != 0: return STATUS_INIT_FAILURE
      *
-     *      return STATUS_INIT_FAILURE
+     * if dev_telemetry.Init(TELEMETRY_MODE_FLIGHT) != 0: return STATUS_COMMS_FAILURE
      *
-     * Attempt initialization of radio.
+     * Handshake (poll via osDelay(10) loops, 3s timeout):
+     *   poll dev_telemetry.Update() until GNDOutData.keepAliveIn == HANDSHAKE_GND_BYTE
+     *   if 3s elapsed: return STATUS_COMMS_FAILURE
+     *   set dev_telemetry.HALOutData.keepAliveStatus = HANDSHAKE_FC_BYTE
+     *   call dev_telemetry.Update() to transmit response
      *
-     * If initialization returns != 0,
-     *
-     *      return STATUS_SENSOR_FAILURE
-     *
-     * While waiting for 3 seconds,
-     *
-     *      attempt receive handshake.
-     *
-     * After 3s, if handshake not received,
-     *
-     *      return STATUS_COMMS_FAILURE
-     *
-     * Check received data, if received byte != expected handshake byte,
-     *
-     *      Send handshake response byte.
-     *
-     * Start timer.
-     *
-     * While timer lenth < 2s,
-     *
-     *      Update local sensor data
-     *      Record sensor data.
-     *      Transmit/Receive radio sensor calibration data.
-     *      Check received radio data. If received,
-     *          Compare calibration data against local sensor data
-     *          If data is within 5% of each other,
-     *              add a count to success counter
-     *
-     *      If success counter >= 10,
-     *          return STATUS_OK
-     * return STATUS_TIMEOUT
+     * Sensor sync (poll via osDelay(10), 2s timeout):
+     *   UpdateSensors()
+     *   launchAltM = FCData.dat_Barometers.Filtered.heightMeters
+     *   successCount = 0
+     *   while millis() - syncStartMs < 2000:
+     *     UpdateSensors(); UpdateTelemetry()
+     *     if GND sensor data received && |local - GND| <= 5% for all sensors: successCount++
+     *     if successCount >= 10: initDone = true; return STATUS_OK
+     *     osDelay(10)
+     *   return STATUS_TIMEOUT
      */
     int8_t Init();
 
 
-    /* PSEUDOCODE:
+    /* Update()  — called every FreeRTOS task iteration
      *
-     * Receive ground station data.
+     * if !initDone: return STATUS_INIT_FAILURE
      *
-     * // TODO verify this logic. Abort signal (button press) must be active for 1.5s in order to abort rocket.
-     * // TODO if abort signal is lost for a tiny time (0.1-0.2s?), still count that as active. If button is
-     * // TODO held down for 0.5s, then released for a second, then held again, the sequence resets. If it is
-     * // TODO continuously active for 1s, then a brief cutout results in the button being "off" for a sliver of
-     * // TODO time, still count that as added to the time. 1s active + 0.1s "not" active + 0.4s active = 1.5s active.
-     * If abort signal active:
-     *      If abort timer not already started,
-     *          Start abort timer.
-     *      If abort timer active not flagged,
-     *          flag abort timer active
+     * UpdateTelemetry()            // TX: last cycle's sensor data  RX: current GND commands
+     * UpdateAbortAccumulator()     // checks GND abort signal via SHUTDOWN_KEEPALIVE; calls Abort() if threshold met (no return)
+     * UpdateSensors()
+     * UpdateVerticalVelocity()
+     * TrackCONOPS()
+     * UpdatePyroTrack()
      *
-     * If abort timer active:
-     *      check current time - abort timer activation time.
-     *      if dt > 1.5s,
-     *          run Abort command
-     *          run abort procedure infinite loop.
-     *
-     * Update sensors.
-     * Update current time using GPS.
-     * If GPS time unavailable,
-     *      update using ticks from mcu.
-     * Update servo state (Update motor sequence states based on time.)
-     *
-     * [IN FUTURE, CONTROL ALGORITHM WILL BE RUN HERE. FOR NOW NOTHING HERE]
-     *
-     * Record measured sensor data.
-     * If any statuses of sensor updates != 0,
-     *      flag error in radio data
-     *
-     * Transmit radio data.
-     * If radio transmit errors,
-     *      flag a warning on FC sd card log.
-     *      add a count to error counter
-     *      continue
-     *
-     * If error counter exceeds _____ //TODO use a value that makes sense
-     *      raise comms error warning, but attempt to continue.
-     *      // TODO alter radio timeout to create shorter time between calls
-     *      // TODO change radio rate to 57.6K (higher if possible), air data rate to a higher rate (38.4K)
+     * if commsErrCount > COMMS_ERR_THRESHOLD: SD_LogNewline("COMMS WARNING")
+     * return STATUS_OK
      */
-    int8_t Update(); // Send to RCI/gnd station
+    int8_t Update();
+
+private:
+
+    /* UpdateAbortAccumulator()
+     *
+     * signalActive = (FCData.dat_GND_Data.keepAliveIn == SHUTDOWN_KEEPALIVE)
+     * dt = millis() - lastAbortUpdateMs; lastAbortUpdateMs = millis()
+     *
+     * if signalActive:
+     *   abortDropoutMs = 0
+     *   abortAccumMs  += dt
+     * else:
+     *   abortDropoutMs += dt
+     *   if abortDropoutMs > ABORT_DROPOUT_MS: abortAccumMs = 0
+     *
+     * if abortAccumMs >= ABORT_ACCUM_MS: Abort()   // does not return
+     */
+    int8_t UpdateAbortAccumulator();
 
 
-    // reset servos to 0, run loop which keeps getting data
-    // Flag warning of servo turn-off
+    /* UpdateSensors()
+     *
+     * imuStatus = dev_IMU_Engine.Update()    → FCData.dat_BMI_IMUs
+     * baroStatus = dev_BarometerEngine.Update() → FCData.dat_Barometers
+     * // dev_Magnetometer.Update() when integrated
+     * if any status field != 0: return STATUS_LOCAL_READ_ERR
+     * return STATUS_OK
+     *
+     * Note: IMUs::Update() returns IMUsStatus {A, B, C, ISM} — check each field individually.
+     */
+    int8_t UpdateSensors();
+
+
+    /* UpdateVerticalVelocity()
+     *
+     * currentAltM = FCData.dat_Barometers.Filtered.heightMeters
+     * now = millis()
+     * dt  = now - prevAltTimeMs
+     * if dt > 0: vertVelocityMs = (currentAltM - prevAltM) / (dt / 1000.0f)
+     * prevAltM      = currentAltM
+     * prevAltTimeMs = now
+     */
+    void UpdateVerticalVelocity();
+
+
+    /* UpdateTelemetry()
+     *
+     * Pack FCData into dev_telemetry.HALOutData:
+     *   altitude              = FCData.dat_Barometers.Filtered.heightMeters
+     *   mAccX/Y/Z             = FCData.dat_BMI_IMUs.accel_linear.x/y/z
+     *   servoPos1             = FCData.dat_Servos.currentAngle.S1
+     *   servoPos2             = FCData.dat_Servos.currentAngle.S2
+     *   pyroMainDrogueFired   = pyroMainDrogueFired
+     *   pyroBackupDrogueFired = pyroBackupDrogueFired
+     *   pyroMainChuteFired    = pyroMainChuteFired
+     *   // GPS, quaternion, pitch/yaw/roll when available
+     *
+     * if dev_telemetry.Update() != STATUS_OK: commsErrCount++; return STATUS_REMOTE_READ_ERR
+     * commsErrCount = 0
+     * FCData.dat_GND_Data = dev_telemetry.GNDOutData
+     * return STATUS_OK
+     */
+    int8_t UpdateTelemetry();
+
+
+    /* TrackCONOPS()
+     * Advances currentStage based on sensor data. Only the active stage's condition is evaluated.
+     *
+     * switch(currentStage):
+     *
+     *   PREFLIGHT:
+     *     if FCData.dat_BMI_IMUs.accel_linear.magnitude() > LIFTOFF_ACCEL_G:
+     *       if liftoffDetectMs == 0: liftoffDetectMs = millis()
+     *       if millis()-liftoffDetectMs > LIFTOFF_SUSTAIN_MS
+     *          && FCData.dat_Barometers.Filtered.heightMeters > launchAltM + LIFTOFF_ALT_DELTA_M:
+     *         currentStage = ASCENT; SD_LogNewline("STAGE: ASCENT")
+     *     else: liftoffDetectMs = 0    // reset if accel drops before sustain
+     *
+     *   ASCENT:
+     *     if FCData.dat_BMI_IMUs.accel_linear.magnitude() < BURNOUT_ACCEL_G:
+     *       currentStage = CONTROLS_TEST; SD_LogNewline("STAGE: CONTROLS_TEST")
+     *
+     *   CONTROLS_TEST:
+     *     if vertVelocityMs < APOGEE_APPROACH_VEL_MS:   // < 20.0 m/s upward
+     *       currentStage = APOGEE_APPROACH; SD_LogNewline("STAGE: APOGEE_APPROACH")
+     *
+     *   APOGEE_APPROACH:
+     *     if vertVelocityMs < APOGEE_VEL_MS             // < 5.0 m/s upward
+     *        && FCData.dat_Barometers.Filtered.heightMeters > MIN_APOGEE_ALT_M:
+     *       currentStage = APOGEE; SD_LogNewline("STAGE: APOGEE")
+     *
+     *   APOGEE:
+     *     if vertVelocityMs < APOGEE_PASS_VEL_MS:       // < -3.0 m/s — confirmed descending
+     *       currentStage = APOGEE_PASS; SD_LogNewline("STAGE: APOGEE_PASS")
+     *
+     *   APOGEE_PASS:
+     *     if vertVelocityMs < DESCENT_VEL_MS:           // < -7.0 m/s — descent established
+     *       currentStage = DESCENT; SD_LogNewline("STAGE: DESCENT")
+     *
+     *   DESCENT:
+     *     if FCData.dat_Barometers.Filtered.heightMeters < MAX_MAIN_DEPLOY_ALT_M
+     *        && FCData.dat_Barometers.Filtered.heightMeters > MIN_MAIN_DEPLOY_ALT_M:
+     *       currentStage = MAIN_APPROACH; SD_LogNewline("STAGE: MAIN_APPROACH")
+     *
+     *   MAIN_APPROACH:
+     *     if FCData.dat_Barometers.Filtered.heightMeters <= TARGET_MAIN_ALT_M:
+     *       currentStage = MAIN; SD_LogNewline("STAGE: MAIN")
+     *
+     *   MAIN:
+     *     if vertVelocityMs > FINAL_DESCENT_VEL_MS:     // > -5.0 m/s — stable under main chute
+     *       currentStage = FINAL_DESCENT; SD_LogNewline("STAGE: FINAL_DESCENT")
+     *
+     *   FINAL_DESCENT: break
+     *
+     * return STATUS_OK
+     */
+    int8_t TrackCONOPS();
+
+
+    /* UpdatePyroTrack()
+     *
+     * if currentStage == APOGEE && !pyroMainDrogueFired:
+     *   firePyroMainDrogue(); pyroMainDrogueFired = true
+     *
+     * if currentStage == APOGEE_PASS && !pyroBackupDrogueFired:
+     *   firePyroBackupDrogue(); pyroBackupDrogueFired = true   // unconditional — max redundancy
+     *
+     * if currentStage == MAIN && !pyroMainChuteFired:
+     *   firePyroMainParachute(); pyroMainChuteFired = true
+     *
+     * // Pyro fired flags are packed into HALOutData by UpdateTelemetry()
+     *
+     * return STATUS_OK
+     */
+    int8_t UpdatePyroTrack();
+
+    void firePyroMainDrogue();      // HAL_GPIO_WritePin DROUGE_MAIN_GPIO_Port, DROUGE_MAIN_Pin
+    void firePyroBackupDrogue();    // HAL_GPIO_WritePin DROUGE_BACK_GPIO_Port, DROUGE_BACK_Pin
+    void firePyroMainParachute();   // HAL_GPIO_WritePin MAIN_GPIO_Port, MAIN_Pin
+
+
+    /* Abort()
+     *
+     * dev_FCDevices.dev_servoSet.Update(0.0f, 0.0f)
+     * abortLatched = true
+     * SD_LogNewline("ABORT")
+     *
+     * while (1):                   // FreeRTOS task loop — intentionally never returns
+     *   UpdateSensors()
+     *   UpdatePyroTrack()          // pyros continue to sequence normally
+     *   UpdateTelemetry()          // keep ground informed
+     *   Log_data() // TODO: still need to log data
+     *   osDelay(10)
+     */
     int8_t Abort();
 };
+
 #endif //KINGFISHER_SW_FLIGHT_PROCEDURES_H

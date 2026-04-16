@@ -52,6 +52,9 @@ typedef struct
     float Qx, Qy, Qz, Qw;
     float pitch, yaw, roll;
     float servoPos1, servoPos2;
+    bool pyroMainDrogueFired   = false;
+    bool pyroBackupDrogueFired = false;
+    bool pyroMainChuteFired    = false;
 } telemetryData;
 
 class Telemetry {

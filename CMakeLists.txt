@@ -79,6 +79,7 @@ add_executable(${CMAKE_PROJECT_NAME}
         Core/Src/FloatTripleModRedundancy.cpp
         Core/Inc/Flight_Procedures.h
         Core/Src/Flight_Procedures.cpp
+        Core/Inc/constants.h
 )
 
 # Add STM32CubeMX generated sources
