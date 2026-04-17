@@ -14,6 +14,7 @@
 #include "usart.h"
 #include <cstring>
 #include "task.h"
+#include "SDCard.h"
 
 class TEST{
 public:
@@ -24,6 +25,7 @@ public:
     int LIS2_TEST();
     int RADIO_TEST();
     int PYRO_TEST();
+    int SD_TEST();
 };
 
 #endif //HAL_1_SW_TEST_FUNCTIONS_H
