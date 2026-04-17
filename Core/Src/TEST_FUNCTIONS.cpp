@@ -20,46 +20,39 @@ int TEST::SERVO_TEST() {
     // Track status of servos
     static int status = 0;
     if (status == 0 && initState) {
-        servoSet.Update(90, -90);
-        vTaskDelay(10);
+        while (1) {
+            servoSet.Update(90.0F, -33.0F);
+            vTaskDelay(1000);
+            servoSet.Update(-45.0F, 45.0F);
+            vTaskDelay(1000);
+            servoSet.Update(0.0F, 0.0F);
+        }
     }
-    // Error - Not initialized within tolerance.
-    else if (!initState) {
-        // Attempt init again
-        initState = servoSet.Init({0,0}, PRECISION::TENTH_DEGREE, true);
-        vTaskDelay(500);
-        return -2;
-    }
-    // Something else went wrong (This should never really happen
-    // but it is there cause muscle memory)
-    else return -1;
 
     return status;
 }
 
 int TEST::IMU_TEST() {
-    IMU IMU_ENGINE(false);
+    IMUs IMU_ENGINE = IMUs();
     HAL_GPIO_TogglePin(USR_LED_GPIO_Port, USR_LED_Pin);
-    IMUsStatus sensorStatuses = IMU_ENGINE.Init();
+    IMUsStatus sensorStatuses = IMU_ENGINE.Init(true);
 
     while (1) {
         HAL_GPIO_TogglePin(USR_LED_GPIO_Port, USR_LED_Pin);
         sensorStatuses = IMU_ENGINE.Update();
-        vTaskDelay(100);
+        vTaskDelay(1);
     }
 }
 
-int TEST::BMP_TEST()
+int TEST::BARO_TEST()
 {
-    Barometer BMP(&hspi2, Barometer::SENSOR2_I);
-    BMP_Data data;
-    uint8_t status = 0;
-    uint8_t init = BMP.Init(); // TODO: investigate bad calibration data read
+    Baro_Unified BaroEngine;
+    auto init = BaroEngine.Init(true);
 
     while (1)
     {
-        status = BMP.Update();
-        data = BMP.getRawData();
+        auto status = BaroEngine.Update();
+        auto data = BaroEngine.getData();
         HAL_GPIO_TogglePin(USR_LED_GPIO_Port, USR_LED_Pin);
         //vTaskDelay(100); TODO: vTaskDelay causing hard fault- memory bad? overflow? div by 0?
         HAL_Delay(100);
@@ -83,16 +76,31 @@ int TEST::LIS2_TEST()
 }
 
 int TEST::RADIO_TEST() {
-    Telemetry telem;
-    telemetryData dataE22;
-    GndStationData keepalive;
+    Telemetry telem = Telemetry(); // or TelemetryMode::TELEMETRY_MODE_FLIGHT
     uint8_t status = 0;
-    uint8_t init = telem.Init();
+    uint8_t init = telem.Init(TelemetryMode::TELEMETRY_MODE_GROUND);
 
     while (1) {
         status = telem.Update();
         HAL_GPIO_TogglePin(USR_LED_GPIO_Port, USR_LED_Pin);
         vTaskDelay(100);
     }
+}
+
+int TEST::PYRO_TEST()
+{
+
+    vTaskDelay(pdMS_TO_TICKS(1000));
+
+    HAL_GPIO_WritePin(DROUGE_MAIN_GPIO_Port, DROUGE_MAIN_Pin, GPIO_PIN_SET);
+    HAL_GPIO_TogglePin(USR_LED_GPIO_Port, USR_LED_Pin);
+    vTaskDelay(pdMS_TO_TICKS(5000));
+    HAL_GPIO_WritePin(DROUGE_MAIN_GPIO_Port, DROUGE_MAIN_Pin, GPIO_PIN_RESET);
+
+    while (1) {
+        HAL_GPIO_TogglePin(USR_LED_GPIO_Port, USR_LED_Pin);
+        vTaskDelay(pdMS_TO_TICKS(100));
+    }
+
 }
 

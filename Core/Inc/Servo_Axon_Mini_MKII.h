@@ -13,6 +13,10 @@
  */
 
 #include <stdint.h>
+#include "FreeRTOS.h"
+#include "task.h"
+#include "portmacro.h"
+#include "projdefs.h"
 
 enum PRECISION {
     ONE_DEGREE,
@@ -33,6 +37,7 @@ struct DATA_Axon_Mini_MKII{
     SAsym<float> trackedError;
     SAsym<float> trackedAngle;
     SAsym<bool> Nominal = {false, false};
+    SAsym<float> smoothedCorrection = {0.0f, 0.0f};
 };
 
 struct CFG_Axon_Mini_MKII{
@@ -51,10 +56,13 @@ private:
     void Actuate(SAsym<float> input);
 
 public:
+    Servo_Axon_Mini_MKII();
+
     bool Init(  SAsym<float> AngOffset,
                 PRECISION precision,
                 bool debug);
     void Update(float S1_Target_Deg, float S2_Target_Deg);
+    DATA_Axon_Mini_MKII getData() const;
 };
 
 #endif //KINGFISHER_SW_SERVO_AXON_MINI_MKII_H

@@ -15,16 +15,16 @@ typedef struct
 /*
  * Function prototypes required by Bosch BMP390 driver
  */
-int8_t bmp3_spi_read(uint8_t reg_addr,
+int8_t BMP_SPI_Read(uint8_t reg_addr,
                      uint8_t *data,
                      uint32_t len,
-                     void *intf_ptr);
+                     void *ptr);
 
-int8_t bmp3_spi_write(uint8_t reg_addr,
+int8_t BMP_SPI_Write(uint8_t reg_addr,
                       const uint8_t *data,
                       uint32_t len,
-                      void *intf_ptr);
+                      void *ptr);
 
-void bmp3_delay_us(uint32_t period, void *intf_ptr);
+void BMP_delay_us(uint32_t period, void *intf_ptr);
 
 #endif

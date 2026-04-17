@@ -9,8 +9,7 @@
 #include "main.h"
 #include "spi.h"
 #include "Math/Math.h"
-
-#define _spi &hspi4
+#include "BMI323_Platform.h"
 
 typedef enum {
     SENSOR1_I,
@@ -24,11 +23,18 @@ struct BMI_Data
     Vector3D<float> ang_vel;
 };
 
+typedef struct {
+    SPI_HandleTypeDef* SPIbus;
+    BMI_INDEX index;
+    GPIO_TypeDef* cs_port;
+    uint16_t cs_pin;
+} BMIobjPtr;
+
 class SIMU_BMI323
 {
 public:
-    SIMU_BMI323(BMI_INDEX DeviceNum);
-    int Init();
+    SIMU_BMI323();
+    int Init(BMI_INDEX DeviceNum);
     int Update();
     BMI_Data getRawData();
 
@@ -36,14 +42,28 @@ private:
     bmi3_dev device;
     bool _sensor_active;
     BMI_INDEX InitDev;
-
     BMI_Data _raw;
+    BMIobjPtr _obj;
 
-    static int8_t SPI_Read(uint8_t reg, uint8_t* data, uint32_t len, void *intf_ptr);
-    static int8_t SPI_Write(uint8_t reg, const uint8_t* data, uint32_t len, void *intf_ptr);
-    void CS_Select();
-    void CS_Deselect();
-    static void platform_Delay(uint32_t microseconds, void *intf_ptr);
+    bmi3_sens_config config[2];
+    bmi3_map_int map_int = {0};
+
+    /*! @brief Converts raw sensor values(LSB) to G value
+ *
+ *  @param[in] val        : Raw sensor value.
+ *  @param[in] g_range    : Accel Range selected (4G).
+ *  @param[in] bit_width  : Resolution of the sensor.
+ *
+ *  @return Accel values in Gravity(G)
+ *
+ */
+    static float lsb_to_g(int16_t val, float g_range, uint8_t bit_width);
+
+    /*!
+     * @brief This function converts lsb to degree per second for 16 bit gyro at
+     * range 125, 250, 500, 1000 or 2000dps.
+     */
+    static float lsb_to_dps(int16_t val, float dps, uint8_t bit_width);
 };
 
 #endif //KINGFISHER_SW_SIMU_BMI323_H
