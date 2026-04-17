@@ -115,7 +115,7 @@ int main(void)
   MX_UART4_Init();
   MX_UART8_Init();
   MX_USB_OTG_FS_PCD_Init();
-  /* MX_FATFS_Init(); */  /* moved into task() in main.cpp — must run after scheduler starts */
+  MX_FATFS_Init();
   /* USER CODE BEGIN 2 */
 
   /* USER CODE END 2 */

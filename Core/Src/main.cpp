@@ -13,7 +13,6 @@ void buzzerTOGGLE() {}
 
 extern "C" void task(void*) {
     /* USER CODE BEGIN StartDefaultTask */
-    MX_FATFS_Init();            // must run after scheduler starts so RTOS sync objects work
     MICROS_DWT_Timebase_Init(); // Initialize micros() timer
 
     TEST test;
