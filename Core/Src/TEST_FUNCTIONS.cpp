@@ -26,7 +26,7 @@ int TEST::SERVO_TEST() {
             servoSet.Update(-45.0F, 45.0F);
             vTaskDelay(1000);
             servoSet.Update(0.0F, 0.0F);
-        }+
+        }
     }
 
     return status;

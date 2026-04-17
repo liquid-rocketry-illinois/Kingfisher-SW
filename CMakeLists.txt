@@ -77,6 +77,7 @@ add_executable(${CMAKE_PROJECT_NAME}
         Core/Src/Barometer.cpp
         Core/Inc/Math/FloatTripleModRedundancy.h
         Core/Src/FloatTripleModRedundancy.cpp
+        Core/Inc/RCP_Host.h
 )
 
 # Add STM32CubeMX generated sources
