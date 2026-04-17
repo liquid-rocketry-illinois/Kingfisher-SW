@@ -37,14 +37,14 @@ typedef enum {
 
 typedef struct
 {
-    uint8_t keepAliveIn;
+    uint8_t CommandByteIn;
     uint32_t pyroActivation[3] = {0, 0, 0};
 } GndStationData;
 
 typedef struct
 {
-    const uint8_t callsign[12] = {75, 69, 57, 69, 82, 73, 95, 65, 76, 69, 80, 72};
-    uint8_t keepAliveStatus;
+    uint8_t callsign[12] = {75, 69, 57, 69, 82, 73, 95, 65, 76, 69, 80, 72};
+    uint8_t CommandResponseByte;
     float altitude;
     float longitude, latitude, GPSaltitude;
     float mAccX, mAccY, mAccZ;

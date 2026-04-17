@@ -102,6 +102,8 @@ target_sources(${CMAKE_PROJECT_NAME} PRIVATE
         Core/Src/IMU_ISM6HGx.cpp
         Core/Src/bmi3.c
         Core/Src/bmi323.c
+        Core/Src/sd_diskio.c
+        Core/Src/SDCard.cpp
 )
 
 # Add include paths

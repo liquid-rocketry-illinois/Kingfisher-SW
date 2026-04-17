@@ -28,12 +28,12 @@ int8_t GroundStation::Init()
     if (anyFail) return STATUS_INIT_FAILURE;
 
     // ── Handshake: send GND byte, wait up to 2 s for FC echo ─────────────────
-    GNDData.dat_GND_Data.keepAliveIn = HANDSHAKE_GND_BYTE;
+    GNDData.dat_GND_Data.CommandByteIn = HANDSHAKE_GND_BYTE;
     uint32_t t0 = millis();
     bool handshakeOK = false;
     while (millis() - t0 < 2000) {
         UpdateTelemetry();
-        if (GNDData.dat_FC_Data.keepAliveStatus == HANDSHAKE_FC_BYTE) {
+        if (GNDData.dat_FC_Data.CommandResponseByte == HANDSHAKE_FC_BYTE) {
             handshakeOK = true;
             break;
         }
@@ -113,7 +113,7 @@ int8_t GroundStation::Update()
 
     int8_t ka = UpdateKeepAlive();
     if (ka == STATUS_ABORT_TRIGGERED) {
-        GNDData.dat_GND_Data.keepAliveIn = SHUTDOWN_KEEPALIVE;
+        GNDData.dat_GND_Data.CommandByteIn = SHUTDOWN_KEEPALIVE;
     }
 
     UpdateTelemetry();
@@ -225,7 +225,7 @@ int8_t FlightComputer::Init()
     bool handshakeOK = false;
     while (millis() - t0 < 3000) {
         FCDevices.dev_telemetry.Update();
-        if (FCDevices.dev_telemetry.GNDOutData.keepAliveIn == HANDSHAKE_GND_BYTE) {
+        if (FCDevices.dev_telemetry.GNDOutData.CommandByteIn == HANDSHAKE_GND_BYTE) {
             handshakeOK = true;
             break;
         }
@@ -233,7 +233,7 @@ int8_t FlightComputer::Init()
     }
     if (!handshakeOK) return STATUS_COMMS_FAILURE;
 
-    FCDevices.dev_telemetry.HALOutData.keepAliveStatus = HANDSHAKE_FC_BYTE;
+    FCDevices.dev_telemetry.HALOutData.CommandResponseByte = HANDSHAKE_FC_BYTE;
     FCDevices.dev_telemetry.Update();   // transmit response
 
     // ── Sensor sync: establish launch altitude reference ──────────────────────
@@ -278,7 +278,7 @@ int8_t FlightComputer::Update()
 
 int8_t FlightComputer::UpdateAbortAccumulator()
 {
-    bool     signalActive = (FCData.dat_GND_Data.keepAliveIn == SHUTDOWN_KEEPALIVE);
+    bool     signalActive = (FCData.dat_GND_Data.CommandByteIn == SHUTDOWN_KEEPALIVE);
     uint32_t now          = millis();
     uint32_t dt           = now - lastAbortUpdateMs;
     lastAbortUpdateMs     = now;

@@ -83,7 +83,7 @@ int TEST::RADIO_TEST() {
     while (1) {
         status = telem.Update();
         HAL_GPIO_TogglePin(USR_LED_GPIO_Port, USR_LED_Pin);
-        vTaskDelay(100);
+        vTaskDelay(10);
     }
 }
 

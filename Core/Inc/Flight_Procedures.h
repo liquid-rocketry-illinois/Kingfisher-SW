@@ -13,6 +13,10 @@
 #include "Telemetry.h"
 #include "constants.h"
 #include "SDCard.h"
+#include "FreeRTOS.h"
+#include "task.h"
+#include "queue.h"
+#include "semphr.h"
 
 typedef enum : int8_t {
     STATUS_ABORT_ACTIVE     = -4,  // Abort already latched, redundant trigger

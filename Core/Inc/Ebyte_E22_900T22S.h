@@ -17,9 +17,11 @@ uint8_t channel,
 uint8_t *data,
 size_t length);
 
-// Receive data into user buffer
-// Returns number of bytes received or negative error
-int16_t recieve_e22_900t22s(uint8_t *buffer, uint16_t max_len);
+// Receive data into user buffer.
+// expected_payload_len must be sizeof(the struct being received) — the driver
+// uses it to compute a tight timeout and validate the length field in the header.
+// Returns total bytes written to buffer (header + payload + CRC) or negative error.
+int16_t recieve_e22_900t22s(uint8_t *buffer, uint16_t expected_payload_len);
 
 // Check if data is available from the module
 inline volatile bool e22_data_ready = false;

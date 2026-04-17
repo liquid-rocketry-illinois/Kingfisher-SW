@@ -3,10 +3,11 @@
 #include "FreeRTOS.h"
 #include "task.h"
 #include <string.h>
-
 #include "cmsis_os2.h"
 #include "main.h"
 #include "semphr.h"
+#include "stm32h7xx_hal_gpio.h"
+#include "stm32h7xx_hal_uart.h"
 
 static config_e22_900t22s e22_cfg;
 static bool initialized = false;
@@ -23,6 +24,8 @@ static bool initialized = false;
 // give bad data. Here, the semaphore stuff prevents
 // cases like config commands being sent, then in the
 // middle of its execution, starting a data transfer.
+
+// Currently this isn't being used, I'll try to get it working later
 //static SemaphoreHandle_t e22_mutex = NULL;
 
 /* ================= AUX HANDLING ================= */
@@ -111,6 +114,13 @@ int8_t init_e22_900t22s(config_e22_900t22s *cfg)
     /* copy desired configuration locally */
     e22_cfg = *cfg;
 
+    /* CONFIG mode on the E22 always uses fixed 9600 baud regardless of REG0.
+     * Force the MCU UART to 9600 now so config read/write succeeds even if
+     * CubeMX regenerated usart.c at a different rate, or a prior init already
+     * bumped it to 115200.  It will be raised to the target rate at the end. */
+    e22_cfg.huart->Init.BaudRate = 9600;
+    HAL_UART_Init(e22_cfg.huart);
+
     /* ensure mutex exists */
     // if (e22_mutex == NULL)
     //     e22_mutex = xSemaphoreCreateMutex();
@@ -132,6 +142,8 @@ int8_t init_e22_900t22s(config_e22_900t22s *cfg)
 
     /* read current radio configuration */
     config_e22_900t22s current_cfg = {};
+
+    writeConfig_e22_900t22s(cfg, true);
 
     if (readConfig_e22_900t22s(&current_cfg) != E22_OK)
         return E22_ERR_UART;
@@ -168,6 +180,10 @@ int8_t init_e22_900t22s(config_e22_900t22s *cfg)
         (current_cfg.REG3 == cfg->REG3);
     if (!config_matches)
         return 1; // ensure that the config set in module is the config given to it
+
+    /* Raise MCU UART to match the E22's configured TRANS-mode baud rate. */
+    e22_cfg.huart->Init.BaudRate = 115200;
+    HAL_UART_Init(e22_cfg.huart);
 
     /* return to normal transmit mode */
     changeMode(TRANS);
@@ -270,7 +286,7 @@ int8_t readConfig_e22_900t22s(config_e22_900t22s *cfg)
     cmd[1] = 0x00; // Start from ADDH
     cmd[2] = 0x07; // Read all necessary registers
     uint8_t resp[10] = {0};
-    // resp: {c1, 00, 06, addh, addl, netid, reg0, reg1, reg2, reg3}
+    // resp: {c1, 00, 07, addh, addl, netid, reg0, reg1, reg2, reg3}
 
     //xSemaphoreTake(e22_mutex, portMAX_DELAY);
 
@@ -364,33 +380,62 @@ bool e22_available()
     return false;
 }
 
-int16_t recieve_e22_900t22s(uint8_t *buffer, uint16_t max_len)
+/*
+ * Two-phase receive sized to the exact expected packet.
+ *
+ * Phase 1 — header (5 bytes): [SYNC1][SYNC2][len][seq_lo][seq_hi]
+ * Phase 2 — body  (len+2 bytes): [payload x len][crc_lo][crc_hi]
+ *
+ * Timeouts are calculated from the actual UART baud rate so they are tight
+ * regardless of whether the baud is 9600 or 115200, with a 30 ms margin.
+ * This eliminates the ~480 ms wasted by the old fixed 500 ms / 240-byte approach.
+ *
+ * Returns total bytes placed in buffer (7 + expected_payload_len) or < 0 on error:
+ *   -1  header receive failed (HAL_ERROR / HAL_BUSY)
+ *   -2  header timeout — no bytes at all
+ *   -3  header length field does not match expected_payload_len
+ *   -4  body receive failed (HAL_ERROR / HAL_BUSY)
+ *   -5  body timed out before all bytes arrived
+ */
+int16_t recieve_e22_900t22s(uint8_t *buffer, uint16_t expected_payload_len)
 {
-    // read UART with a timeout — the module will clock out the full packet
-    HAL_StatusTypeDef status = HAL_UART_Receive(
-        e22_cfg.huart,        // your UART handle
-        buffer,
-        max_len,
-        500             // timeout in ms, tune to your air data rate
-    );
+    const uint32_t baud = e22_cfg.huart->Init.BaudRate;
 
-    if(status == HAL_OK)
-    {
-        // HAL_OK means max_len bytes were received, which may not be what you want
-        // this is a problem — see below
-        return max_len;
-    }
-    else if(status == HAL_TIMEOUT)
-    {
-        // timeout means UART stopped receiving before max_len bytes
-        // this is actually the normal case — compute how many bytes arrived
-        uint16_t received = max_len - e22_cfg.huart->RxXferCount;
-        if(received == 0)
-            return -2;
-        return (int16_t)received;
+    /* ── Phase 1: 5-byte header ─────────────────────────────────────────── */
+    const uint16_t HDR_LEN = 5u;
+    uint32_t hdr_timeout = ((HDR_LEN * 10u * 1000u) / baud) + 30u;
+    if (hdr_timeout < 10u) hdr_timeout = 10u;
+
+    HAL_StatusTypeDef s1 = HAL_UART_Receive(e22_cfg.huart, buffer, HDR_LEN, hdr_timeout);
+    if (s1 == HAL_ERROR || s1 == HAL_BUSY)
+        return -1;
+    if (s1 == HAL_TIMEOUT) {
+        uint16_t got = HDR_LEN - e22_cfg.huart->RxXferCount;
+        if (got == 0u) return -2;
+        /* partial header — not useful, but return what we have as an error */
+        return -2;
     }
 
-    return -3;  // HAL_ERROR or HAL_BUSY
+    /* Validate the length field matches what the caller expects.
+     * SYNC bytes are validated by decodeData() in Telemetry.cpp. */
+    uint8_t pkt_payload_len = buffer[2];
+    if (pkt_payload_len != (uint8_t)expected_payload_len)
+        return -3;
+
+    /* ── Phase 2: payload + 2 CRC bytes ─────────────────────────────────── */
+    uint16_t body_len = pkt_payload_len + 2u;
+    uint32_t body_timeout = ((body_len * 10u * 1000u) / baud) + 30u;
+    if (body_timeout < 10u) body_timeout = 10u;
+
+    HAL_StatusTypeDef s2 = HAL_UART_Receive(e22_cfg.huart, buffer + HDR_LEN, body_len, body_timeout);
+    if (s2 == HAL_ERROR || s2 == HAL_BUSY)
+        return -4;
+    if (s2 == HAL_TIMEOUT) {
+        uint16_t got2 = body_len - e22_cfg.huart->RxXferCount;
+        if (got2 < body_len) return -5;
+    }
+
+    return (int16_t)(HDR_LEN + body_len);
 }
 
 /* ================= ADDRESS ================= */

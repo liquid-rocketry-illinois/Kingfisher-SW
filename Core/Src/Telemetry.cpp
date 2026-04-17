@@ -35,7 +35,7 @@ uint8_t Telemetry::Init(const TelemetryMode Mode)
 
     des_cfg.NETID = HAL1_RADIO_NETID;
 
-    des_cfg.REG0 =   R0_765_E22_UART_BAUD::E22_UART_BAUD_9600
+    des_cfg.REG0 =   R0_765_E22_UART_BAUD::E22_UART_BAUD_19200
                    | R0_43_SERIAL_PORT_PARITY_BIT::MODE_8N1
                    | R0_210_E22_AIR_DATA_RATE::E22_AIR_RATE_9_6K;
 
@@ -57,6 +57,7 @@ uint8_t Telemetry::Init(const TelemetryMode Mode)
     if(status != 0)
         return 1;
 
+
     changeMode(TRANS);
     vTaskDelay(pdMS_TO_TICKS(400));
     return 0;
@@ -71,17 +72,17 @@ uint8_t Telemetry::Update()
         // FC: receive commands from ground, send telemetry up
         status = receiveCommands(GNDOutData);
 
-        // TODO: populate from sensors
-        HALOutData.altitude   = 1.0F;
-        HALOutData.longitude  = 2.0F;
-        HALOutData.latitude   = 3.0F;
-        HALOutData.GPSaltitude = 4.0F;
-        HALOutData.mAccX = 10.0F; HALOutData.mAccY = 10.0F; HALOutData.mAccZ = 10.0F;
-        HALOutData.bAccX = 10.0F; HALOutData.bAccY = 10.0F; HALOutData.bAccZ = 10.0F;
-        HALOutData.pitch = 10.0F; HALOutData.yaw   = 10.0F; HALOutData.roll  = 10.0F;
-        HALOutData.servoPos1 = 50.0F;
-        HALOutData.servoPos2 = 60.0F;
-        HALOutData.keepAliveStatus = GNDOutData.keepAliveIn;
+        // already populated from sensors
+        // HALOutData.altitude   = 1.0F;
+        // HALOutData.longitude  = 2.0F;
+        // HALOutData.latitude   = 3.0F;
+        // HALOutData.GPSaltitude = 4.0F;
+        // HALOutData.mAccX = 10.0F; HALOutData.mAccY = 10.0F; HALOutData.mAccZ = 10.0F;
+        // HALOutData.bAccX = 10.0F; HALOutData.bAccY = 10.0F; HALOutData.bAccZ = 10.0F;
+        // HALOutData.pitch = 10.0F; HALOutData.yaw   = 10.0F; HALOutData.roll  = 10.0F;
+        // HALOutData.servoPos1 = 50.0F;
+        // HALOutData.servoPos2 = 60.0F;
+        // HALOutData.CommandResponseByte = GNDOutData.CommandByteIn;
 
         status = sendData(HALOutData);
     }
@@ -217,21 +218,21 @@ uint8_t Telemetry::receiveCommands(GndStationData &gnd)
     if(!a)
         return E22_NO_DATA;
 
-    int16_t len = recieve_e22_900t22s(rx_buffer, sizeof(rx_buffer));
+    int16_t len = recieve_e22_900t22s(rx_buffer, sizeof(GndStationData));
     if(len <= 0)                return E22_RECEIVE_ERR;
     if(len < 7)                 return E22_BAD_LENGTH;
 
     int8_t status = decodeData(gnd);
     if(status != 0)             return (uint8_t)status;
 
-    processKeepalive(gnd.keepAliveIn);
+    processKeepalive(gnd.CommandByteIn);
     processPyros(gnd.pyroActivation);
     return 0;
 }
 
 void Telemetry::processKeepalive(uint8_t keepAliveIn)
 {
-    GNDOutData.keepAliveIn = keepAliveIn;
+    GNDOutData.CommandByteIn = keepAliveIn;
 
     if(keepAliveIn == SHUTDOWN_KEEPALIVE)
     {
@@ -280,7 +281,7 @@ uint8_t Telemetry::receiveTelemetry(telemetryData &data)
 {
     if(!e22_available())        return E22_NO_DATA;
 
-    int16_t len = recieve_e22_900t22s(rx_buffer, sizeof(rx_buffer));
+    int16_t len = recieve_e22_900t22s(rx_buffer, sizeof(telemetryData));
     if(len <= 0)                return E22_RECEIVE_ERR;
     if(len < 7)                 return E22_BAD_LENGTH;
 
