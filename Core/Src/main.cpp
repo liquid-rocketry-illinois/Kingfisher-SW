@@ -20,6 +20,7 @@ extern "C" void task(void*) {
     TinyGPSPlus gpsParser;
     osDelay(1000);
     static uint8_t gpsBuffer[2048]; // Buffer to hold the incoming data
+
     /* Infinite loop */
     for(;;)
     {
@@ -31,19 +32,19 @@ extern "C" void task(void*) {
             if (gps.readGPS(bytesWaiting, gpsBuffer) > 0)
             {
                 for (int i = 0; i < bytesWaiting; i++) {
-                    if (gpsBuffer[i] != 0xFF && gpsBuffer[i] != 0x00) {
+
+                    if (gpsBuffer[i] != 0xFF && gpsBuffer[i] != 0x00) { //if error check this (0x00)
                         gpsParser.encode(gpsBuffer[i]);
                     }
-
-                    currentFlight.isLocated=gpsParser.location.isValid();
-                    currentFlight.isAltituded=gpsParser.altitude.isValid();
-                    if (gpsParser.location.isUpdated() && currentFlight.isLocated)
+                    currentFlight.islocated=gpsParser.location.isValid();
+                    currentFlight.isaltituded=gpsParser.altitude.isValid();
+                    if (gpsParser.location.isUpdated() && currentFlight.islocated)
                     {
                         currentFlight.latitude = gpsParser.location.lat();
                         currentFlight.longitude = gpsParser.location.lng();
 
                     }
-                    if (gpsParser.altitude.isUpdated() && currentFlight.isAltituded)
+                    if (gpsParser.altitude.isUpdated() && currentFlight.isaltituded)
                     {
                         currentFlight.altitude = gpsParser.altitude.meters();
                     }

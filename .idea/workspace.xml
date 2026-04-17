@@ -35,11 +35,8 @@
     </configurations>
   </component>
   <component name="ChangeListManager">
-    <list default="true" id="b71e0858-14db-4924-8f99-4a29e2cf87f5" name="Changes" comment="Build servo test code with encoder read error.">
+    <list default="true" id="b71e0858-14db-4924-8f99-4a29e2cf87f5" name="Changes" comment="GPS works tested outside on thursday, latitude, longitude works, altitude needs further testing">
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/CMakeLists.txt" beforeDir="false" afterPath="$PROJECT_DIR$/CMakeLists.txt" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/Core/Inc/MAXM10S.h" beforeDir="false" afterPath="$PROJECT_DIR$/Core/Inc/MAXM10S.h" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/Core/Src/MAXM10S.cpp" beforeDir="false" afterPath="$PROJECT_DIR$/Core/Src/MAXM10S.cpp" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/Core/Src/main.cpp" beforeDir="false" afterPath="$PROJECT_DIR$/Core/Src/main.cpp" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
@@ -54,8 +51,8 @@
     <option name="columnWidths">
       <list>
         <option value="212" />
-        <option value="92" />
-        <option value="1096" />
+        <option value="102" />
+        <option value="0" />
       </list>
     </option>
     <option name="columnOrder">
@@ -77,7 +74,7 @@
   <component name="Git.Settings">
     <option name="RECENT_BRANCH_BY_REPOSITORY">
       <map>
-        <entry key="$PROJECT_DIR$" value="GPS-dev" />
+        <entry key="$PROJECT_DIR$" value="Christopher_Xia_Branch" />
       </map>
     </option>
     <option name="RECENT_GIT_ROOT_PATH" value="$PROJECT_DIR$" />
@@ -90,12 +87,15 @@
 }</component>
   <component name="GithubPullRequestsUISettings">{
   &quot;selectedUrlAndAccountId&quot;: {
-    &quot;url&quot;: &quot;https://github.com/liquid-rocketry-illinois/HAL-1-SW.git&quot;,
-    &quot;accountId&quot;: &quot;00d78abe-7064-437a-89fc-6617d9e8cfda&quot;
+    &quot;url&quot;: &quot;https://github.com/liquid-rocketry-illinois/HAL-1-SW&quot;,
+    &quot;accountId&quot;: &quot;88b0d3b3-dc28-4b49-a195-448958b44d80&quot;
   }
 }</component>
   <component name="HighlightingSettingsPerFile">
+    <setting file="file://$PROJECT_DIR$/Core/Inc/ism6hg256x_reg.h" root0="FORCE_HIGHLIGHTING" />
+    <setting file="file://$PROJECT_DIR$/Core/Src/Servo_Axon_Mini_MKII.cpp" root0="SKIP_HIGHLIGHTING" />
     <setting file="file://$PROJECT_DIR$/Core/Src/TEST_FUNCTIONS.cpp" root0="FORCE_HIGHLIGHTING" />
+    <setting file="file://$PROJECT_DIR$/Drivers/CMSIS/Device/ST/STM32H7xx/Include/stm32h753xx.h" root0="SKIP_HIGHLIGHTING" />
   </component>
   <component name="MacroExpansionManager">
     <option name="directoryName" value="v1Ifb0vu" />
@@ -105,7 +105,7 @@
     <urls />
   </component>
   <component name="ProblemsViewState">
-    <option name="selectedTabId" value="ProjectErrors" />
+    <option name="selectedTabId" value="CurrentFile" />
   </component>
   <component name="ProjectApplicationVersion">
     <option name="ide" value="CLion" />
@@ -124,46 +124,47 @@
     <option name="hideEmptyMiddlePackages" value="true" />
     <option name="showLibraryContents" value="true" />
   </component>
-  <component name="PropertiesComponent"><![CDATA[{
-  "keyToString": {
-    "ModuleVcsDetector.initialDetectionPerformed": "true",
-    "OpenOCD Download & Run.Hal-1-SW.executor": "Run",
-    "OpenOCD Download & Run.Kingfisher-SW.executor": "Run",
-    "RunOnceActivity.RadMigrateCodeStyle": "true",
-    "RunOnceActivity.ShowReadmeOnStart": "true",
-    "RunOnceActivity.TerminalTabsStorage.copyFrom.TerminalArrangementManager.252": "true",
-    "RunOnceActivity.cidr.known.project.marker": "true",
-    "RunOnceActivity.git.unshallow": "true",
-    "RunOnceActivity.readMode.enableVisualFormatting": "true",
-    "RunOnceActivity.typescript.service.memoryLimit.init": "true",
-    "RunOnceActivity.west.config.association.type.startup.service": "true",
-    "cf.first.check.clang-format": "false",
-    "cidr.known.project.marker": "true",
-    "git-widget-placeholder": "GPS-dev",
-    "ignore.virus.scanning.warn.message": "true",
-    "node.js.detected.package.eslint": "true",
-    "node.js.detected.package.tslint": "true",
-    "node.js.selected.package.eslint": "(autodetect)",
-    "node.js.selected.package.tslint": "(autodetect)",
-    "nodejs_package_manager_path": "npm",
-    "org.rust.first.attach.projects": "true",
-    "settings.editor.selected.configurable": "vcs.Git",
-    "vue.rearranger.settings.migration": "true"
+  <component name="PropertiesComponent">{
+  &quot;keyToString&quot;: {
+    &quot;ModuleVcsDetector.initialDetectionPerformed&quot;: &quot;true&quot;,
+    &quot;OpenOCD Download &amp; Run.Hal-1-SW.executor&quot;: &quot;Debug&quot;,
+    &quot;OpenOCD Download &amp; Run.Kingfisher-SW.executor&quot;: &quot;Run&quot;,
+    &quot;RunOnceActivity.MCP Project settings loaded&quot;: &quot;true&quot;,
+    &quot;RunOnceActivity.RadMigrateCodeStyle&quot;: &quot;true&quot;,
+    &quot;RunOnceActivity.ShowReadmeOnStart&quot;: &quot;true&quot;,
+    &quot;RunOnceActivity.TerminalTabsStorage.copyFrom.TerminalArrangementManager.252&quot;: &quot;true&quot;,
+    &quot;RunOnceActivity.cidr.known.project.marker&quot;: &quot;true&quot;,
+    &quot;RunOnceActivity.git.unshallow&quot;: &quot;true&quot;,
+    &quot;RunOnceActivity.readMode.enableVisualFormatting&quot;: &quot;true&quot;,
+    &quot;RunOnceActivity.typescript.service.memoryLimit.init&quot;: &quot;true&quot;,
+    &quot;RunOnceActivity.west.config.association.type.startup.service&quot;: &quot;true&quot;,
+    &quot;cf.first.check.clang-format&quot;: &quot;false&quot;,
+    &quot;cidr.known.project.marker&quot;: &quot;true&quot;,
+    &quot;com.intellij.ml.llm.matterhorn.ej.ui.settings.DefaultModelSelectionForGA.v1&quot;: &quot;true&quot;,
+    &quot;git-widget-placeholder&quot;: &quot;GPS-dev&quot;,
+    &quot;ignore.virus.scanning.warn.message&quot;: &quot;true&quot;,
+    &quot;junie.onboarding.icon.badge.shown&quot;: &quot;true&quot;,
+    &quot;node.js.detected.package.eslint&quot;: &quot;true&quot;,
+    &quot;node.js.detected.package.tslint&quot;: &quot;true&quot;,
+    &quot;node.js.selected.package.eslint&quot;: &quot;(autodetect)&quot;,
+    &quot;node.js.selected.package.tslint&quot;: &quot;(autodetect)&quot;,
+    &quot;nodejs_package_manager_path&quot;: &quot;npm&quot;,
+    &quot;org.rust.first.attach.projects&quot;: &quot;true&quot;,
+    &quot;settings.editor.selected.configurable&quot;: &quot;vcs.Git&quot;,
+    &quot;to.speed.mode.migration.done&quot;: &quot;true&quot;,
+    &quot;vue.rearranger.settings.migration&quot;: &quot;true&quot;
   }
-}]]></component>
+}</component>
   <component name="RecentsManager">
     <key name="MoveFile.RECENT_KEYS">
+      <recent name="C:\Users\chris\CLionProjects\HAL-1-SW\Core\Inc" />
       <recent name="C:\Users\dyrel\Documents\Hal-1-SW\Core\Inc" />
+      <recent name="C:\Users\dyrel\Documents\Hal-1-SW\Core\Inc\Math" />
       <recent name="C:\Users\dyrel\Documents\Hal-1-SW\Core\Inc\lib" />
       <recent name="C:\Users\dyrel\Documents\Hal-1-SW\Core\Src" />
     </key>
   </component>
   <component name="RunManager" selected="OpenOCD Download &amp; Run.Hal-1-SW">
-    <configuration default="true" type="CLionExternalRunConfiguration" factoryName="Application" REDIRECT_INPUT="false" ELEVATE="false" USE_EXTERNAL_CONSOLE="false" EMULATE_TERMINAL="false" PASS_PARENT_ENVS_2="true">
-      <method v="2">
-        <option name="CLION.EXTERNAL.BUILD" enabled="true" />
-      </method>
-    </configuration>
     <configuration name="FatFs" type="CMakeRunConfiguration" factoryName="Application" REDIRECT_INPUT="false" ELEVATE="false" USE_EXTERNAL_CONSOLE="false" EMULATE_TERMINAL="false" PASS_PARENT_ENVS_2="true" PROJECT_NAME="Kingfisher-SW" TARGET_NAME="FatFs" CONFIG_NAME="Debug">
       <method v="2">
         <option name="com.jetbrains.cidr.execution.CidrBuildBeforeRunTaskProvider$BuildBeforeRunTask" enabled="true" />
@@ -193,9 +194,9 @@
       </method>
     </configuration>
     <list>
+      <item itemvalue="CMake Application.Kingfisher-SW" />
       <item itemvalue="CMake Application.FatFs" />
       <item itemvalue="CMake Application.FreeRTOS" />
-      <item itemvalue="CMake Application.Kingfisher-SW" />
       <item itemvalue="CMake Application.STM32_Drivers" />
       <item itemvalue="OpenOCD Download &amp; Run.Hal-1-SW" />
     </list>
@@ -220,6 +221,15 @@
       <workItem from="1771364438456" duration="4519000" />
       <workItem from="1771709164480" duration="19048000" />
       <workItem from="1772141923121" duration="1080000" />
+      <workItem from="1772313476150" duration="7537000" />
+      <workItem from="1772325542701" duration="653000" />
+      <workItem from="1772505504678" duration="1435000" />
+      <workItem from="1772575450504" duration="181000" />
+      <workItem from="1772741710154" duration="5498000" />
+      <workItem from="1775075623463" duration="5549000" />
+      <workItem from="1775175475260" duration="3255000" />
+      <workItem from="1775178800935" duration="6000" />
+      <workItem from="1775185550465" duration="1058000" />
     </task>
     <task id="LOCAL-00001" summary="Write LED blink code">
       <option name="closed" value="true" />
@@ -285,7 +295,39 @@
       <option name="project" value="LOCAL" />
       <updated>1772142188249</updated>
     </task>
-    <option name="localTasksCounter" value="9" />
+    <task id="LOCAL-00009" summary="Added GPS code (not working so far)">
+      <option name="closed" value="true" />
+      <created>1775175825793</created>
+      <option name="number" value="00009" />
+      <option name="presentableId" value="LOCAL-00009" />
+      <option name="project" value="LOCAL" />
+      <updated>1775175825793</updated>
+    </task>
+    <task id="LOCAL-00010" summary="Working reading GPS functioning code">
+      <option name="closed" value="true" />
+      <created>1775184626636</created>
+      <option name="number" value="00010" />
+      <option name="presentableId" value="LOCAL-00010" />
+      <option name="project" value="LOCAL" />
+      <updated>1775184626636</updated>
+    </task>
+    <task id="LOCAL-00011" summary="GPS works tested outside on thursday, latitude, longitude works, altitude needs further testing">
+      <option name="closed" value="true" />
+      <created>1775786219261</created>
+      <option name="number" value="00011" />
+      <option name="presentableId" value="LOCAL-00011" />
+      <option name="project" value="LOCAL" />
+      <updated>1775786219261</updated>
+    </task>
+    <task id="LOCAL-00012" summary="GPS works tested outside on thursday, latitude, longitude works, altitude needs further testing">
+      <option name="closed" value="true" />
+      <created>1775787021785</created>
+      <option name="number" value="00012" />
+      <option name="presentableId" value="LOCAL-00012" />
+      <option name="project" value="LOCAL" />
+      <updated>1775787021785</updated>
+    </task>
+    <option name="localTasksCounter" value="13" />
     <servers />
   </component>
   <component name="TypeScriptGeneratedFilesManager">
@@ -321,7 +363,10 @@
     <MESSAGE value="Remove unused UBLX folders, attempt rewriting CMakeLists portions to link everything." />
     <MESSAGE value="Reset GPS dev folder to construct custom library." />
     <MESSAGE value="Build servo test code with encoder read error." />
-    <option name="LAST_COMMIT_MESSAGE" value="Build servo test code with encoder read error." />
+    <MESSAGE value="Added GPS code (not working so far)" />
+    <MESSAGE value="Working reading GPS functioning code" />
+    <MESSAGE value="GPS works tested outside on thursday, latitude, longitude works, altitude needs further testing" />
+    <option name="LAST_COMMIT_MESSAGE" value="GPS works tested outside on thursday, latitude, longitude works, altitude needs further testing" />
   </component>
   <component name="XDebuggerManager">
     <breakpoint-manager>
@@ -332,23 +377,9 @@
           <option name="timeStamp" value="6" />
         </line-breakpoint>
         <line-breakpoint enabled="true" type="com.jetbrains.cidr.execution.debugger.OCBreakpointType">
-          <url>file://$PROJECT_DIR$/Core/Src/timing.cpp</url>
-          <option name="timeStamp" value="12" />
-        </line-breakpoint>
-        <line-breakpoint enabled="true" type="com.jetbrains.cidr.execution.debugger.OCBreakpointType">
-          <url>file://$PROJECT_DIR$/Core/Src/TEST_FUNCTIONS.cpp</url>
-          <line>17</line>
-          <option name="timeStamp" value="19" />
-        </line-breakpoint>
-        <line-breakpoint enabled="true" type="com.jetbrains.cidr.execution.debugger.OCBreakpointType">
-          <url>file://$PROJECT_DIR$/Core/Src/TEST_FUNCTIONS.cpp</url>
-          <line>23</line>
-          <option name="timeStamp" value="21" />
-        </line-breakpoint>
-        <line-breakpoint enabled="true" type="com.jetbrains.cidr.execution.debugger.OCBreakpointType">
-          <url>file://$PROJECT_DIR$/Core/Src/TEST_FUNCTIONS.cpp</url>
-          <line>29</line>
-          <option name="timeStamp" value="22" />
+          <url>file://$PROJECT_DIR$/Core/Inc/Math/Math.h</url>
+          <line>6</line>
+          <option name="timeStamp" value="23" />
         </line-breakpoint>
       </breakpoints>
     </breakpoint-manager>
