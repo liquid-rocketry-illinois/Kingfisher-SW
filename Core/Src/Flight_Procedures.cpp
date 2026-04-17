@@ -6,6 +6,7 @@
 #include "timing.h"
 #include "cmsis_os2.h"
 #include "main.h"
+#include "i2c.h"
 #include <cstdio>
 #include <cmath>
 
@@ -17,99 +18,45 @@ GroundStation::GroundStation() : GNDDevices(), GNDData() {}
 
 int8_t GroundStation::Init()
 {
-    bool anyFail = false;
+    for (;;) {
 
-    if (SD_Init() != 0)                                                     anyFail = true;
-    if (GNDDevices.dev_telemetry.Init(TELEMETRY_MODE_GROUND) != 0)         anyFail = true;
-    if (GNDDevices.dev_BarometerEngine.Init(true).A != 0)                   anyFail = true;
-    if (GNDDevices.dev_IMU_Engine.Init(true).A != 0)                        anyFail = true;
-    if (!GNDDevices.dev_servoSet.Init({0.0f, 0.0f}, TENTH_DEGREE, false))   anyFail = true;
+        // ── Device init ───────────────────────────────────────────────────────
+        bool anyFail = false;
+        if (SD_Init() != 0)                                             anyFail = true;
+        if (GNDDevices.dev_telemetry.Init(TELEMETRY_MODE_GROUND) != 0)  anyFail = true;
+        if (GNDDevices.dev_GPS.Init(&hi2c4) != 0)                       anyFail = true;
 
-    if (anyFail) return STATUS_INIT_FAILURE;
-
-    // ── Handshake: send GND byte, wait up to 2 s for FC echo ─────────────────
-    GNDData.dat_GND_Data.CommandByteIn = HANDSHAKE_GND_BYTE;
-    uint32_t t0 = millis();
-    bool handshakeOK = false;
-    while (millis() - t0 < 2000) {
-        UpdateTelemetry();
-        if (GNDData.dat_FC_Data.CommandResponseByte == HANDSHAKE_FC_BYTE) {
-            handshakeOK = true;
-            break;
+        if (anyFail) {
+            SD_LogNewline("GND INIT: device init failed, retrying");
+            osDelay(1000);
+            continue;
         }
-        osDelay(10);
-    }
-    if (!handshakeOK) return STATUS_COMMS_FAILURE;
 
-    // ── Local sensor verification ─────────────────────────────────────────────
-    for (int i = 0; i < 5; i++) {
-        if (UpdateSensors() != STATUS_OK) return STATUS_LOCAL_READ_ERR;
-    }
+        // ── Handshake: send GND byte, wait up to 5 s for FC echo ─────────────
+        // No retry delay here — GND keeps broadcasting so FC can come online at
+        // any time without needing both units activated simultaneously.
+        GNDData.dat_GND_Data.CommandByteIn = HANDSHAKE_GND_BYTE;
+        uint32_t t0 = millis();
+        bool handshakeOK = false;
+        while (millis() - t0 < 5000) {
+            UpdateTelemetry();
+            if (GNDData.dat_FC_Data.CommandResponseByte == HANDSHAKE_FC_BYTE) {
+                handshakeOK = true;
+                break;
+            }
+            osDelay(10);
+        }
+        if (!handshakeOK) continue;   // retry — FC not online yet
 
-    BARO_DATA baro = GNDDevices.dev_BarometerEngine.getData();
-    if (baro.Filtered.heightMeters < BARO_ALT_MIN_M ||
-        baro.Filtered.heightMeters > BARO_ALT_MAX_M ||
-        baro.Filtered.Pressure     < BARO_PRESS_MIN_PA ||
-        baro.Filtered.Pressure     > BARO_PRESS_MAX_PA) {
-        return STATUS_LOCAL_DATA_ERR;
-    }
+        initDone = true;
+        return STATUS_OK;
 
-    // ── Wait for FC telemetry (up to 2 s) ────────────────────────────────────
-    uint32_t fcWait = millis();
-    bool fcDataOK = false;
-    while (millis() - fcWait < 2000) {
-        UpdateTelemetry();
-        if (GNDData.dat_FC_Data.altitude != 0.0f) { fcDataOK = true; break; }
-        osDelay(10);
-    }
-    if (!fcDataOK) return STATUS_TIMEOUT;
-
-    // Cross-check GND vs FC altitude within 5 %
-    float gndAlt = baro.Filtered.heightMeters;
-    float fcAlt  = GNDData.dat_FC_Data.altitude;
-    if (gndAlt != 0.0f) {
-        if (fabsf((fcAlt - gndAlt) / gndAlt) > 0.05f) return STATUS_SENSOR_FAIL;
-    }
-
-    // ── Servo verification ────────────────────────────────────────────────────
-    static const float kTestAngles[] = {
-        1.0f, -1.0f, 3.0f, -3.0f, 5.0f, -5.0f,
-        10.0f, -10.0f, 20.0f, -20.0f, 30.0f, -30.0f, 45.0f, -45.0f
-    };
-    const int kCount = (int)(sizeof(kTestAngles) / sizeof(kTestAngles[0]));
-    float totalErr = 0.0f, totalCmd = 0.0f;
-
-    for (int i = 0; i < kCount; i++) {
-        float a = kTestAngles[i];
-        GNDDevices.dev_servoSet.Update(a, a);
-        osDelay(200);
-        DATA_Axon_Mini_MKII sd = GNDDevices.dev_servoSet.getData();
-        totalErr += fabsf(sd.currentAngle.S1 - a) + fabsf(sd.currentAngle.S2 - a);
-        totalCmd += 2.0f * fabsf(a);
-    }
-
-    if (totalCmd > 0.0f) {
-        float errPct = totalErr / totalCmd;
-        if (errPct > 0.02f) return STATUS_LOCAL_DATA_ERR;
-        if (errPct > 0.01f) SD_LogNewline("SERVO WARN");
-    }
-
-    // Return servos to neutral
-    GNDDevices.dev_servoSet.Update(0.0f, 0.0f);
-
-    initDone = true;
-    return STATUS_OK;
+    } // retry loop
 }
 
 int8_t GroundStation::Update()
 {
     if (!initDone) return STATUS_INIT_FAILURE;
-
-    if (millis() - lastLocalUpdateMs >= GND_SENSOR_PERIOD_MS) {
-        if (UpdateSensors() != STATUS_OK) SD_LogNewline("LOCAL SENSOR WARN");
-        pendingLocalLog   = true;
-        lastLocalUpdateMs = millis();
-    }
 
     int8_t ka = UpdateKeepAlive();
     if (ka == STATUS_ABORT_TRIGGERED) {
@@ -123,13 +70,8 @@ int8_t GroundStation::Update()
 
 int8_t GroundStation::UpdateSensors()
 {
-    auto baroSt = GNDDevices.dev_BarometerEngine.Update();
-    auto imuSt  = GNDDevices.dev_IMU_Engine.Update();
-
-    GNDData.dat_Barometers = GNDDevices.dev_BarometerEngine.getData();
-    GNDData.dat_BMI_IMUs   = GNDDevices.dev_IMU_Engine.getRawBMI(0);
-
-    if (baroSt.A != 0 || imuSt.A != 0) return STATUS_LOCAL_READ_ERR;
+    GNDDevices.dev_GPS.update();
+    GNDData.dat_GPS = GNDDevices.dev_GPS.getData();
     return STATUS_OK;
 }
 
@@ -137,7 +79,7 @@ int8_t GroundStation::UpdateTelemetry()
 {
     GNDDevices.dev_telemetry.GNDOutData = GNDData.dat_GND_Data;
     if (GNDDevices.dev_telemetry.Update() != 0) return STATUS_REMOTE_READ_ERR;
-    //GNDData.dat_FC_Data = GNDDevices.dev_telemetry.HALOutData;
+    GNDData.dat_FC_Data = GNDDevices.dev_telemetry.HALOutData;
     return STATUS_OK;
 }
 
@@ -170,19 +112,10 @@ int8_t GroundStation::UpdateKeepAlive()
 
 int8_t GroundStation::UpdateLogging()
 {
+    if (millis() - lastLogMs < 500) return STATUS_OK;   // 2 Hz log rate
+    lastLogMs = millis();
+
     char buf[160];
-
-    if (pendingLocalLog) {
-        snprintf(buf, sizeof(buf),
-            "T=%lu GND ALT=%.1f PRESS=%.1f ACCEL=%.3f",
-            (unsigned long)millis(),
-            GNDData.dat_Barometers.Filtered.heightMeters,
-            GNDData.dat_Barometers.Filtered.Pressure,
-            GNDData.dat_BMI_IMUs.accel_linear.magnitude());
-        SD_LogNewline(buf);
-        pendingLocalLog = false;
-    }
-
     snprintf(buf, sizeof(buf),
         "T=%lu FC ALT=%.1f ACC=%.2f,%.2f,%.2f SRV=%.1f,%.1f PYRO=%d%d%d",
         (unsigned long)millis(),
@@ -208,57 +141,73 @@ FlightComputer::FlightComputer() : FCDevices(), FCData() {}
 
 int8_t FlightComputer::Init()
 {
-    // ── SD card ───────────────────────────────────────────────────────────────
-    if (SD_Init() != 0) return STATUS_INIT_FAILURE;
+    for (;;) {
 
-    // ── Sensor init ───────────────────────────────────────────────────────────
-    auto imuSt  = FCDevices.dev_IMU_Engine.Init(true);
-    auto baroSt = FCDevices.dev_BarometerEngine.Init(true);
-    FCDevices.dev_servoSet.Init({0.0f, 0.0f}, TENTH_DEGREE, false);
-
-    if (imuSt.A != 0 || imuSt.ISM != 0 || baroSt.A != 0) return STATUS_INIT_FAILURE;
-
-    if (FCDevices.dev_telemetry.Init(TELEMETRY_MODE_FLIGHT) != 0) return STATUS_COMMS_FAILURE;
-
-    // ── Handshake: wait up to 3 s for GND byte, echo back FC byte ────────────
-    uint32_t t0 = millis();
-    bool handshakeOK = false;
-    while (millis() - t0 < 3000) {
-        FCDevices.dev_telemetry.Update();
-        if (FCDevices.dev_telemetry.GNDOutData.CommandByteIn == HANDSHAKE_GND_BYTE) {
-            handshakeOK = true;
-            break;
+        // ── SD card ───────────────────────────────────────────────────────────
+        if (SD_Init() != 0) {
+            osDelay(1000);
+            continue;
         }
-        osDelay(10);
-    }
-    if (!handshakeOK) return STATUS_COMMS_FAILURE;
 
-    FCDevices.dev_telemetry.HALOutData.CommandResponseByte = HANDSHAKE_FC_BYTE;
-    FCDevices.dev_telemetry.Update();   // transmit response
+        // ── Sensor init ───────────────────────────────────────────────────────
+        auto imuSt  = FCDevices.dev_IMU_Engine.Init(true);
+        auto baroSt = FCDevices.dev_BarometerEngine.Init(true);
+        FCDevices.dev_servoSet.Init({0.0f, 0.0f}, TENTH_DEGREE, false);
+        FCDevices.dev_GPS.Init(&hi2c4);
 
-    // ── Sensor sync: establish launch altitude reference ──────────────────────
-    UpdateSensors();
-    launchAltM        = FCData.dat_Barometers.Filtered.heightMeters;
-    prevAltM          = launchAltM;
-    prevAltTimeMs     = millis();
-    lastAbortUpdateMs = millis();
+        if (imuSt.A != 0 || /* imuSt.ISM != 0 || */ baroSt.A != 0) {
+            SD_LogNewline("FC INIT: sensor init failed, retrying");
+            osDelay(1000);
+            continue;
+        }
 
-    // GndStationData only carries keepAlive + pyro keys — no GND sensor data
-    // is transmitted in the current protocol, so we count successful local
-    // sensor+telemetry round-trips instead of cross-checking altitudes.
-    uint32_t syncStart = millis();
-    int successCount = 0;
-    while (millis() - syncStart < 2000) {
-        if (UpdateSensors() == STATUS_OK) {
-            UpdateTelemetry();
-            if (++successCount >= 10) {
-                initDone = true;
-                return STATUS_OK;
+        if (FCDevices.dev_telemetry.Init(TELEMETRY_MODE_FLIGHT) != 0) {
+            SD_LogNewline("FC INIT: radio init failed, retrying");
+            osDelay(1000);
+            continue;
+        }
+
+        // ── Handshake: wait up to 5 s for GND byte, echo back FC byte ────────
+        // No delay on retry — FC simply listens again immediately so GND can
+        // come online at any time without both units being activated together.
+        uint32_t t0 = millis();
+        bool handshakeOK = false;
+        while (millis() - t0 < 5000) {
+            FCDevices.dev_telemetry.Update();
+            if (FCDevices.dev_telemetry.GNDOutData.CommandByteIn == HANDSHAKE_GND_BYTE) {
+                handshakeOK = true;
+                break;
             }
+            osDelay(10);
         }
-        osDelay(10);
-    }
-    return STATUS_TIMEOUT;
+        if (!handshakeOK) continue;   // retry — GND not online yet
+
+        FCDevices.dev_telemetry.HALOutData.CommandResponseByte = HANDSHAKE_FC_BYTE;
+        FCDevices.dev_telemetry.Update();   // transmit response
+
+        // ── Sensor sync: establish launch altitude reference ──────────────────
+        UpdateSensors();
+        launchAltM        = FCData.dat_Barometers.Filtered.heightMeters;
+        prevAltM          = launchAltM;
+        prevAltTimeMs     = millis();
+        lastAbortUpdateMs = millis();
+
+        uint32_t syncStart = millis();
+        int successCount = 0;
+        while (millis() - syncStart < 2000) {
+            if (UpdateSensors() == STATUS_OK) {
+                UpdateTelemetry();
+                if (++successCount >= 10) {
+                    initDone = true;
+                    return STATUS_OK;
+                }
+            }
+            osDelay(10);
+        }
+        SD_LogNewline("FC INIT: sensor sync failed, retrying");
+        osDelay(500);
+
+    } // retry loop
 }
 
 int8_t FlightComputer::Update()
@@ -299,13 +248,15 @@ int8_t FlightComputer::UpdateSensors()
 {
     IMUsStatus imuSt  = FCDevices.dev_IMU_Engine.Update();
     auto       baroSt = FCDevices.dev_BarometerEngine.Update();
+    FCDevices.dev_GPS.update();
 
     FCData.dat_BMI_IMUs   = FCDevices.dev_IMU_Engine.getRawBMI(0);
     FCData.dat_Barometers = FCDevices.dev_BarometerEngine.getData();
     FCData.dat_Servos     = FCDevices.dev_servoSet.getData();
+    FCData.dat_GPS        = FCDevices.dev_GPS.getData();
 
     if (imuSt.A  != 0 || imuSt.B  != 0 ||
-        imuSt.C  != 0 || imuSt.ISM != 0 || baroSt.A != 0) {
+        imuSt.C  != 0 || /* imuSt.ISM != 0 || */ baroSt.A != 0) {
         return STATUS_LOCAL_READ_ERR;
     }
     return STATUS_OK;
@@ -379,7 +330,7 @@ int8_t FlightComputer::TrackCONOPS()
 
         case APOGEE_APPROACH:
             if (vertVelocityMs < APOGEE_VEL_MS &&
-                FCData.dat_Barometers.Filtered.heightMeters > MIN_APOGEE_ALT_M) {
+                FCData.dat_Barometers.Filtered.heightMeters > launchAltM + MIN_APOGEE_ALT_M) {
                 currentStage = APOGEE;
                 SD_LogNewline("STAGE: APOGEE");
             }
@@ -400,15 +351,15 @@ int8_t FlightComputer::TrackCONOPS()
             break;
 
         case DESCENT:
-            if (FCData.dat_Barometers.Filtered.heightMeters < MAX_MAIN_DEPLOY_ALT_M &&
-                FCData.dat_Barometers.Filtered.heightMeters > MIN_MAIN_DEPLOY_ALT_M) {
+            if (FCData.dat_Barometers.Filtered.heightMeters < launchAltM + MAX_MAIN_DEPLOY_ALT_M &&
+                FCData.dat_Barometers.Filtered.heightMeters > launchAltM + MIN_MAIN_DEPLOY_ALT_M) {
                 currentStage = MAIN_APPROACH;
                 SD_LogNewline("STAGE: MAIN_APPROACH");
             }
             break;
 
         case MAIN_APPROACH:
-            if (FCData.dat_Barometers.Filtered.heightMeters <= TARGET_MAIN_ALT_M) {
+            if (FCData.dat_Barometers.Filtered.heightMeters <= launchAltM + TARGET_MAIN_ALT_M) {
                 currentStage = MAIN;
                 SD_LogNewline("STAGE: MAIN");
             }

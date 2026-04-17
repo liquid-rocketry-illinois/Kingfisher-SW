@@ -9,10 +9,10 @@ extern volatile bool e22_data_ready;
 
 extern "C" void HAL_GPIO_EXTI_Callback(uint16_t GPIO_Pin)
 {
-    if (GPIO_Pin == ISM_INT_Pin)
-    {
-        IMU_ISM6HGx::ism6hg256x_read_data_drdy_handler();
-    }
+    // if (GPIO_Pin == ISM_INT_Pin)  // ISM6HGx not used this flight
+    // {
+    //     IMU_ISM6HGx::ism6hg256x_read_data_drdy_handler();
+    // }
 
     if(GPIO_Pin == RADIO_AUX_Pin)
     {

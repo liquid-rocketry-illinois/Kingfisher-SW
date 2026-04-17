@@ -33,10 +33,10 @@
 #define FINAL_DESCENT_VEL_MS    (-5.0f) // > -5 m/s = stable under main chute
 
 // ── Altitude thresholds (metres MSL — calibrate to launch site) ───────────────
-#define MIN_APOGEE_ALT_M        100.0f  // guard against false apogee at ground
-#define MAX_MAIN_DEPLOY_ALT_M   500.0f  // top of main-chute deploy window
-#define MIN_MAIN_DEPLOY_ALT_M   150.0f  // safety floor for main deploy
-#define TARGET_MAIN_ALT_M       200.0f  // fire main chute at or below this altitude
+#define MIN_APOGEE_ALT_M        2000.0f  // guard against false apogee at ground
+#define MAX_MAIN_DEPLOY_ALT_M   400.0f  // top of main-chute deploy window
+#define MIN_MAIN_DEPLOY_ALT_M   250.0f  // safety floor for main deploy
+#define TARGET_MAIN_ALT_M       300.0f  // fire main chute at or below this altitude
 
 // ── GPIO ──────────────────────────────────────────────────────────────────────
 #define USR_BUTTON_ACTIVE_STATE GPIO_PIN_SET

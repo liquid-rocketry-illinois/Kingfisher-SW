@@ -17,6 +17,7 @@
 #include "task.h"
 #include "queue.h"
 #include "semphr.h"
+#include "MAXM10S.h"
 
 typedef enum : int8_t {
     STATUS_ABORT_ACTIVE     = -4,  // Abort already latched, redundant trigger
@@ -52,7 +53,7 @@ typedef struct {
     DATA_Axon_Mini_MKII     dat_Servos;
     BMI_Data                dat_BMI_IMUs;
     BARO_DATA               dat_Barometers;
-    // GnssData             dat_GPS;   (add when GPS is integrated)
+    MAXM10S::gpsData        dat_GPS;
 } Data;
 
 // Devices shared by both ground and flight computers
@@ -61,8 +62,8 @@ typedef struct {
     Baro_Unified            dev_BarometerEngine;
     Servo_Axon_Mini_MKII    dev_servoSet;
     IMUs                    dev_IMU_Engine;
+    MAXM10S                 dev_GPS;
     // Magnetometer         dev_Magnetometer;  (add when integrated)
-    // GnssSensor           dev_GPS;           (add when integrated)
 } Devices;
 
 
@@ -75,10 +76,9 @@ class GroundStation {
     // ── State ────────────────────────────────────────────────────────────────
     bool     initDone          = false;
     bool     abortLatched      = false;
-    bool     pendingLocalLog   = false;
-    uint32_t lastLocalUpdateMs = 0;
     uint32_t holdStartMs       = 0;     // millis() when button first went active
     uint32_t lastLEDToggleMs   = 0;     // rate-limits abort LED blink
+    uint32_t lastLogMs         = 0;     // rate-limits SD logging
 
     Data    GNDData    = {};
     Devices GNDDevices = {};
@@ -236,7 +236,7 @@ public:
     /* Init()
      *
      * Init IMU engine and barometer engine.
-     * // magnetometer + GPS init here when integrated
+     * // magnetometer + init here when integrated
      * If any status != 0: return STATUS_INIT_FAILURE
      *
      * if dev_telemetry.Init(TELEMETRY_MODE_FLIGHT) != 0: return STATUS_COMMS_FAILURE

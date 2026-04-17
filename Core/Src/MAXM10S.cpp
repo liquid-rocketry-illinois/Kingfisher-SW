@@ -9,9 +9,12 @@
 // update returns int8_t 0 if functional or something else
 // getdata returns a struct of time, longitude, latitude, altitude
 
-MAXM10S::MAXM10S(I2C_HandleTypeDef *hi2c) {
+MAXM10S::MAXM10S() : _hi2c(nullptr) {}
+
+uint8_t MAXM10S::Init(I2C_HandleTypeDef *hi2c) {
     _hi2c = hi2c;
     HAL_GPIO_WritePin(GPS_RST_GPIO_Port, GPS_RST_Pin, GPIO_PIN_SET);
+    return 0;
 }
 
 uint16_t MAXM10S::getAvailableBytes() {

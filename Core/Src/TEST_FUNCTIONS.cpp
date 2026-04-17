@@ -78,9 +78,14 @@ int TEST::LIS2_TEST()
 int TEST::RADIO_TEST() {
     Telemetry telem = Telemetry(); // or TelemetryMode::TELEMETRY_MODE_FLIGHT
     uint8_t status = 0;
-    uint8_t init = telem.Init(TelemetryMode::TELEMETRY_MODE_GROUND);
+    uint8_t init = telem.Init(TelemetryMode::TELEMETRY_MODE_FLIGHT);
+
+    Baro_Unified baro = Baro_Unified();
+    baro.Init(true);
 
     while (1) {
+        baro.Update();
+        telem.HALOutData.altitude = baro.getData().Filtered.heightMeters;
         status = telem.Update();
         HAL_GPIO_TogglePin(USR_LED_GPIO_Port, USR_LED_Pin);
         vTaskDelay(10);

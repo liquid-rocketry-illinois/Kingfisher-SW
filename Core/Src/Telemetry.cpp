@@ -95,7 +95,7 @@ uint8_t Telemetry::Update()
         // GNDOutData.keepAliveIn = ...; // not sending anything for now
         if (HAL_GPIO_ReadPin(USR_BUTTON_GPIO_Port, USR_BUTTON_Pin) == GPIO_PIN_SET) {
             GNDOutData.pyroActivation[0] = 0;
-            GNDOutData.pyroActivation[1] = PYRODROGUEBKP;
+            GNDOutData.pyroActivation[1] = 0;
             GNDOutData.pyroActivation[2] = 0;
         }
 

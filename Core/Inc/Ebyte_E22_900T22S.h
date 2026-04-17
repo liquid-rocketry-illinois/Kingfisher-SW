@@ -18,9 +18,11 @@ uint8_t *data,
 size_t length);
 
 // Receive data into user buffer.
-// expected_payload_len must be sizeof(the struct being received) — the driver
-// uses it to compute a tight timeout and validate the length field in the header.
-// Returns total bytes written to buffer (header + payload + CRC) or negative error.
+// expected_payload_len must be sizeof(the struct being received).
+// The driver reads exactly (5 + expected_payload_len + 2) bytes with a
+// baud-rate-derived timeout plus 100 ms margin for wireless decode latency.
+// SYNC/CRC validation is left to the caller (decodeData in Telemetry.cpp).
+// Returns total bytes written to buffer or negative error (-1 HAL error, -2 timeout/short).
 int16_t recieve_e22_900t22s(uint8_t *buffer, uint16_t expected_payload_len);
 
 // Check if data is available from the module

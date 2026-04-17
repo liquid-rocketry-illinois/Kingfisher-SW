@@ -28,7 +28,8 @@ public:
         uint8_t isTimed = false;
     };
 
-    MAXM10S(I2C_HandleTypeDef *hi2c);
+    MAXM10S();
+    uint8_t Init(I2C_HandleTypeDef *hi2c);  // sets I2C handle and releases reset
     uint8_t update();
     gpsData getData();
     uint8_t gpsBuffer[2048];

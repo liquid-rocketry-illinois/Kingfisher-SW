@@ -272,6 +272,14 @@ int8_t writeConfig_e22_900t22s(
         //xSemaphoreGive(e22_mutex);
         return E22_ERR_UART;
     }
+
+    /* The E22 echoes back the written registers as confirmation:
+     * [C1 00 07 ADDH ADDL NETID REG0 REG1 REG2 REG3] (10 bytes).
+     * Must be consumed here — it sits in the MCU UART buffer regardless of
+     * when changeMode(TRANS) is called, and shifts the next uartRead() by 1 byte. */
+    uint8_t _echo[10];
+    uartRead(_echo, 10);
+
     changeMode(TRANS);
 
     e22_cfg = *cfg;
@@ -304,13 +312,11 @@ int8_t readConfig_e22_900t22s(config_e22_900t22s *cfg)
         return E22_ERR_UART;
     }
 
-    changeMode(TRANS);
-
     // first three values are just repetition of sent data
     if (resp[0] != cmd[0] ||
         resp[1] != cmd[1] ||
         resp[2] != cmd[2])
-        static int8_t E22_INIT_WARNING = E22_ERR_DATA_VERIFICATION; // sohws up in debugger if flagged
+        return E22_ERR_DATA_VERIFICATION;
 
     cfg->ADDH   = resp[3];
     cfg->ADDL   = resp[4];
@@ -321,6 +327,8 @@ int8_t readConfig_e22_900t22s(config_e22_900t22s *cfg)
     cfg->REG3   = resp[9];
 
     //xSemaphoreGive(e22_mutex);
+
+    changeMode(TRANS);
 
     return E22_OK;
 }
@@ -381,61 +389,45 @@ bool e22_available()
 }
 
 /*
- * Two-phase receive sized to the exact expected packet.
+ * Single-phase receive sized to the exact expected packet.
  *
- * Phase 1 — header (5 bytes): [SYNC1][SYNC2][len][seq_lo][seq_hi]
- * Phase 2 — body  (len+2 bytes): [payload x len][crc_lo][crc_hi]
+ * Reads exactly (5 + expected_payload_len + 2) bytes — the full frame:
+ *   [SYNC1][SYNC2][len][seq_lo][seq_hi][payload x len][crc_lo][crc_hi]
  *
- * Timeouts are calculated from the actual UART baud rate so they are tight
- * regardless of whether the baud is 9600 or 115200, with a 30 ms margin.
- * This eliminates the ~480 ms wasted by the old fixed 500 ms / 240-byte approach.
+ * Timeout is calculated from the actual UART baud rate so it is tight
+ * regardless of whether the baud is 9600 or 115200, with a 100 ms margin
+ * to cover E22 wireless decode latency before UART output begins.
  *
- * Returns total bytes placed in buffer (7 + expected_payload_len) or < 0 on error:
- *   -1  header receive failed (HAL_ERROR / HAL_BUSY)
- *   -2  header timeout — no bytes at all
- *   -3  header length field does not match expected_payload_len
- *   -4  body receive failed (HAL_ERROR / HAL_BUSY)
- *   -5  body timed out before all bytes arrived
+ * SYNC validation and length/CRC checking are left to decodeData() in
+ * Telemetry.cpp — this function only guarantees a full buffer fill.
+ *
+ * Returns total bytes placed in buffer or < 0 on error:
+ *   -1  HAL_ERROR or HAL_BUSY
+ *   -2  timeout with fewer than 7 bytes received (unusable)
  */
 int16_t recieve_e22_900t22s(uint8_t *buffer, uint16_t expected_payload_len)
 {
-    const uint32_t baud = e22_cfg.huart->Init.BaudRate;
+    const uint32_t baud     = e22_cfg.huart->Init.BaudRate;
+    const uint16_t total    = 5u + expected_payload_len + 2u;   // hdr + payload + CRC
 
-    /* ── Phase 1: 5-byte header ─────────────────────────────────────────── */
-    const uint16_t HDR_LEN = 5u;
-    uint32_t hdr_timeout = ((HDR_LEN * 10u * 1000u) / baud) + 30u;
-    if (hdr_timeout < 10u) hdr_timeout = 10u;
+    /* Time to clock out the full frame at the configured baud, plus 100 ms
+     * margin for the E22 to finish wireless decode before UART output begins. */
+    uint32_t timeout_ms = ((total * 10u * 1000u) / baud) + 100u;
 
-    HAL_StatusTypeDef s1 = HAL_UART_Receive(e22_cfg.huart, buffer, HDR_LEN, hdr_timeout);
-    if (s1 == HAL_ERROR || s1 == HAL_BUSY)
-        return -1;
-    if (s1 == HAL_TIMEOUT) {
-        uint16_t got = HDR_LEN - e22_cfg.huart->RxXferCount;
-        if (got == 0u) return -2;
-        /* partial header — not useful, but return what we have as an error */
-        return -2;
+    HAL_StatusTypeDef s = HAL_UART_Receive(e22_cfg.huart, buffer, total, timeout_ms);
+
+    if (s == HAL_OK)
+        return (int16_t)total;
+
+    if (s == HAL_TIMEOUT) {
+        uint16_t received = total - e22_cfg.huart->RxXferCount;
+        if (received < 7u)
+            return -2;   // not enough bytes for any valid packet
+        return (int16_t)received;
     }
 
-    /* Validate the length field matches what the caller expects.
-     * SYNC bytes are validated by decodeData() in Telemetry.cpp. */
-    uint8_t pkt_payload_len = buffer[2];
-    if (pkt_payload_len != (uint8_t)expected_payload_len)
-        return -3;
-
-    /* ── Phase 2: payload + 2 CRC bytes ─────────────────────────────────── */
-    uint16_t body_len = pkt_payload_len + 2u;
-    uint32_t body_timeout = ((body_len * 10u * 1000u) / baud) + 30u;
-    if (body_timeout < 10u) body_timeout = 10u;
-
-    HAL_StatusTypeDef s2 = HAL_UART_Receive(e22_cfg.huart, buffer + HDR_LEN, body_len, body_timeout);
-    if (s2 == HAL_ERROR || s2 == HAL_BUSY)
-        return -4;
-    if (s2 == HAL_TIMEOUT) {
-        uint16_t got2 = body_len - e22_cfg.huart->RxXferCount;
-        if (got2 < body_len) return -5;
-    }
-
-    return (int16_t)(HDR_LEN + body_len);
+    /* HAL_ERROR or HAL_BUSY */
+    return -1;
 }
 
 /* ================= ADDRESS ================= */

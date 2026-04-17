@@ -15,12 +15,12 @@ uint8_t IMUs::TMR_Compute() {
                                         Raw_BMI.BMIC_d.ang_vel);
 
     Quaternion_BMI.q = MATHEMATICS::Quaternion_Madgwick(&Quaternion_BMI, BMI_acc, BMI_angVel);
-    Quaternion_ISM.q = MATHEMATICS::Quaternion_Madgwick(&Quaternion_ISM, Data_ISM.acceleration, Data_ISM.angular_velocity);
+    // Quaternion_ISM.q = MATHEMATICS::Quaternion_Madgwick(&Quaternion_ISM, Data_ISM.acceleration, Data_ISM.angular_velocity);
 }
 uint8_t IMUs::Normal_Compute() {
     BMI_Data Data = BMI323_A.getRawData();
     Quaternion_BMI.q = MATHEMATICS::Quaternion_Madgwick(&Quaternion_BMI, Data.accel_linear, Data.ang_vel);
-    Quaternion_ISM.q = MATHEMATICS::Quaternion_Madgwick(&Quaternion_ISM, Data_ISM.acceleration, Data_ISM.angular_velocity);
+    // Quaternion_ISM.q = MATHEMATICS::Quaternion_Madgwick(&Quaternion_ISM, Data_ISM.acceleration, Data_ISM.angular_velocity);
 }
 
 //PUBLIC:
@@ -37,7 +37,7 @@ IMUsStatus IMUs::Init(bool tmr_on) {
         sensorStatus.C = BMI323_C.Init(SENSOR3_I);
     }
 
-    sensorStatus.ISM = ISM6HGx.Init();
+    // sensorStatus.ISM = ISM6HGx.Init();  // ISM6HGx not used this flight
 
     return sensorStatus;
 }
@@ -64,8 +64,8 @@ IMUsStatus IMUs::Update() {
         }
     }
 
-    sensorStatus.ISM = ISM6HGx.Update();
-    Data_ISM = ISM6HGx.GetData();
+    // sensorStatus.ISM = ISM6HGx.Update();  // ISM6HGx not used this flight
+    // Data_ISM = ISM6HGx.GetData();
 
     return sensorStatus;
 }
