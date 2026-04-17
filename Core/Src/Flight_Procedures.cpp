@@ -137,7 +137,7 @@ int8_t GroundStation::UpdateTelemetry()
 {
     GNDDevices.dev_telemetry.GNDOutData = GNDData.dat_GND_Data;
     if (GNDDevices.dev_telemetry.Update() != 0) return STATUS_REMOTE_READ_ERR;
-    GNDData.dat_FC_Data = GNDDevices.dev_telemetry.HALOutData;
+    //GNDData.dat_FC_Data = GNDDevices.dev_telemetry.HALOutData;
     return STATUS_OK;
 }
 

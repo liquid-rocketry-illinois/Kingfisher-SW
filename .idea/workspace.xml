@@ -35,8 +35,13 @@
     </configurations>
   </component>
   <component name="ChangeListManager">
-    <list default="true" id="b71e0858-14db-4924-8f99-4a29e2cf87f5" name="Changes" comment="GPS works tested outside on thursday, latitude, longitude works, altitude needs further testing">
+    <list default="true" id="b71e0858-14db-4924-8f99-4a29e2cf87f5" name="Changes" comment="GPS parser built, methods constructed correctly.">
+      <change beforePath="$PROJECT_DIR$/.idea/editor.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/editor.xml" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/CMakeLists.txt" beforeDir="false" afterPath="$PROJECT_DIR$/CMakeLists.txt" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/Core/Inc/MAXM10S.h" beforeDir="false" afterPath="$PROJECT_DIR$/Core/Inc/MAXM10S.h" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/Core/Src/Flight_Procedures.cpp" beforeDir="false" afterPath="$PROJECT_DIR$/Core/Src/Flight_Procedures.cpp" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/Core/Src/MAXM10S.cpp" beforeDir="false" afterPath="$PROJECT_DIR$/Core/Src/MAXM10S.cpp" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/Core/Src/main.cpp" beforeDir="false" afterPath="$PROJECT_DIR$/Core/Src/main.cpp" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
@@ -230,6 +235,7 @@
       <workItem from="1775175475260" duration="3255000" />
       <workItem from="1775178800935" duration="6000" />
       <workItem from="1775185550465" duration="1058000" />
+      <workItem from="1776395090817" duration="600000" />
     </task>
     <task id="LOCAL-00001" summary="Write LED blink code">
       <option name="closed" value="true" />
@@ -380,6 +386,11 @@
           <url>file://$PROJECT_DIR$/Core/Inc/Math/Math.h</url>
           <line>6</line>
           <option name="timeStamp" value="23" />
+        </line-breakpoint>
+        <line-breakpoint enabled="true" type="com.jetbrains.cidr.execution.debugger.OCBreakpointType">
+          <url>file://$PROJECT_DIR$/Core/Src/main.cpp</url>
+          <line>24</line>
+          <option name="timeStamp" value="27" />
         </line-breakpoint>
       </breakpoints>
     </breakpoint-manager>
