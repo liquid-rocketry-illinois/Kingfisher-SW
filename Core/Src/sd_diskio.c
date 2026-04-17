@@ -63,6 +63,18 @@ static DSTATUS s_stat     = STA_NOINIT;
 static uint8_t s_cardtype = 0u;
 
 /*
+ * Debugger-visible init failure reason.  Check this when SD_disk_initialize
+ * returns STA_NOINIT (f_mount → FR_NOT_READY):
+ *   0 = not yet run
+ *   1 = card-detect pin reads high (no card, or wrong polarity)
+ *   2 = CMD0 failed — card did not enter SPI mode after retries
+ *   3 = CMD8 voltage range not accepted
+ *   4 = ACMD41 timed out — card did not leave idle
+ *   5 = CMD16 (set block length) rejected
+ */
+volatile uint8_t sd_init_fail_step = 0u;
+
+/*
  * Static 512-byte buffer of 0xFF bytes used as the dummy TX source whenever
  * we only care about the received data (e.g. reading a sector).  Allocated
  * statically to keep it off the FreeRTOS task stack.
@@ -128,7 +140,9 @@ static bool SD_WaitReady(uint32_t timeout_ms)
  */
 static uint8_t SD_SendCmd(uint8_t cmd, uint32_t arg)
 {
-    if (cmd != CMD12) {
+    /* CMD0: card is not yet in SPI mode so MISO is undefined — skip WaitReady.
+     * CMD12: stop-transmission uses a stuff byte instead — also skip WaitReady. */
+    if (cmd != CMD0 && cmd != CMD12) {
         if (!SD_WaitReady(SD_BUSY_TIMEOUT_MS)) return 0xFFu;
     }
 
@@ -224,7 +238,10 @@ DSTATUS SD_disk_initialize(BYTE pdrv)
      * to GND when inserted).  If your socket uses active-HIGH, flip the test
      * to GPIO_PIN_RESET.
      */
+    sd_init_fail_step = 0u;
+
     if (HAL_GPIO_ReadPin(SD_DET_GPIO_Port, SD_DET_Pin) == GPIO_PIN_SET) {
+        sd_init_fail_step = 1u;
         s_stat = STA_NODISK | STA_NOINIT;
         return s_stat;
     }
@@ -238,11 +255,20 @@ DSTATUS SD_disk_initialize(BYTE pdrv)
     memset(clk_buf, 0xFFu, sizeof(clk_buf));
     HAL_SPI_Transmit(&hspi6, clk_buf, sizeof(clk_buf), HAL_MAX_DELAY);
 
-    /* ── CMD0: enter SPI mode ────────────────────────────────────────────── */
-    CS_Assert();
-    uint8_t r1 = SD_SendCmd(CMD0, 0u);
-    CS_Deassert();
-    if (r1 != 0x01u) { s_stat = STA_NOINIT; return s_stat; }
+    /* ── CMD0: enter SPI mode (retry up to 10×) ─────────────────────────── */
+    uint8_t r1 = 0xFFu;
+    for (int cmd0_try = 0; cmd0_try < 10; cmd0_try++) {
+        CS_Assert();
+        r1 = SD_SendCmd(CMD0, 0u);
+        CS_Deassert();
+        if (r1 == 0x01u) break;
+        osDelay(10u);
+    }
+    if (r1 != 0x01u) {
+        sd_init_fail_step = 2u;
+        s_stat = STA_NOINIT;
+        return s_stat;
+    }
 
     /* ── CMD8: probe for SDv2 ────────────────────────────────────────────── */
     uint8_t cardtype;
@@ -258,6 +284,7 @@ DSTATUS SD_disk_initialize(BYTE pdrv)
         if (r7[2] == 0x01u && r7[3] == 0xAAu) {
             cardtype = CT_SD2;
         } else {
+            sd_init_fail_step = 3u;
             s_stat = STA_NOINIT;    /* voltage not supported */
             return s_stat;
         }
@@ -281,7 +308,7 @@ DSTATUS SD_disk_initialize(BYTE pdrv)
         osDelay(1u);
     } while ((osKernelGetTickCount() - t0) < SD_INIT_TIMEOUT_MS);
 
-    if (r1 != 0x00u) { s_stat = STA_NOINIT; return s_stat; }
+    if (r1 != 0x00u) { sd_init_fail_step = 4u; s_stat = STA_NOINIT; return s_stat; }
 
     /* ── CMD58: read OCR, determine SDHC vs SDSC ─────────────────────────── */
     if (cardtype == CT_SD2) {
@@ -301,7 +328,7 @@ DSTATUS SD_disk_initialize(BYTE pdrv)
         CS_Assert();
         r1 = SD_SendCmd(CMD16, 512u);
         CS_Deassert();
-        if (r1 != 0x00u) { s_stat = STA_NOINIT; return s_stat; }
+        if (r1 != 0x00u) { sd_init_fail_step = 5u; s_stat = STA_NOINIT; return s_stat; }
     }
 
     s_cardtype = cardtype;

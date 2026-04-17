@@ -15,16 +15,19 @@ int8_t SD_Init()
     /* if (f_mount(&USERFatFS, USERPath, 1) != FR_OK) return -1; */
     /* if (res != FR_OK) return -2; */
 
-    // Guard: verify FATFS driver was linked by MX_FATFS_Init (retUSER == 0)
+    // Guard: verify FATFS driver was linked by MX_FATFS_Init (retUSER == 0).
+    // Returns -20 (not a valid FRESULT) so it is distinguishable in the debugger.
     extern uint8_t retUSER;
-    if (retUSER != 0) return -3;
+    if (retUSER != 0) return -20;
 
-    // Expose raw FRESULT as negative value for debugger visibility
+    // f_mount failure: return -(FRESULT).  FR_NOT_READY=-3, FR_NO_FILESYSTEM=-13, etc.
+    // Check sd_init_fail_step (sd_diskio.c) to see exactly where disk_initialize stopped.
     FRESULT res = f_mount(&USERFatFS, USERPath, 1);
     if (res != FR_OK) return -(int8_t)res;
 
+    // f_open failure: offset FRESULT by -100 so mount vs open errors are distinguishable.
     res = f_open(&s_file, "HAL1_LOG.TXT", FA_OPEN_ALWAYS | FA_WRITE);
-    if (res != FR_OK) return -(int8_t)res;
+    if (res != FR_OK) return (int8_t)(-100 - (int8_t)res);
 
     f_lseek(&s_file, f_size(&s_file));   // seek to end for append behaviour
     s_open = true;

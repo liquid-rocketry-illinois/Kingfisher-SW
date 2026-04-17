@@ -9,7 +9,11 @@
 
 // Mount the filesystem and open the log file.
 // Must be called once before any SD_Log* call.
-// Returns 0 on success, -1 on mount failure, -2 on file-open failure.
+// Returns:
+//    0   success
+//  -20   FatFs driver not linked (MX_FATFS_Init() not called before SD_Init())
+//   -(FRESULT)   mount failure (e.g. -3 = FR_NOT_READY — check sd_init_fail_step)
+//   -(100+FRESULT)  file-open failure after successful mount
 int8_t SD_Init();
 
 // Append msg + newline, then flush to disk.
