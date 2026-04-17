@@ -7,18 +7,20 @@
 #include "cmsis_os.h"
 #include "TEST_FUNCTIONS.h"
 #include "timing.h"
+#include "fatfs.h"
 
 void buzzerTOGGLE() {}
 
 extern "C" void task(void*) {
     /* USER CODE BEGIN StartDefaultTask */
+    MX_FATFS_Init();            // must run after scheduler starts so RTOS sync objects work
     MICROS_DWT_Timebase_Init(); // Initialize micros() timer
 
     TEST test;
     /* Infinite loop */
     for(;;)
     {
-        test.RADIO_TEST();
+        test.SD_TEST();
         // wont get past here for tests
         osDelay(1);
     }

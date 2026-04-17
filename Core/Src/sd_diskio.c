@@ -373,7 +373,8 @@ DRESULT SD_disk_write(BYTE pdrv, const BYTE *buff, DWORD sector, UINT count)
             }
             /* Send stop-transmission token and wait for card to finish */
             SPI_Xfer(TOKEN_STOP_TRAN);
-            SD_WaitReady(SD_BUSY_TIMEOUT_MS);
+            /* SD_WaitReady(SD_BUSY_TIMEOUT_MS); */
+            if (!SD_WaitReady(SD_BUSY_TIMEOUT_MS)) res = RES_NOTRDY;
         } else {
             res = RES_ERROR;
         }

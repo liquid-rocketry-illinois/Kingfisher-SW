@@ -7,6 +7,7 @@
 #include "TEST_FUNCTIONS.h"
 
 #include "task.h"
+#include <cstdio>
 
 TEST::TEST(){;}
 
@@ -102,5 +103,78 @@ int TEST::PYRO_TEST()
         vTaskDelay(pdMS_TO_TICKS(100));
     }
 
+}
+
+int TEST::SD_TEST()
+{
+    // Phase 1 — Init
+    int8_t res = SD_Init();
+    if (res != 0) {
+        // Fast blink: init failed
+        while (1) {
+            HAL_GPIO_TogglePin(USR_LED_GPIO_Port, USR_LED_Pin);
+            vTaskDelay(pdMS_TO_TICKS(100));
+        }
+    }
+
+    uint32_t count = 0;
+
+    // Phase 2 — Write loop (10 iterations)
+    while (count < 10) {
+
+        // Write header on first pass only
+        if (count == 0) {
+            res = SD_LogNewline("=== SD TEST START ===");
+            if (res != 0) {
+                while (1) {
+                    HAL_GPIO_TogglePin(USR_LED_GPIO_Port, USR_LED_Pin);
+                    vTaskDelay(pdMS_TO_TICKS(100));
+                }
+            }
+        }
+
+        // Write a GPS row with fake but distinct values
+        res = SD_LogGPS(
+            43.4723000 + count * 0.0000001,   // lat
+            -80.5449000 + count * 0.0000001,  // lon
+            330.00 + count * 0.5,             // alt
+            12,                               // hour
+            0,                                // min
+            (uint8_t)(count * 6)              // sec (0, 6, 12, ... 54)
+        );
+        if (res != 0) {
+            while (1) {
+                HAL_GPIO_TogglePin(USR_LED_GPIO_Port, USR_LED_Pin);
+                vTaskDelay(pdMS_TO_TICKS(100));
+            }
+        }
+
+        // Write inline counter string to verify inline append
+        char buf[32];
+        snprintf(buf, sizeof(buf), "row:%lu", count);
+        res = SD_LogInline(buf);
+        if (res != 0) {
+            while (1) {
+                HAL_GPIO_TogglePin(USR_LED_GPIO_Port, USR_LED_Pin);
+                vTaskDelay(pdMS_TO_TICKS(100));
+            }
+        }
+
+        HAL_GPIO_TogglePin(USR_LED_GPIO_Port, USR_LED_Pin);
+        vTaskDelay(pdMS_TO_TICKS(1000));
+        count++;
+    }
+
+    // Phase 3 — Clean close
+    SD_LogNewline("=== SD TEST END ===");
+    SD_Close();
+
+    // Slow blink: test completed cleanly, safe to remove card
+    while (1) {
+        HAL_GPIO_TogglePin(USR_LED_GPIO_Port, USR_LED_Pin);
+        vTaskDelay(pdMS_TO_TICKS(500));
+    }
+
+    return 0;
 }
 
