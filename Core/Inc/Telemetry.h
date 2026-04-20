@@ -35,10 +35,14 @@ typedef enum {
     PYRODROGUEMAIN  = 243656272
 } pyroActivateKeys;
 
+#define SERVO_OFFSET_CMD_BYTE   0xD4u   // GND→FC: apply servoOffset1/2 as new zero points
+
 typedef struct
 {
-    uint8_t CommandByteIn;
+    uint8_t  CommandByteIn;
     uint32_t pyroActivation[3] = {0, 0, 0};
+    float    servoOffset1      = 0.0f;  // S1 zero-point offset (degrees)
+    float    servoOffset2      = 0.0f;  // S2 zero-point offset (degrees)
 } GndStationData;
 
 typedef struct
@@ -48,9 +52,11 @@ typedef struct
     float altitude;
     float longitude, latitude, GPSaltitude;
     float mAccX, mAccY, mAccZ;
+    float mGyrX, mGyrY, mGyrZ;
     float bAccX, bAccY, bAccZ;
     float Qx, Qy, Qz, Qw;
     float pitch, yaw, roll;
+    float servoTarget1, servoTarget2;
     float servoPos1, servoPos2;
     bool pyroMainDrogueFired   = false;
     bool pyroBackupDrogueFired = false;

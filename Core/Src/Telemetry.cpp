@@ -3,6 +3,8 @@
 #include "task.h"
 #include <cstring>
 
+#include "constants.h"
+
 Telemetry::Telemetry()
 {
     mode = 255; // no mode yet
@@ -35,7 +37,7 @@ uint8_t Telemetry::Init(const TelemetryMode Mode)
 
     des_cfg.NETID = HAL1_RADIO_NETID;
 
-    des_cfg.REG0 =   R0_765_E22_UART_BAUD::E22_UART_BAUD_19200
+    des_cfg.REG0 =   R0_765_E22_UART_BAUD::E22_UART_BAUD_38400
                    | R0_43_SERIAL_PORT_PARITY_BIT::MODE_8N1
                    | R0_210_E22_AIR_DATA_RATE::E22_AIR_RATE_9_6K;
 
@@ -69,37 +71,36 @@ uint8_t Telemetry::Update()
 
     if(mode == TELEMETRY_MODE_FLIGHT)
     {
-        // FC: receive commands from ground, send telemetry up
+        // FC slave: receive GND command first, then respond only when asked.
+        // REQUEST_DATA_BYTE  → send full telemetry packet
+        // HANDSHAKE_GND_BYTE → send (CommandResponseByte already set by app layer)
+        // SHUTDOWN_KEEPALIVE → send telemetry so GND stays informed during abort
+        // anything else      → receive only, no TX (GND is rate-limiting)
         status = receiveCommands(GNDOutData);
-
-        // already populated from sensors
-        // HALOutData.altitude   = 1.0F;
-        // HALOutData.longitude  = 2.0F;
-        // HALOutData.latitude   = 3.0F;
-        // HALOutData.GPSaltitude = 4.0F;
-        // HALOutData.mAccX = 10.0F; HALOutData.mAccY = 10.0F; HALOutData.mAccZ = 10.0F;
-        // HALOutData.bAccX = 10.0F; HALOutData.bAccY = 10.0F; HALOutData.bAccZ = 10.0F;
-        // HALOutData.pitch = 10.0F; HALOutData.yaw   = 10.0F; HALOutData.roll  = 10.0F;
-        // HALOutData.servoPos1 = 50.0F;
-        // HALOutData.servoPos2 = 60.0F;
-        // HALOutData.CommandResponseByte = GNDOutData.CommandByteIn;
-
-        status = sendData(HALOutData);
+        if (status == 0)
+        {
+            uint8_t cmd = GNDOutData.CommandByteIn;
+            if (cmd == REQUEST_DATA_BYTE    ||
+                cmd == HANDSHAKE_GND_BYTE   ||
+                cmd == SHUTDOWN_KEEPALIVE   ||
+                cmd == SERVO_OFFSET_CMD_BYTE)   // always respond so GND link stays healthy
+            {
+                status = sendData(HALOutData);
+            }
+        }
     }
     else
     {
-        // GND: receive telemetry from FC, send commands down
-        status = receiveTelemetry(HALOutData);
-
-        // TODO: populate GNDOutData from operator input
-        // GNDOutData.keepAliveIn = ...; // not sending anything for now
+        // GND master: send commands first, then wait for FC telemetry response.
+        // FC is always in receive mode when we send, so our bytes land in FC's
+        // HAL_UART_Receive before the FIFO can overflow.
         if (HAL_GPIO_ReadPin(USR_BUTTON_GPIO_Port, USR_BUTTON_Pin) == GPIO_PIN_SET) {
             GNDOutData.pyroActivation[0] = 0;
             GNDOutData.pyroActivation[1] = 0;
             GNDOutData.pyroActivation[2] = 0;
         }
-
         status = sendCommands(GNDOutData);
+        status = receiveTelemetry(HALOutData);
     }
 
     return status;
@@ -214,10 +215,8 @@ uint8_t Telemetry::sendData(const telemetryData &data)
 
 uint8_t Telemetry::receiveCommands(GndStationData &gnd)
 {
-    bool a = e22_available();
-    if(!a)
-        return E22_NO_DATA;
-
+    // No e22_available() gate — FC is slave and must always be in receive mode
+    // so GND's bytes land in HAL_UART_Receive before the 16-byte FIFO overflows.
     int16_t len = recieve_e22_900t22s(rx_buffer, sizeof(GndStationData));
     if(len <= 0)                return E22_RECEIVE_ERR;
     if(len < 7)                 return E22_BAD_LENGTH;
@@ -279,8 +278,8 @@ uint8_t Telemetry::sendCommands(const GndStationData &gnd)
 
 uint8_t Telemetry::receiveTelemetry(telemetryData &data)
 {
-    if(!e22_available())        return E22_NO_DATA;
-
+    // No e22_available() gate — GND sends first then immediately calls this,
+    // so HAL_UART_Receive is already running when FC's response bytes arrive.
     int16_t len = recieve_e22_900t22s(rx_buffer, sizeof(telemetryData));
     if(len <= 0)                return E22_RECEIVE_ERR;
     if(len < 7)                 return E22_BAD_LENGTH;

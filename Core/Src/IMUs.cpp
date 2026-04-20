@@ -73,9 +73,10 @@ IMUsStatus IMUs::Update() {
 // Index 0-2 for sensors A, B, and C. Sensor A is always on.
 BMI_Data IMUs::getRawBMI(uint8_t index) {
     switch (index) {
-        case 0: return Raw_BMI.BMIA_d;
-        case 1: return Raw_BMI.BMIB_d;
-        case 2: return Raw_BMI.BMIC_d;
+        case 0:  return Raw_BMI.BMIA_d;
+        case 1:  return Raw_BMI.BMIB_d;
+        case 2:  return Raw_BMI.BMIC_d;
+        default: return {};
     }
 }
 

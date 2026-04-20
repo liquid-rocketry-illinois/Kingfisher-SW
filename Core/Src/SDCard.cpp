@@ -3,6 +3,9 @@
 //
 
 #include "SDCard.h"
+
+#include <cstdio>
+
 #include "fatfs.h"
 
 static FIL  s_file;
@@ -60,9 +63,12 @@ int8_t SD_LogGPS(double lat, double lon, double alt,
                  uint8_t hour, uint8_t min, uint8_t sec)
 {
     if (!s_open) return -1;
-    if (f_printf(&s_file, "%.7f,%.7f,%.2f,%02u,%02u,%02u\n",
-                 lat, lon, alt, hour, min, sec) < 0) return -2;
-    if (f_sync(&s_file) != FR_OK) return -3;
+    // f_printf in FatFS R0.12c does not support %f — use snprintf (newlib) instead
+    char buf[64];
+    snprintf(buf, sizeof(buf), "%.7f,%.7f,%.2f,%02u,%02u,%02u\n",
+             lat, lon, alt, (unsigned)hour, (unsigned)min, (unsigned)sec);
+    if (f_puts(buf, &s_file) == EOF) return -2;
+    if (f_sync(&s_file) != FR_OK)   return -3;
     return 0;
 }
 

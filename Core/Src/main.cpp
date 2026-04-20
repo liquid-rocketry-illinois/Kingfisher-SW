@@ -12,6 +12,13 @@
 #include "TinyGPSPlus.h"
 #include "Flight_Procedures.h"
 
+// ── Servo canard trim offsets — edit these before flashing the GND unit ───────
+// These are transmitted to the FC once on GND reconnect and applied as the
+// servo zero-point (degrees).  Positive = clockwise offset.
+float GND_SERVO_OFFSET_S1 = 20.0f;
+float GND_SERVO_OFFSET_S2 = 20.0f;
+// ─────────────────────────────────────────────────────────────────────────────
+
 void buzzerTOGGLE() {}
 extern "C" void task(void*) {
     /* USER CODE BEGIN StartDefaultTask */
@@ -25,13 +32,14 @@ extern "C" void task(void*) {
     /* Init code */
 
     FlightComputer FC;
-
-    FC.Init();
+    HAL_GPIO_WritePin(USR_LED_GPIO_Port, USR_LED_Pin, GPIO_PIN_SET);
+    int8_t status = FC.Init();
 
     /* Infinite loop */
     for(;;)
     {
-        FC.Update();
+        status = FC.Update();
+        HAL_GPIO_TogglePin(USR_LED_GPIO_Port, USR_LED_Pin);
     }
 #endif
 
@@ -39,15 +47,15 @@ extern "C" void task(void*) {
     /* Init code */
 
     GroundStation GS;
+    HAL_GPIO_WritePin(USR_LED_GPIO_Port, USR_LED_Pin, GPIO_PIN_SET);
 
-    GS.Init();
+    int8_t status = GS.Init();
 
     /* Infinite loop */
     for(;;)
     {
-        GS.Update();
+        status = GS.Update();
         HAL_GPIO_TogglePin(USR_LED_GPIO_Port, USR_LED_Pin);
-        osDelay(1);
     }
 #endif
 

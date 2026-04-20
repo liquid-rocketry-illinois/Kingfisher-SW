@@ -51,23 +51,15 @@ bool e22_isBusy(void)
 int8_t waitAux_e22_900t22s(uint32_t timeout_ms)
 {
     uint32_t start = xTaskGetTickCount();
-    uint32_t p = xTaskGetTickCount();
 
     while(!auxHigh())
     {
         if((xTaskGetTickCount() - start) > pdMS_TO_TICKS(timeout_ms)) {
-            HAL_GPIO_WritePin(USR_LED_GPIO_Port, USR_LED_Pin, GPIO_PIN_RESET);
             return E22_ERR_TIMEOUT;
         }
 
-        if ((xTaskGetTickCount() - p) > pdMS_TO_TICKS(300)) {
-            HAL_GPIO_TogglePin(USR_LED_GPIO_Port, USR_LED_Pin);
-            p = xTaskGetTickCount();
-        }
         vTaskDelay(pdMS_TO_TICKS(1));
     }
-
-    HAL_GPIO_WritePin(USR_LED_GPIO_Port, USR_LED_Pin, GPIO_PIN_RESET);
     return E22_OK;
 }
 
@@ -182,7 +174,7 @@ int8_t init_e22_900t22s(config_e22_900t22s *cfg)
         return 1; // ensure that the config set in module is the config given to it
 
     /* Raise MCU UART to match the E22's configured TRANS-mode baud rate. */
-    e22_cfg.huart->Init.BaudRate = 115200;
+    e22_cfg.huart->Init.BaudRate = 38400;
     HAL_UART_Init(e22_cfg.huart);
 
     /* return to normal transmit mode */
@@ -412,7 +404,11 @@ int16_t recieve_e22_900t22s(uint8_t *buffer, uint16_t expected_payload_len)
 
     /* Time to clock out the full frame at the configured baud, plus 100 ms
      * margin for the E22 to finish wireless decode before UART output begins. */
-    uint32_t timeout_ms = ((total * 10u * 1000u) / baud) + 100u;
+    /* 300 ms margin: gives the remote side time to finish its own TX, process
+     * the received packet, and start sending a response before we time out.
+     * At 9600 bps air rate a 96-byte telemetry packet takes ~80 ms over RF,
+     * so the round-trip (GND TX → FC RX+process+TX → GND RX) is ~160 ms. */
+    uint32_t timeout_ms = ((total * 10u * 1000u) / baud) + 300u;
 
     HAL_StatusTypeDef s = HAL_UART_Receive(e22_cfg.huart, buffer, total, timeout_ms);
 

@@ -93,7 +93,7 @@ int SIMU_BMI323::Update()
         return -999;
     }
 
-    uint16_t limit = 10;
+    uint16_t limit = 0;
     bmi3_sensor_data sensor_data[3] = {0};
     uint16_t int_status = 0;
     float temperature_value; // use temp for sense calibration

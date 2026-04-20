@@ -19,6 +19,10 @@
 #include "semphr.h"
 #include "MAXM10S.h"
 
+// Servo canard trim offsets defined in main.cpp — edit there before flashing GND
+extern float GND_SERVO_OFFSET_S1;
+extern float GND_SERVO_OFFSET_S2;
+
 typedef enum : int8_t {
     STATUS_ABORT_ACTIVE     = -4,  // Abort already latched, redundant trigger
     STATUS_SENSOR_FAIL      = -3,  // GND/FC sensor data exceeds 5% tolerance
@@ -74,11 +78,13 @@ typedef struct {
 class GroundStation {
 
     // ── State ────────────────────────────────────────────────────────────────
-    bool     initDone          = false;
-    bool     abortLatched      = false;
-    uint32_t holdStartMs       = 0;     // millis() when button first went active
-    uint32_t lastLEDToggleMs   = 0;     // rate-limits abort LED blink
-    uint32_t lastLogMs         = 0;     // rate-limits SD logging
+    bool     initDone                = false;
+    bool     abortLatched            = false;
+    bool     radioConnected          = false;  // true once handshake done; false on link loss
+    int8_t   commsErrCount           = 0;      // consecutive TX/RX failures
+    uint32_t holdStartMs             = 0;      // millis() when button first went active
+    uint32_t lastLEDToggleMs         = 0;      // rate-limits abort LED blink
+    uint32_t lastLogMs               = 0;      // rate-limits SD logging
 
     Data    GNDData    = {};
     Devices GNDDevices = {};
@@ -221,6 +227,22 @@ class FlightComputer {
 
     // ── Telemetry health ─────────────────────────────────────────────────────
     int8_t   commsErrCount         = 0;      // consecutive TX/RX failures
+    bool     radioConnected        = false;  // true once handshake done; false on link loss
+
+    // ── SD logging ───────────────────────────────────────────────────────────
+    uint32_t lastLogMs             = 0;      // rate-limits SD log writes
+
+    // ── Servo trim ───────────────────────────────────────────────────────────
+    bool     servoOffsetApplied    = false;  // prevents repeated SD log entries for same offset
+
+    // ── Controls test sequence ───────────────────────────────────────────────
+    uint8_t  ctrlTestStep          = 0;      // current step index (0–2)
+    uint32_t ctrlTestStepStartMs   = 0;      // millis() when current step began
+
+    // ── Altitude spike filter (median-of-3) ──────────────────────────────────
+    float    altFilterBuf[3]       = {0.0f, 0.0f, 0.0f};
+    uint8_t  altFilterIdx          = 0;
+    float    filteredAltM          = 0.0f;  // spike-filtered altitude — use for all decisions
 
     // ── Vertical velocity (barometric dAlt/dt) ───────────────────────────────
     float    vertVelocityMs        = 0.0f;   // positive = ascending, negative = descending
@@ -411,6 +433,7 @@ private:
      * return STATUS_OK
      */
     int8_t UpdatePyroTrack();
+    int8_t UpdateLogging();
 
     void firePyroMainDrogue();      // HAL_GPIO_WritePin DROUGE_MAIN_GPIO_Port, DROUGE_MAIN_Pin
     void firePyroBackupDrogue();    // HAL_GPIO_WritePin DROUGE_BACK_GPIO_Port, DROUGE_BACK_Pin

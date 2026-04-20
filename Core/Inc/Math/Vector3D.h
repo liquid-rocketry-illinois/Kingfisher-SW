@@ -128,8 +128,8 @@ public:
         R xx = static_cast<R>(x);
         R yy = static_cast<R>(y);
         R zz = static_cast<R>(z);
-
-        return std::sqrt(xx*xx + yy*yy + zz*zz);
+        auto r = std::sqrt(xx*xx + yy*yy + zz*zz);
+        return r;
     }
 
     constexpr auto magnitudeSquared() const {

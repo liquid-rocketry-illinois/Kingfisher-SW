@@ -94,8 +94,8 @@ SAsym<float> Servo_Axon_Mini_MKII::calculateError() {
 void Servo_Axon_Mini_MKII::Actuate(SAsym<float> input) {
     float sf = 5.55555555556f; // µs per degree
 
-    float us1 = 500.0f + (input.S1 + config.AngleOffsetDEGREES.S1) * sf;
-    float us2 = 500.0f + (input.S2 + config.AngleOffsetDEGREES.S2) * sf;
+    float us1 = 1500.0f + (input.S1 + config.AngleOffsetDEGREES.S1) * sf;
+    float us2 = 1500.0f + (input.S2 + config.AngleOffsetDEGREES.S2) * sf;
 
     // 1µs = 2 counts @ 2MHz
     uint32_t ccr1 = (uint32_t)(us1 * 2.0f);
@@ -149,8 +149,8 @@ bool Servo_Axon_Mini_MKII::Init(SAsym<float> AngOffset,
     }
 
     // Target is 0deg + offset for both motors
-    const float target1 = config.AngleOffsetDEGREES.S1;
-    const float target2 = config.AngleOffsetDEGREES.S2;
+    float target1 = config.AngleOffsetDEGREES.S1;
+    float target2 = config.AngleOffsetDEGREES.S2;
 
     const TickType_t timeout   = pdMS_TO_TICKS(3000);  // 3s total
     const TickType_t poll_rate = pdMS_TO_TICKS(5);     // poll at 200Hz
@@ -201,40 +201,26 @@ bool Servo_Axon_Mini_MKII::Init(SAsym<float> AngOffset,
  * @attention There are const values in this functions which should be tuned!!!!!
  */
 void Servo_Axon_Mini_MKII::Update(float S1_Target_Deg, float S2_Target_Deg) {
-    data.targetAngle = {S1_Target_Deg, S2_Target_Deg};
-    data.currentAngle = readCurrentAngle();
+    data.targetAngle  = {S1_Target_Deg, S2_Target_Deg};
+    data.trackedAngle = {S1_Target_Deg, S2_Target_Deg};
 
-    data.trackedAngle.S1 += S1_Target_Deg;
-    data.trackedAngle.S2 += S2_Target_Deg;
+    // Open-loop: Actuate() maps angle→PWM directly via the 1500µs center formula.
+    // Closed-loop correction is disabled because readCurrentAngle() returns
+    // absolute encoder position in 0–360° while targets are deflection angles
+    // in a different coordinate frame. Without encoder calibration the error
+    // term is meaningless and drives large spurious corrections causing jitter.
+    Actuate({S1_Target_Deg, S2_Target_Deg});
 
-    const float kP       = 0.3f;   // proportional gain
-    const float deadband = 0.5f;   // degrees
-    const float alpha    = 0.05f;  // smoothing factor — lower = smoother, higher = more responsive
-    // 0.1-0.2 is a good starting range for a rocket servo
+    data.currentAngle       = readCurrentAngle();
+    data.smoothedCorrection = {0.0f, 0.0f};
 
-    float err1 = data.targetAngle.S1 - data.currentAngle.S1;
-    float err2 = data.targetAngle.S2 - data.currentAngle.S2;
+    // trackedError: raw encoder deviation from target (informational only)
+    data.trackedError.S1 = fabsf(data.currentAngle.S1 - S1_Target_Deg);
+    data.trackedError.S2 = fabsf(data.currentAngle.S2 - S2_Target_Deg);
+}
 
-    float correction1 = fabsf(err1) > deadband ? kP * err1 : 0.0f;
-    float correction2 = fabsf(err2) > deadband ? kP * err2 : 0.0f;
-
-    // Low-pass filter on the correction — exponential moving average
-    // smoothed = alpha * new_value + (1 - alpha) * previous_value
-    data.smoothedCorrection.S1 = (alpha * correction1) + ((1.0f - alpha) * data.smoothedCorrection.S1);
-    data.smoothedCorrection.S2 = (alpha * correction2) + ((1.0f - alpha) * data.smoothedCorrection.S2);
-
-    SAsym<float> corrected = {
-        data.targetAngle.S1 + data.smoothedCorrection.S1,
-        data.targetAngle.S2 + data.smoothedCorrection.S2
-    };
-
-    Actuate(corrected);
-
-    float denom1 = fabsf(data.trackedAngle.S1) > 0.001f ? fabsf(data.trackedAngle.S1) : 1.0f;
-    float denom2 = fabsf(data.trackedAngle.S2) > 0.001f ? fabsf(data.trackedAngle.S2) : 1.0f;
-
-    data.trackedError.S1 += fabsf(err1) / denom1;
-    data.trackedError.S2 += fabsf(err2) / denom2;
+void Servo_Axon_Mini_MKII::SetOffset(SAsym<float> offset) {
+    config.AngleOffsetDEGREES = offset;
 }
 
 DATA_Axon_Mini_MKII Servo_Axon_Mini_MKII::getData() const {

@@ -22,23 +22,21 @@ Baro_Unified::BMP_Status Baro_Unified::Init(bool TMR_Toggle) {
 }
 
 Baro_Unified::BMP_Status Baro_Unified::Update() {
-    if (status.A == BMP3_OK) {
-        status.A = SensorA.Update();
-        data.SensorA = SensorA.getRawData();
+    status.A = SensorA.Update();
+    data.SensorA = SensorA.getRawData();
 
-        if (TMR_on && status.B == BMP3_OK && status.C == BMP3_OK) {
-            status.B = SensorB.Update();
-            status.C = SensorC.Update();
-            data.SensorB = SensorB.getRawData();
-            data.SensorC = SensorC.getRawData();
+    if (TMR_on) {
+        status.B = SensorB.Update();
+        status.C = SensorC.Update();
+        data.SensorB = SensorB.getRawData();
+        data.SensorC = SensorC.getRawData();
 
-            data.Filtered.Pressure    = TMRFloat::Vote(data.SensorA.Pressure,     data.SensorB.Pressure,     data.SensorC.Pressure);
-            data.Filtered.heightMeters = TMRFloat::Vote(data.SensorA.heightMeters, data.SensorB.heightMeters, data.SensorC.heightMeters);
-            data.Filtered.Temperature  = TMRFloat::Vote(data.SensorA.Temperature,  data.SensorB.Temperature,  data.SensorC.Temperature);
-        } else {
-            // single-sensor mode: Filtered mirrors primary sensor
-            data.Filtered = data.SensorA;
-        }
+        data.Filtered.Pressure     = TMRFloat::Vote(data.SensorA.Pressure,      data.SensorB.Pressure,      data.SensorC.Pressure);
+        data.Filtered.heightMeters = TMRFloat::Vote(data.SensorA.heightMeters,  data.SensorB.heightMeters,  data.SensorC.heightMeters);
+        data.Filtered.Temperature  = TMRFloat::Vote(data.SensorA.Temperature,   data.SensorB.Temperature,   data.SensorC.Temperature);
+    } else {
+        // single-sensor mode: Filtered mirrors primary sensor
+        data.Filtered = data.SensorA;
     }
     return status;
 }
