@@ -26,7 +26,7 @@
 #define LIFTOFF_ALT_DELTA_M     20.0f    // must gain this many metres from pad *****
 
 // ── Stage transition thresholds ───────────────────────────────────────────────
-#define BURNOUT_ACCEL_G         1.5f    // below this G = motor burnout. THIS MUST BE ABSOLUTE MAGNITUDE
+#define BURNOUT_ACCEL_G         3.0f    // below this G = motor burnout. THIS MUST BE ABSOLUTE MAGNITUDE. Was 1.5f
 #define APOGEE_APPROACH_VEL_MS  20.0f   // < 20 m/s upward = apogee approach
 #define APOGEE_VEL_MS           5.0f    // <  5 m/s upward = near apogee
 #define APOGEE_PASS_VEL_MS      (-3.0f) // < -3 m/s = confirmed past apogee
