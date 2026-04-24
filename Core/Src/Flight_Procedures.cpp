@@ -540,6 +540,25 @@ int8_t FlightComputer::UpdatePyroTrack()
         pyroMainChuteFired = true;
     }
 
+    uint32_t now = millis();
+    if (pyroMainDrogueArmMs && now - pyroMainDrogueArmMs >= PYRO_PULSE_MS) {
+        HAL_GPIO_WritePin(DROUGE_MAIN_GPIO_Port, DROUGE_MAIN_Pin, GPIO_PIN_RESET);
+        SD_LogNewline("PYRO DROGUE_MAIN OFF");
+        pyroMainDrogueArmMs = 0;
+    }
+
+    if (pyroBackupDrogueArmMs && now - pyroBackupDrogueArmMs >= PYRO_PULSE_MS) {
+        HAL_GPIO_WritePin(DROUGE_BACK_GPIO_Port, DROUGE_BACK_Pin, GPIO_PIN_RESET);
+        SD_LogNewline("PYRO DROGUE_BACKUP OFF");
+        pyroBackupDrogueArmMs = 0;
+    }
+
+    if (pyroMainChuteArmMs && now - pyroMainChuteArmMs >= PYRO_PULSE_MS) {
+        HAL_GPIO_WritePin(MAIN_GPIO_Port, MAIN_Pin, GPIO_PIN_RESET);
+        SD_LogNewline("PYRO MAIN_CHUTE OFF");
+        pyroMainChuteArmMs = 0;
+    }
+
     return STATUS_OK;
 }
 
@@ -603,9 +622,8 @@ void FlightComputer::firePyroMainDrogue()
              static_cast<unsigned long>(millis()), filteredAltM);
     SD_LogNewline(buf);                                             // log before firing — survives a crash
     HAL_GPIO_WritePin(DROUGE_MAIN_GPIO_Port, DROUGE_MAIN_Pin, GPIO_PIN_SET);
-    osDelay(2000);
-    HAL_GPIO_WritePin(DROUGE_MAIN_GPIO_Port, DROUGE_MAIN_Pin, GPIO_PIN_RESET);
     SD_LogNewline("PYRO DROGUE_MAIN OFF");
+    pyroMainDrogueArmMs = millis();
 }
 
 void FlightComputer::firePyroBackupDrogue()
@@ -615,9 +633,8 @@ void FlightComputer::firePyroBackupDrogue()
              static_cast<unsigned long>(millis()), filteredAltM);
     SD_LogNewline(buf);
     HAL_GPIO_WritePin(DROUGE_BACK_GPIO_Port, DROUGE_BACK_Pin, GPIO_PIN_SET);
-    osDelay(2000);
-    HAL_GPIO_WritePin(DROUGE_BACK_GPIO_Port, DROUGE_BACK_Pin, GPIO_PIN_RESET);
     SD_LogNewline("PYRO DROGUE_BACKUP OFF");
+    pyroBackupDrogueArmMs = millis();
 }
 
 void FlightComputer::firePyroMainParachute()
@@ -627,9 +644,8 @@ void FlightComputer::firePyroMainParachute()
              static_cast<unsigned long>(millis()), filteredAltM);
     SD_LogNewline(buf);
     HAL_GPIO_WritePin(MAIN_GPIO_Port, MAIN_Pin, GPIO_PIN_SET);
-    osDelay(2000);
-    HAL_GPIO_WritePin(MAIN_GPIO_Port, MAIN_Pin, GPIO_PIN_RESET);
     SD_LogNewline("PYRO MAIN_CHUTE OFF");
+    pyroMainChuteArmMs = millis();
 }
 
 int8_t FlightComputer::Abort()
@@ -642,8 +658,18 @@ int8_t FlightComputer::Abort()
     for (;;) {
         UpdateSensors();
         UpdateVerticalVelocity();
+        TrackCONOPS();
+        FCDevices.dev_servoSet.Update(0.0f, 0.0f);
         UpdatePyroTrack();
         UpdateTelemetry();
+
+        if (!pyroMainDrogueFired && vertVelocityMs < 0.0f) {
+            SD_LogNewline("ABORT: drogue fallback (descending, not yet deployed)");
+            HAL_GPIO_WritePin(DROUGE_MAIN_GPIO_Port, DROUGE_MAIN_Pin, GPIO_PIN_SET);
+            pyroMainDrogueArmMs = millis();
+            pyroMainDrogueFired = true;
+            currentStage = APOGEE_PASS;
+        }
 
         snprintf(buf, sizeof(buf),
             "T=%lu ABORT ALT=%.1f VEL=%.2f",

@@ -224,6 +224,10 @@ class FlightComputer {
     bool     pyroMainDrogueFired   = false;
     bool     pyroBackupDrogueFired = false;
     bool     pyroMainChuteFired    = false;
+    uint32_t pyroMainDrogueArmMs   = 0;
+    uint32_t pyroBackupDrogueArmMs = 0;
+    uint32_t pyroMainChuteArmMs    = 0;
+    static constexpr uint32_t PYRO_PULSE_MS = 2000;
 
     // ── Telemetry health ─────────────────────────────────────────────────────
     int8_t   commsErrCount         = 0;      // consecutive TX/RX failures

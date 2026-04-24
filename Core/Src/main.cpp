@@ -25,8 +25,8 @@ extern "C" void task(void*) {
     MICROS_DWT_Timebase_Init(); // Initialize micros() timer
     //TEST test;
 
-//#define FLIGHT_MODE_GLOBAL
-#define GROUND_MODE_GLOBAL
+#define FLIGHT_MODE_GLOBAL
+// #define GROUND_MODE_GLOBAL
 
 #ifdef FLIGHT_MODE_GLOBAL
     /* Init code */
