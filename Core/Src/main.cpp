@@ -26,7 +26,7 @@ extern "C" void task(void*) {
     //TEST test;
 
 #define FLIGHT_MODE_GLOBAL
-// #define GROUND_MODE_GLOBAL
+//#define GROUND_MODE_GLOBAL
 
 #ifdef FLIGHT_MODE_GLOBAL
     /* Init code */
