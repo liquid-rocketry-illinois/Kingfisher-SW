@@ -264,10 +264,10 @@ int8_t FlightComputer::Update()
     if (!initDone) return STATUS_INIT_FAILURE;
 
     UpdateTelemetry();
-    UpdateAbortAccumulator();
+    UpdateAbortAccumulator(); // combine
     UpdateSensors();
-    UpdateVerticalVelocity();
-    TrackCONOPS();
+    UpdateVerticalVelocity(); // combine
+    TrackCONOPS();            // combine
     UpdatePyroTrack();
     UpdateLogging();
 
