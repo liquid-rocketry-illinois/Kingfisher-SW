@@ -300,8 +300,9 @@ int8_t FlightComputer::UpdateSensors()
     FCDevices.dev_GPS.update();
     // FCDevices.dev_servoSet.Update(0.0f, 0.0f); // Done in TrackCONOPS()
 
-    FCData.dat_BMI_IMUs   = FCDevices.dev_IMU_Engine.getRawBMI(0);
+    FCData.dat_BMI_IMUs   = FCDevices.dev_IMU_Engine.getVotedBMI();
     FCData.dat_Barometers = FCDevices.dev_BarometerEngine.getData();
+
     FCData.dat_Servos     = FCDevices.dev_servoSet.getData();
     FCData.dat_GPS        = FCDevices.dev_GPS.getData();
 

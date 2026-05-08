@@ -88,6 +88,7 @@ void MX_FREERTOS_Init(void) {
   /* USER CODE BEGIN RTOS_QUEUES */
   /* add queues, ... */
   defaultTaskHandle = osThreadNew(task, NULL, &defaultTask_attributes);
+
   return;
   /* USER CODE END RTOS_QUEUES */
 
