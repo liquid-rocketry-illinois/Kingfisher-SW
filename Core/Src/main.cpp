@@ -39,5 +39,3 @@ extern "C" void task(void*) {
     }
     /* USER CODE END StartDefaultTask */
 }
-
-extern "C" void task2(void*) {}

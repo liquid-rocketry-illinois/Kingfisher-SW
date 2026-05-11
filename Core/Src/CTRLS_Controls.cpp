@@ -196,9 +196,7 @@ extern "C" void ctrlsTask(void* /*arg*/) {
         // If mutex unavailable or no fresh data, snap retains last known values
         // and fresh = false → predictOnly path below
 
-        const float t   = snap.flight_time_s;
-        const float alt = snap.altitude_m;
-        const float T_K = snap.temperature_K;
+        float T_K = snap.temperature_K;
 
         // ── EKF step ─────────────────────────────────────────────────────────
         // Read last canard command for the EOM input
@@ -220,9 +218,9 @@ extern "C" void ctrlsTask(void* /*arg*/) {
                 y(i,   0) = snap.accel_g[i];
                 y(3+i, 0) = snap.gyro_rad_s[i];
             }
-            ekf.update(t, dt, y, u_last, alt, T_K);
+            ekf.update(t, dt, y, u_last, snap.altitude_m, T_K);
         } else {
-            ekf.predictOnly(t, dt, u_last, alt, T_K);
+            ekf.predictOnly(t, dt, u_last, snap.altitude_m, T_K);
         }
 
         // ── Control law ───────────────────────────────────────────────────────

@@ -7,6 +7,7 @@
 #include "cmsis_os2.h"
 #include "main.h"
 #include "i2c.h"
+#include "CTRLS_Controls.h"
 #include <cstdio>
 #include <cmath>
 
@@ -265,8 +266,13 @@ int8_t FlightComputer::Update()
 
     UpdateTelemetry();
     UpdateAbortAccumulator();
+
+    // acquire mutex to sample independently. if sampling, dont use sensor data yet
+    osMutexAcquire(g_ctrls_sensor_mutex, osWaitForever);
     UpdateSensors();
     UpdateVerticalVelocity();
+    osMutexRelease(g_ctrls_sensor_mutex);
+
     TrackCONOPS();
     UpdatePyroTrack();
     UpdateLogging();
