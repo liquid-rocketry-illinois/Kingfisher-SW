@@ -16,7 +16,7 @@ struct IMUsStatus {
     int8_t ISM = 0;
 };
 
-class IMUs {
+class   IMUs {
     SIMU_BMI323 BMI323_A;
     SIMU_BMI323 BMI323_B;
     SIMU_BMI323 BMI323_C;
@@ -28,6 +28,8 @@ class IMUs {
         BMI_Data BMIB_d;
         BMI_Data BMIC_d;
     } Raw_BMI;
+
+    BMI_Data Voted_BMI;
 
     IMUsStatus sensorStatus;
 
@@ -47,6 +49,7 @@ public:
     IMUsStatus Init(bool tmr_on);
     IMUsStatus Update();
     BMI_Data getRawBMI(uint8_t index);
+    BMI_Data getVotedBMI();
     ISM_Data getRawISM();
 };
 

@@ -26,6 +26,8 @@ public:
     int RADIO_TEST();
     int PYRO_TEST();
     int SD_TEST();
+
+    void NoiseTest();
 };
 
 #endif //HAL_1_SW_TEST_FUNCTIONS_H
