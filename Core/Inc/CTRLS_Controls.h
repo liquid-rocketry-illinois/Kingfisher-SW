@@ -42,6 +42,14 @@ public:
     // Returns canard deflection command (rad). Call after EKF update.
     float computeControl(float t, const StateVec& xhat, float T_K = 288.15f);
 
+    // Update roll effectiveness sign. Call once per loop with the CURRENT gyro
+    // w3 reading and the command (rad) applied in the PREVIOUS step, and the
+    // current air-relative speed estimate from the EKF.
+    void  updateRollEffectivenessSign(float t, float w3_meas,
+                                       float u_prev_rad, float vmag);
+
+    float rollEffectivenessSign() const { return rem_sign_; }
+
     void reset();
 
 private:
@@ -50,7 +58,14 @@ private:
     float last_u_  = 0.0f;
     float last_t_  = 0.0f;
 
-    // Compute scalar gain K for current flight condition.
+    // Roll effectiveness monitor state
+    float rem_sign_          =  1.0f;
+    int   rem_flip_count_    =  0;
+    int   rem_mismatch_count_=  0;
+    float rem_prev_t_        = -1.0f;  // negative = uninitialized
+    float rem_prev_w3_       =  0.0f;
+
+    // Compute scalar gain K for current flight condition (incorporates rem_sign_).
     float gainSchedule_(float t, const StateVec& xhat) const;
 };
 

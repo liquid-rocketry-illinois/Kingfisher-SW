@@ -28,8 +28,13 @@ ControlLaw::ControlLaw(const Physics& phys, const RocketConfig& cfg)
     : phys_(phys), cfg_(cfg) {}
 
 void ControlLaw::reset() {
-    last_u_ = 0.0f;
-    last_t_ = 0.0f;
+    last_u_            = 0.0f;
+    last_t_            = 0.0f;
+    rem_sign_          = 1.0f;
+    rem_flip_count_    = 0;
+    rem_mismatch_count_= 0;
+    rem_prev_t_        = -1.0f;
+    rem_prev_w3_       = 0.0f;
 }
 
 float ControlLaw::gainSchedule_(float t, const StateVec& xhat) const {
@@ -52,9 +57,9 @@ float ControlLaw::computeControl(float t, const StateVec& xhat, float T_K) {
     // Roll rate error (reference = 0)
     const float error = xhat(2, 0);  // w3
 
-    // Gain-scheduled proportional output
+    // Gain-scheduled proportional output (sign incorporates roll effectiveness)
     const float K    = gainSchedule_(t, xhat);
-    float u_cmd = -K * error;
+    float u_cmd = -K * rem_sign_ * error;
 
     // Rate limit
     if (dt > 0.0f && dt < 0.5f) {
@@ -70,11 +75,76 @@ float ControlLaw::computeControl(float t, const StateVec& xhat, float T_K) {
     // IREC compliance: inhibit during motor burn
     if (cfg_.irec_compliant && t < cfg_.t_burnout) u_cmd = 0.0f;
 
+    // Mach-based activation: also inhibit post-burnout until below Mach threshold
+    if (cfg_.mach_activation_threshold > 0.0f) {
+        const float v1=xhat(3,0), v2=xhat(4,0), v3=xhat(5,0);
+        const float mach = sqrtf(v1*v1+v2*v2+v3*v3) / Physics::speedOfSound(T_K);
+        if (t < cfg_.t_burnout || mach > cfg_.mach_activation_threshold) u_cmd = 0.0f;
+    }
+
     // Pre-launch: no command
     if (t <= 0.0f) u_cmd = 0.0f;
 
     last_u_ = u_cmd;
     return u_cmd;
+}
+
+// ─── Roll effectiveness monitor ───────────────────────────────────────────────
+// Call once per loop with the CURRENT gyro w3, the PREVIOUS command in rad,
+// and the current EKF speed estimate.  Flips rem_sign_ when the measured roll
+// acceleration consistently opposes the modeled canard moment.
+void ControlLaw::updateRollEffectivenessSign(float t, float w3_meas,
+                                              float u_prev_rad, float vmag) {
+    if (!cfg_.rem_enabled) return;
+
+    const float prev_t  = rem_prev_t_;
+    const float prev_w3 = rem_prev_w3_;
+    rem_prev_t_  = t;
+    rem_prev_w3_ = w3_meas;
+
+    if (prev_t < 0.0f) return;  // first call — no previous sample yet
+
+    const float dt = t - prev_t;
+    if (dt <= 0.0f) { rem_mismatch_count_ = 0; return; }
+
+    // Inhibit during burn and post-burn settling period
+    if (t < cfg_.t_burnout + cfg_.rem_post_burn_delay_s) {
+        rem_mismatch_count_ = 0; return;
+    }
+
+    // Skip if command is too small to produce a reliable signal
+    if (fabsf(u_prev_rad) < cfg_.rem_min_cmd_rad) {
+        rem_mismatch_count_ = 0; return;
+    }
+
+    // Expected roll acceleration from the canard moment model
+    const float I3 = phys_.getInertiaRoll(t);
+    const float M_cfd = phys_.canardMoment(vmag, u_prev_rad);
+    const float expected_accel = (I3 > 1e-10f) ? (M_cfd / I3) : 0.0f;
+
+    // Measured roll acceleration from consecutive gyro readings
+    const float measured_accel = (w3_meas - prev_w3) / dt;
+
+    // Require both sides to be significant before trusting the comparison
+    if (fabsf(expected_accel) < cfg_.rem_min_expected_accel ||
+        fabsf(measured_accel) < cfg_.rem_min_measured_accel) {
+        rem_mismatch_count_ = 0; return;
+    }
+
+    // Accumulate or reset mismatch counter
+    if (measured_accel * expected_accel < 0.0f) {
+        rem_mismatch_count_++;
+    } else {
+        rem_mismatch_count_ = 0;
+    }
+
+    // Flip sign once threshold is reached
+    const bool can_flip = cfg_.rem_allow_flip_back || (rem_flip_count_ == 0);
+    if (can_flip && rem_mismatch_count_ >= cfg_.rem_required_mismatches) {
+        rem_sign_ *= -1.0f;
+        rem_flip_count_++;
+        rem_mismatch_count_ = 0;
+    }
 }
 
 // ─── FreeRTOS controls task ───────────────────────────────────────────────────
@@ -88,6 +158,7 @@ extern "C" void ctrlsTask(void* /*arg*/) {
     static RocketConfig cfg;
     cfg.computeDerived();
 
+    // Classes initialization with global config and physics
     static Physics     phys(cfg);
     static EKF         ekf(phys, cfg);
     static ControlLaw  ctrl(phys, cfg);
@@ -138,6 +209,11 @@ extern "C" void ctrlsTask(void* /*arg*/) {
         }
 
         if (fresh) {
+            // Update roll effectiveness monitor before EKF (uses previous EKF speed)
+            const float vx=ekf.xhat(3,0), vy=ekf.xhat(4,0), vz=ekf.xhat(5,0);
+            ctrl.updateRollEffectivenessSign(t, snap.gyro_rad_s[2], u_last,
+                                              sqrtf(vx*vx + vy*vy + vz*vz));
+
             // Build measurement vector [accel_g(3), gyro_rad_s(3)]
             MeasVec y;
             for (int i = 0; i < 3; i++) {

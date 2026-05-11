@@ -162,6 +162,22 @@ struct RocketConfig {
     float drag_off_cd[MAX_TABLE]   = {};
     int   drag_off_n = 0;
 
+    // ── Mach-based activation ─────────────────────────────────────────────────
+    // If > 0, control is inhibited post-burnout until Mach drops below this.
+    // Negative or zero = disabled (starts immediately at burnout).
+    float mach_activation_threshold = -1.0f;
+
+    // ── Roll effectiveness monitor (REM) ──────────────────────────────────────
+    // Detects reversed canard roll effectiveness at runtime and flips the
+    // control gain sign.  Disabled by default.
+    bool  rem_enabled             = false;
+    float rem_post_burn_delay_s   = 0.25f;   // s after burnout before monitoring
+    float rem_min_cmd_rad         = 0.0349f; // ~2 deg — skip tiny commands
+    float rem_min_expected_accel  = 0.5f;    // rad/s² — minimum expected |w3dot|
+    float rem_min_measured_accel  = 0.5f;    // rad/s² — minimum measured |w3dot|
+    int   rem_required_mismatches = 5;       // consecutive sign disagreements to flip
+    bool  rem_allow_flip_back     = true;    // allow more than one flip
+
     // Derived — call computeDerived() once after populating all fields above
     float delta_rad      = 0.0f;
     float canard_dir_1   = 1.0f;  // cos(canard_plane_angle)
@@ -183,7 +199,7 @@ float lerp(const float* xs, const float* ys, int n, float xi);
 // ─── Physics ──────────────────────────────────────────────────────────────────
 class Physics {
 public:
-    const RocketConfig& cfg;
+    const RocketConfig& cfg; // Use global config (assigned later)
 
     explicit Physics(const RocketConfig& cfg);
 

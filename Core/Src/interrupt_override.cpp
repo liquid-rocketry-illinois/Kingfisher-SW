@@ -3,7 +3,6 @@
 //
 
 #include "main.h"
-#include "Sensors.h"
 
 extern volatile bool e22_data_ready;
 

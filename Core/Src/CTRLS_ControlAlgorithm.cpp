@@ -136,7 +136,7 @@ float Physics::speedOfSound(float T_kelvin) {
 
 // ─── R_BW: world-to-body DCM from unit quaternion ────────────────────────────
 void Physics::R_BW(float qw, float qx, float qy, float qz, float R[3][3]) {
-    const float qw2=qw*qw, qx2=qx*qx, qy2=qy*qy, qz2=qz*qz;
+    const float qx2=qx*qx, qy2=qy*qy, qz2=qz*qz;
     R[0][0] = 1.0f - 2.0f*(qy2+qz2);   R[0][1] = 2.0f*(qx*qy+qw*qz);    R[0][2] = 2.0f*(qx*qz-qw*qy);
     R[1][0] = 2.0f*(qx*qy-qw*qz);      R[1][1] = 1.0f - 2.0f*(qx2+qz2); R[1][2] = 2.0f*(qy*qz+qw*qx);
     R[2][0] = 2.0f*(qx*qz+qw*qy);      R[2][1] = 2.0f*(qy*qz-qw*qx);    R[2][2] = 1.0f - 2.0f*(qx2+qy2);
