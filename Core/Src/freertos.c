@@ -26,6 +26,7 @@
 /* Private includes ----------------------------------------------------------*/
 /* USER CODE BEGIN Includes */
 #include "timing.h"
+#include "CTRLS_Controls.h"
 /* USER CODE END Includes */
 
 /* Private typedef -----------------------------------------------------------*/
@@ -36,6 +37,8 @@
 /* Private define ------------------------------------------------------------*/
 /* USER CODE BEGIN PD */
 void task(void*);
+void CTRLS_Init(void);
+void UpdateData(void *argument);
 /* USER CODE END PD */
 
 /* Private macro -------------------------------------------------------------*/
@@ -45,7 +48,12 @@ void task(void*);
 
 /* Private variables ---------------------------------------------------------*/
 /* USER CODE BEGIN Variables */
-
+osThreadId_t updateDataHandle;
+const osThreadAttr_t updateData_attributes = {
+  .name = "updateData",
+  .stack_size = 8192,
+  .priority = (osPriority_t) osPriorityAboveNormal,
+};
 /* USER CODE END Variables */
 /* Definitions for defaultTask */
 osThreadId_t defaultTaskHandle;
@@ -74,7 +82,7 @@ void MX_FREERTOS_Init(void) {
   /* USER CODE END Init */
 
   /* USER CODE BEGIN RTOS_MUTEX */
-  /* add mutexes, ... */
+  CTRLS_Init();
   /* USER CODE END RTOS_MUTEX */
 
   /* USER CODE BEGIN RTOS_SEMAPHORES */
@@ -88,6 +96,7 @@ void MX_FREERTOS_Init(void) {
   /* USER CODE BEGIN RTOS_QUEUES */
   /* add queues, ... */
   defaultTaskHandle = osThreadNew(task, NULL, &defaultTask_attributes);
+  updateDataHandle  = osThreadNew(UpdateData, NULL, &updateData_attributes);
   return;
   /* USER CODE END RTOS_QUEUES */
 

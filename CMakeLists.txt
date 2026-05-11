@@ -82,6 +82,8 @@ add_executable(${CMAKE_PROJECT_NAME}
         Core/Inc/constants.h
         Core/Src/MAXM10S.cpp
         Core/Src/TinyGPSPlus.cpp
+        Core/Src/GLOBAL_SensorUpdate.cpp
+        Core/Inc/GLOBAL_SensorUpdate.h
 )
 
 # Add STM32CubeMX generated sources
