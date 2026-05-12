@@ -26,7 +26,7 @@ struct CtrlsSensorSnapshot {
 
 // ─── Globals (defined in CTRLS_Controls.cpp) ─────────────────────────────────
 // Call ctrlsInit() from MX_FREERTOS_Init (before osKernelStart) to create mutexes.
-extern CtrlsSensorSnapshot g_ctrls_sensor;
+extern CtrlsSensorSnapshot g_SensorData;
 extern osMutexId_t         g_ctrls_sensor_mutex;
 extern float               g_ctrls_canard_cmd_deg;   // output: canard command (degrees)
 extern osMutexId_t         g_ctrls_output_mutex;

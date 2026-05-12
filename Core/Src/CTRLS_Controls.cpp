@@ -4,11 +4,11 @@
 #include "timing.h"   // for millis()
 #include "cmsis_os.h"
 
-// ─── Shared globals ───────────────────────────────────────────────────────────
-CtrlsSensorSnapshot g_ctrls_sensor        = {};
-osMutexId_t         g_ctrls_sensor_mutex  = nullptr;
+// Global vars. declare extern in other files to access, MUST use same name and type!
+CtrlsSensorSnapshot g_SensorData           = {};
+osMutexId_t         g_ctrls_sensor_mutex   = nullptr;
 float               g_ctrls_canard_cmd_deg = 0.0f;
-osMutexId_t         g_ctrls_output_mutex  = nullptr;
+osMutexId_t         g_ctrls_output_mutex   = nullptr;
 
 static const osMutexAttr_t k_sensor_mutex_attr = {
     "ctrlsSensorMtx", osMutexPrioInherit, nullptr, 0U
@@ -186,9 +186,9 @@ extern "C" void ctrlsTask(void* /*arg*/) {
         // ── Read sensor snapshot ─────────────────────────────────────────────
         bool fresh = false;
         if (osMutexAcquire(g_ctrls_sensor_mutex, 2U) == osOK) {
-            if (g_ctrls_sensor.fresh) {
-                snap  = g_ctrls_sensor;
-                g_ctrls_sensor.fresh = false;
+            if (g_SensorData.fresh) {
+                snap  = g_SensorData;
+                g_SensorData.fresh = false;
                 fresh = true;
             }
             osMutexRelease(g_ctrls_sensor_mutex);
@@ -196,13 +196,14 @@ extern "C" void ctrlsTask(void* /*arg*/) {
         // If mutex unavailable or no fresh data, snap retains last known values
         // and fresh = false → predictOnly path below
 
+        float t = snap.flight_time_s;
         float T_K = snap.temperature_K;
 
         // ── EKF step ─────────────────────────────────────────────────────────
         // Read last canard command for the EOM input
         float u_last = 0.0f;
         if (osMutexAcquire(g_ctrls_output_mutex, 1U) == osOK) {
-            u_last = g_ctrls_canard_cmd_deg * (M_PI / 180.0f);
+            u_last = g_ctrls_canard_cmd_deg * (static_cast<float>(M_PI) / 180.0f);
             osMutexRelease(g_ctrls_output_mutex);
         }
 
@@ -225,7 +226,7 @@ extern "C" void ctrlsTask(void* /*arg*/) {
 
         // ── Control law ───────────────────────────────────────────────────────
         const float u_rad = ctrl.computeControl(t, ekf.xhat, T_K);
-        const float u_deg = u_rad * (180.0f / M_PI);
+        const float u_deg = u_rad * (180.0f / static_cast<float>(M_PI));
 
         // ── Write output ─────────────────────────────────────────────────────
         if (osMutexAcquire(g_ctrls_output_mutex, 2U) == osOK) {

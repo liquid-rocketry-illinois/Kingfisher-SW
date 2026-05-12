@@ -10,6 +10,11 @@ static Baro_Unified         s_baro;
 static MAXM10S              s_gps;
 static Servo_Axon_Mini_MKII s_servos;
 
+// Mutex for controls
+extern osMutexId_t g_ctrls_sensor_mutex;
+// Sensor data
+extern CtrlsSensorSnapshot g_SensorData;
+
 // ── UpdateData ────────────────────────────────────────────────────────────────
 // Dedicated sensor-read thread. Initialises hardware, then continuously reads
 // all sensors and publishes a fresh CtrlsSensorSnapshot under g_ctrls_sensor_mutex.
@@ -39,17 +44,24 @@ extern "C" void UpdateData(void *argument) {
         BMI_Data rawA = s_imu.getRawBMI(0);
         BMI_Data rawB = s_imu.getRawBMI(1);
         BMI_Data rawC = s_imu.getRawBMI(2);
-        Vector3D<float> acc = TMR::Vote(rawA.accel_linear, rawB.accel_linear, rawC.accel_linear);
-        Vector3D<float> gyr = TMR::Vote(rawA.ang_vel,      rawB.ang_vel,      rawC.ang_vel);
+        Vector3D<float> accV = TMR::Vote(rawA.accel_linear, rawB.accel_linear, rawC.accel_linear);
+        Vector3D<float> gyrV = TMR::Vote(rawA.ang_vel,      rawB.ang_vel,      rawC.ang_vel);
+
+        BARO_DATA bd = s_baro.getData();
 
         // Publish snapshot
-        BARO_DATA bd = s_baro.getData();
-        g_ctrls_sensor.flight_time_s = static_cast<float>(millis() - t0_ms) * 1e-3f;
-        g_ctrls_sensor.altitude_m    = bd.Filtered.heightMeters;
-        g_ctrls_sensor.temperature_K = bd.Filtered.Temperature + 273.15f;
-        g_ctrls_sensor.accel_ms2     = acc;
-        g_ctrls_sensor.gyro_rads     = gyr;
-        g_ctrls_sensor.fresh         = true;
+
+
+        g_SensorData.flight_time_s = static_cast<float>(millis() - t0_ms) * 1e-3f;
+        g_SensorData.altitude_m    = bd.Filtered.heightMeters;
+        g_SensorData.temperature_K = bd.Filtered.Temperature + 273.15f;
+        g_SensorData.accel_g[0]    = accV.x;
+        g_SensorData.accel_g[1]    = accV.y;
+        g_SensorData.accel_g[2]    = accV.z;
+        g_SensorData.gyro_rad_s[0] = gyrV.x;
+        g_SensorData.gyro_rad_s[1] = gyrV.y;
+        g_SensorData.gyro_rad_s[2] = gyrV.z;
+        g_SensorData.fresh         = true;
 
         osMutexRelease(g_ctrls_sensor_mutex);
 
