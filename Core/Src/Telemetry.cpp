@@ -31,13 +31,13 @@ uint8_t Telemetry::Init()
                    | R0_210_E22_AIR_DATA_RATE::E22_AIR_RATE_9_6K;
 
     des_cfg.REG1 =   R1_76_SUB_PACKET_SETTING::BYTES_240
-                   | R1_5_RSSI_ENVIRONMENTAL_NOISE_MEASURE_DISABLE
+                   | R1_5_RSSI_ENVIRONMENTAL_NOISE_MEASURE_ENABLE
                    | R1_2_SOFTWARE_MODE_SWITCHING_OFF
                    | R1_10_E22_TX_POWER::E22_TX_POWER_22DBM;
 
     des_cfg.REG2 = CH915;
 
-    des_cfg.REG3 =   R3_7_RSSI_BYTE_DISABLE
+    des_cfg.REG3 =   R3_7_RSSI_BYTE_ENABLE
                    | R3_6_TRANSFER_METHOD_FIXED_POINT
                    | R3_5_REPEATER_OFF
                    | R3_4_LBT_DISABLED
@@ -190,6 +190,9 @@ uint8_t Telemetry::receiveCommands(GndStationData &gnd)
     int8_t status = decodeData(gnd);
     if(status != 0)             return (uint8_t)status;
 
+    lastRSSI = get_rssi_e22_900t22s();
+    HALOutData.rssiAtFC = lastRSSI;
+
     processKeepalive(gnd.CommandByteIn);
     processPyros(gnd.pyroActivation);
     return 0;
@@ -253,6 +256,8 @@ uint8_t Telemetry::receiveTelemetry(telemetryData &data)
     int8_t status = decodeData(data);
     if(status != 0)
         return (uint8_t)status;
+
+    lastRSSI = get_rssi_e22_900t22s();
 
     return 0;
 }

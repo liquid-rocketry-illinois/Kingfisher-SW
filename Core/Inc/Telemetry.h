@@ -56,6 +56,7 @@ typedef struct
     bool pyroMainDrogueFired   = false;
     bool pyroBackupDrogueFired = false;
     bool pyroMainChuteFired    = false;
+    uint8_t rssiAtFC           = 0;    // raw RSSI byte FC measured when receiving from GND
 } telemetryData;
 
 class Telemetry {
@@ -95,7 +96,8 @@ public:
     telemetryData   HALOutData = {};   // flight → populated by sensors (FC) or decoded RX (GND)
     GndStationData  GNDOutData = {};   // GND → populated by operator (GND) or decoded RX (FC)
 
-    bool shutdownFlag = false;
+    uint8_t lastRSSI    = 0;    // raw RSSI byte from last receive; actual dBm = -(256-raw)/2
+    bool    shutdownFlag = false;
 };
 
 #endif

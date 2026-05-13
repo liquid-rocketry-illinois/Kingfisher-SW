@@ -10,7 +10,8 @@
 #include "stm32h7xx_hal_uart.h"
 
 static config_e22_900t22s e22_cfg;
-static bool initialized = false;
+static bool    initialized = false;
+static uint8_t last_rssi   = 0;
 
 /* Mutex for thread-safe radio access */
 
@@ -380,6 +381,11 @@ bool e22_available()
     return false;
 }
 
+uint8_t get_rssi_e22_900t22s(void)
+{
+    return last_rssi;
+}
+
 /*
  * Single-phase receive sized to the exact expected packet.
  *
@@ -399,27 +405,27 @@ bool e22_available()
  */
 int16_t recieve_e22_900t22s(uint8_t *buffer, uint16_t expected_payload_len)
 {
-    const uint32_t baud     = e22_cfg.huart->Init.BaudRate;
-    const uint16_t total    = 5u + expected_payload_len + 2u;   // hdr + payload + CRC
+    const uint32_t baud            = e22_cfg.huart->Init.BaudRate;
+    const uint16_t frame_total     = 5u + expected_payload_len + 2u;   // hdr + payload + CRC
+    const uint16_t total_with_rssi = frame_total + 1u;                 // +1 RSSI byte (R3_7_RSSI_BYTE_ENABLE)
 
-    /* Time to clock out the full frame at the configured baud, plus 100 ms
-     * margin for the E22 to finish wireless decode before UART output begins. */
-    /* 300 ms margin: gives the remote side time to finish its own TX, process
-     * the received packet, and start sending a response before we time out.
-     * At 9600 bps air rate a 96-byte telemetry packet takes ~80 ms over RF,
-     * so the round-trip (GND TX → FC RX+process+TX → GND RX) is ~160 ms. */
-    uint32_t timeout_ms = ((total * 10u * 1000u) / baud) + 300u;
+    /* 300 ms margin: round-trip over RF at 9600 bps air rate is ~160 ms. */
+    uint32_t timeout_ms = ((total_with_rssi * 10u * 1000u) / baud) + 300u;
 
-    HAL_StatusTypeDef s = HAL_UART_Receive(e22_cfg.huart, buffer, total, timeout_ms);
+    HAL_StatusTypeDef s = HAL_UART_Receive(e22_cfg.huart, buffer, total_with_rssi, timeout_ms);
 
-    if (s == HAL_OK)
-        return (int16_t)total;
+    if (s == HAL_OK) {
+        last_rssi = buffer[frame_total];    // RSSI byte sits immediately after CRC
+        return (int16_t)frame_total;
+    }
 
     if (s == HAL_TIMEOUT) {
-        uint16_t received = total - e22_cfg.huart->RxXferCount;
+        uint16_t received = total_with_rssi - e22_cfg.huart->RxXferCount;
+        if (received >= total_with_rssi)
+            last_rssi = buffer[frame_total];
         if (received < 7u)
-            return -2;   // not enough bytes for any valid packet
-        return (int16_t)received;
+            return -2;
+        return (int16_t)(received > frame_total ? frame_total : received);
     }
 
     /* HAL_ERROR or HAL_BUSY */
