@@ -81,7 +81,7 @@ int TEST::LIS2_TEST()
 int TEST::RADIO_TEST() {
     Telemetry telem = Telemetry(); // or TelemetryMode::TELEMETRY_MODE_FLIGHT
     uint8_t status = 0;
-    uint8_t init = telem.Init(TelemetryMode::TELEMETRY_MODE_FLIGHT);
+    uint8_t init = telem.Init();
 
     Baro_Unified baro = Baro_Unified();
     baro.Init(true);

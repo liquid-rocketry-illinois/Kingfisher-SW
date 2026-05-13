@@ -7,13 +7,11 @@
 
 Telemetry::Telemetry()
 {
-    mode = 255; // no mode yet
     lastSeq = 0;
 }
 
-uint8_t Telemetry::Init(const TelemetryMode Mode)
+uint8_t Telemetry::Init()
 {
-    mode = Mode;
     des_cfg.huart = &huart8;
 
     des_cfg.E22_AUX_PIN  = RADIO_AUX_Pin;
@@ -23,17 +21,8 @@ uint8_t Telemetry::Init(const TelemetryMode Mode)
     des_cfg.E22_M1_PIN   = M1_Radio_Pin;
     des_cfg.E22_M1_PORT  = M1_Radio_GPIO_Port;
 
-    // address differs by mode so both can coexist on the same channel
-    if(mode == TELEMETRY_MODE_FLIGHT)
-    {
-        des_cfg.ADDH = HAL1_RADIO_ADDRHIGH;
-        des_cfg.ADDL = HAL1_RADIO_ADDRLOW;
-    }
-    else
-    {
-        des_cfg.ADDH = GND_RADIO_ADDRHIGH;
-        des_cfg.ADDL = GND_RADIO_ADDRLOW;
-    }
+    des_cfg.ADDH = HAL1_RADIO_ADDRHIGH;
+    des_cfg.ADDL = HAL1_RADIO_ADDRLOW;
 
     des_cfg.NETID = HAL1_RADIO_NETID;
 
@@ -68,9 +57,6 @@ uint8_t Telemetry::Init(const TelemetryMode Mode)
 uint8_t Telemetry::Update()
 {
     uint8_t status = 0;
-
-    if(mode == TELEMETRY_MODE_FLIGHT)
-    {
         // FC slave: receive GND command first, then respond only when asked.
         // REQUEST_DATA_BYTE  → send full telemetry packet
         // HANDSHAKE_GND_BYTE → send (CommandResponseByte already set by app layer)
@@ -88,20 +74,6 @@ uint8_t Telemetry::Update()
                 status = sendData(HALOutData);
             }
         }
-    }
-    else
-    {
-        // GND master: send commands first, then wait for FC telemetry response.
-        // FC is always in receive mode when we send, so our bytes land in FC's
-        // HAL_UART_Receive before the FIFO can overflow.
-        if (HAL_GPIO_ReadPin(USR_BUTTON_GPIO_Port, USR_BUTTON_Pin) == GPIO_PIN_SET) {
-            GNDOutData.pyroActivation[0] = 0;
-            GNDOutData.pyroActivation[1] = 0;
-            GNDOutData.pyroActivation[2] = 0;
-        }
-        status = sendCommands(GNDOutData);
-        status = receiveTelemetry(HALOutData);
-    }
 
     return status;
 }
@@ -117,14 +89,8 @@ uint8_t Telemetry::encodeAndSend(const T &payload)
     uint8_t payload_len = sizeof(T);
 
     // fixed mode header — module strips these before delivering to receiver
-    if (mode == TELEMETRY_MODE_FLIGHT) {
-        tx_buffer[0] = GND_RADIO_ADDRHIGH;
-        tx_buffer[1] = GND_RADIO_ADDRLOW;
-    }
-    else{
-        tx_buffer[0] = HAL1_RADIO_ADDRHIGH;
-        tx_buffer[1] = HAL1_RADIO_ADDRLOW;
-    }
+    tx_buffer[0] = GND_RADIO_ADDRHIGH;
+    tx_buffer[1] = GND_RADIO_ADDRLOW;
 
     tx_buffer[2] = CH915;
 
@@ -248,19 +214,19 @@ void Telemetry::processKeepalive(uint8_t keepAliveIn)
     }
 }
 
-void Telemetry::processPyros(uint32_t pyroActivation[3])
+void Telemetry::processPyros(uint32_t pyroActivation)
 {
-    if(pyroActivation[0] == PYROMAIN) {
+    if(pyroActivation == PYROMAIN) {
         HAL_GPIO_WritePin(MAIN_GPIO_Port, MAIN_Pin, GPIO_PIN_SET);
         vTaskDelay(pdMS_TO_TICKS(2000));
         HAL_GPIO_WritePin(MAIN_GPIO_Port, MAIN_Pin, GPIO_PIN_RESET);
     }
-    if(pyroActivation[1] == PYRODROGUEBKP) {
+    if(pyroActivation == PYRODROGUEBKP) {
         HAL_GPIO_WritePin(DROUGE_BACK_GPIO_Port, DROUGE_BACK_Pin, GPIO_PIN_SET);
         vTaskDelay(pdMS_TO_TICKS(2000));
         HAL_GPIO_WritePin(DROUGE_BACK_GPIO_Port, DROUGE_BACK_Pin, GPIO_PIN_RESET);
     }
-    if(pyroActivation[2] == PYRODROGUEMAIN) {
+    if(pyroActivation == PYRODROGUEMAIN) {
         HAL_GPIO_WritePin(DROUGE_MAIN_GPIO_Port, DROUGE_MAIN_Pin, GPIO_PIN_SET);
         vTaskDelay(pdMS_TO_TICKS(2000));
         HAL_GPIO_WritePin(DROUGE_MAIN_GPIO_Port, DROUGE_MAIN_Pin, GPIO_PIN_RESET);
