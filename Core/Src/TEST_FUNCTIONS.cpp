@@ -9,6 +9,8 @@
 #include "task.h"
 #include <cstdio>
 
+#include "timing.h"
+
 TEST::TEST(){;}
 
 //TODO
@@ -181,5 +183,34 @@ int TEST::SD_TEST()
     }
 
     return 0;
+}
+
+void TEST::NoiseTest() {
+    IMUs IMU_ENGINE = IMUs();
+    int8_t status = 0;
+    HAL_GPIO_TogglePin(USR_LED_GPIO_Port, USR_LED_Pin);
+    status = SD_Init();
+    IMUsStatus Sstatus = IMU_ENGINE.Init(true);
+
+    SD_LogNewline("\n"); SD_LogNewline("\n");
+    SD_LogNewline("BEGINNING NOISE DATA");
+
+    while (1) {
+        HAL_GPIO_TogglePin(USR_LED_GPIO_Port, USR_LED_Pin);
+        Sstatus = IMU_ENGINE.Update();
+        char buf[200];
+
+        // IMU line: timestamp, stage, altitude, vertical velocity, acceleration, angular velocity
+        snprintf(buf, sizeof(buf),
+            "T=%lu AX=%.5f AY=%.5f AZ=%.5f GX=%.5f GY=%.5f GZ=%.5f",
+            static_cast<unsigned long>(millis()),
+            IMU_ENGINE.getVotedBMI().accel_linear.x,
+            IMU_ENGINE.getVotedBMI().accel_linear.y,
+            IMU_ENGINE.getVotedBMI().accel_linear.z,
+            IMU_ENGINE.getVotedBMI().ang_vel.x,
+            IMU_ENGINE.getVotedBMI().ang_vel.y,
+            IMU_ENGINE.getVotedBMI().ang_vel.z);
+        SD_LogNewline(buf);
+    }
 }
 

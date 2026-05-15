@@ -7,20 +7,22 @@
 //PRIVATE:
 
 uint8_t IMUs::TMR_Compute() {
-    Vector3D<float> BMI_acc = tmrComp.Vote(Raw_BMI.BMIA_d.accel_linear,
-                                    Raw_BMI.BMIB_d.accel_linear,
-                                    Raw_BMI.BMIC_d.accel_linear);
-    Vector3D<float> BMI_angVel = tmrComp.Vote( Raw_BMI.BMIA_d.ang_vel,
-                                        Raw_BMI.BMIB_d.ang_vel,
-                                        Raw_BMI.BMIC_d.ang_vel);
+    Voted_BMI.accel_linear = tmrComp.Vote(Raw_BMI.BMIA_d.accel_linear,
+                                          Raw_BMI.BMIB_d.accel_linear,
+                                          Raw_BMI.BMIC_d.accel_linear);
+    Voted_BMI.ang_vel      = tmrComp.Vote(Raw_BMI.BMIA_d.ang_vel,
+                                          Raw_BMI.BMIB_d.ang_vel,
+                                          Raw_BMI.BMIC_d.ang_vel);
 
-    Quaternion_BMI.q = MATHEMATICS::Quaternion_Madgwick(&Quaternion_BMI, BMI_acc, BMI_angVel);
+    Quaternion_BMI.q = MATHEMATICS::Quaternion_Madgwick(&Quaternion_BMI, Voted_BMI.accel_linear, Voted_BMI.ang_vel);
     // Quaternion_ISM.q = MATHEMATICS::Quaternion_Madgwick(&Quaternion_ISM, Data_ISM.acceleration, Data_ISM.angular_velocity);
+    return 0;
 }
 uint8_t IMUs::Normal_Compute() {
-    BMI_Data Data = BMI323_A.getRawData();
-    Quaternion_BMI.q = MATHEMATICS::Quaternion_Madgwick(&Quaternion_BMI, Data.accel_linear, Data.ang_vel);
+    Voted_BMI = BMI323_A.getRawData();
+    Quaternion_BMI.q = MATHEMATICS::Quaternion_Madgwick(&Quaternion_BMI, Voted_BMI.accel_linear, Voted_BMI.ang_vel);
     // Quaternion_ISM.q = MATHEMATICS::Quaternion_Madgwick(&Quaternion_ISM, Data_ISM.acceleration, Data_ISM.angular_velocity);
+    return 0;
 }
 
 //PUBLIC:
@@ -67,7 +69,14 @@ IMUsStatus IMUs::Update() {
     // sensorStatus.ISM = ISM6HGx.Update();  // ISM6HGx not used this flight
     // Data_ISM = ISM6HGx.GetData();
 
+    if (TMR_STATE) TMR_Compute();
+    else           Normal_Compute();
+
     return sensorStatus;
+}
+
+BMI_Data IMUs::getVotedBMI() {
+    return Voted_BMI;
 }
 
 // Index 0-2 for sensors A, B, and C. Sensor A is always on.

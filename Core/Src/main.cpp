@@ -23,13 +23,9 @@ void buzzerTOGGLE() {}
 extern "C" void task(void*) {
     /* USER CODE BEGIN StartDefaultTask */
     MICROS_DWT_Timebase_Init(); // Initialize micros() timer
-    //TEST test;
+    TEST test;
 
-#define FLIGHT_MODE_GLOBAL
-//#define GROUND_MODE_GLOBAL
-
-#ifdef FLIGHT_MODE_GLOBAL
-    /* Init code */
+    test.NoiseTest();
 
     FlightComputer FC;
     HAL_GPIO_WritePin(USR_LED_GPIO_Port, USR_LED_Pin, GPIO_PIN_SET);
@@ -41,23 +37,7 @@ extern "C" void task(void*) {
         status = FC.Update();
         HAL_GPIO_TogglePin(USR_LED_GPIO_Port, USR_LED_Pin);
     }
-#endif
-
-#ifdef GROUND_MODE_GLOBAL
-    /* Init code */
-
-    GroundStation GS;
-    HAL_GPIO_WritePin(USR_LED_GPIO_Port, USR_LED_Pin, GPIO_PIN_SET);
-
-    int8_t status = GS.Init();
-
-    /* Infinite loop */
-    for(;;)
-    {
-        status = GS.Update();
-        HAL_GPIO_TogglePin(USR_LED_GPIO_Port, USR_LED_Pin);
-    }
-#endif
-
     /* USER CODE END StartDefaultTask */
 }
+
+extern "C" void task2(void*) {}
