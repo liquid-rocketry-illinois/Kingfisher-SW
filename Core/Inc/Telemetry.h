@@ -25,11 +25,6 @@
 extern volatile bool e22_data_ready;
 
 typedef enum {
-    TELEMETRY_MODE_FLIGHT,   // rocket — sends telemetry, receives GND commands
-    TELEMETRY_MODE_GROUND    // ground station — sends commands, receives telemetry
-} TelemetryMode;
-
-typedef enum {
     PYROMAIN        = 121734683,
     PYRODROGUEBKP   = 402746912,
     PYRODROGUEMAIN  = 243656272
@@ -40,7 +35,7 @@ typedef enum {
 typedef struct
 {
     uint8_t  CommandByteIn;
-    uint32_t pyroActivation[3] = {0, 0, 0};
+    uint32_t pyroActivation    = 0;
     float    servoOffset1      = 0.0f;  // S1 zero-point offset (degrees)
     float    servoOffset2      = 0.0f;  // S2 zero-point offset (degrees)
 } GndStationData;
@@ -61,10 +56,10 @@ typedef struct
     bool pyroMainDrogueFired   = false;
     bool pyroBackupDrogueFired = false;
     bool pyroMainChuteFired    = false;
+    uint8_t rssiAtFC           = 0;    // raw RSSI byte FC measured when receiving from GND
 } telemetryData;
 
 class Telemetry {
-    uint8_t mode;
 
     config_e22_900t22s des_cfg = {};
 
@@ -78,7 +73,7 @@ class Telemetry {
     uint8_t sendData(const telemetryData &data);
     uint8_t receiveCommands(GndStationData &gnd);
     void    processKeepalive(uint8_t keepAliveIn);
-    void    processPyros(uint32_t pyroActivation[3]);
+    void    processPyros(uint32_t pyroActivation);
 
     // GND-side
     uint8_t sendCommands(const GndStationData &gnd);
@@ -94,14 +89,15 @@ class Telemetry {
 public:
     Telemetry();
 
-    uint8_t Init(TelemetryMode Mode);
+    uint8_t Init();
     uint8_t Update();
 
     // exposed so the application can read latest decoded data
     telemetryData   HALOutData = {};   // flight → populated by sensors (FC) or decoded RX (GND)
     GndStationData  GNDOutData = {};   // GND → populated by operator (GND) or decoded RX (FC)
 
-    bool shutdownFlag = false;
+    uint8_t lastRSSI    = 0;    // raw RSSI byte from last receive; actual dBm = -(256-raw)/2
+    bool    shutdownFlag = false;
 };
 
 #endif

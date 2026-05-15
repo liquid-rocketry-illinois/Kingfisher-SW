@@ -23,9 +23,8 @@ void buzzerTOGGLE() {}
 extern "C" void task(void*) {
     /* USER CODE BEGIN StartDefaultTask */
     MICROS_DWT_Timebase_Init(); // Initialize micros() timer
-    TEST test;
-
-    test.NoiseTest();
+    //TEST test;
+    //test.NoiseTest();
 
     FlightComputer FC;
     HAL_GPIO_WritePin(USR_LED_GPIO_Port, USR_LED_Pin, GPIO_PIN_SET);
@@ -34,10 +33,9 @@ extern "C" void task(void*) {
     /* Infinite loop */
     for(;;)
     {
+        // TODO FC sensor data get NEEDS to call mutexes to sample data properly timed
         status = FC.Update();
         HAL_GPIO_TogglePin(USR_LED_GPIO_Port, USR_LED_Pin);
     }
     /* USER CODE END StartDefaultTask */
 }
-
-extern "C" void task2(void*) {}

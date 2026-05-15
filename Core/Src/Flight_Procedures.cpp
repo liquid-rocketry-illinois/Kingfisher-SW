@@ -7,173 +7,9 @@
 #include "cmsis_os2.h"
 #include "main.h"
 #include "i2c.h"
+#include "CTRLS_Controls.h"
 #include <cstdio>
 #include <cmath>
-
-// ════════════════════════════════════════════════════════════════════════════
-//  GROUND STATION
-// ════════════════════════════════════════════════════════════════════════════
-
-GroundStation::GroundStation() : GNDDevices(), GNDData() {}
-
-int8_t GroundStation::Init()
-{
-    for (;;) {
-
-        // ── Device init ───────────────────────────────────────────────────────
-        bool anyFail = false;
-        if (SD_Init() != 0)                                             anyFail = true;
-        if (GNDDevices.dev_telemetry.Init(TELEMETRY_MODE_GROUND) != 0)  anyFail = true;
-        if (GNDDevices.dev_GPS.Init(&hi2c4) != 0)                       anyFail = true;
-
-        if (anyFail) {
-            SD_LogNewline("GND INIT: device init failed, retrying");
-            osDelay(1000);
-            continue;
-        }
-
-        SD_LogNewline("\n"); SD_LogNewline("\n");
-        SD_LogNewline("BEGINNING NEW FLIGHT DATA");
-
-        // ── Handshake: send GND byte, wait up to 5 s for FC echo ─────────────
-        // No retry delay here — GND keeps broadcasting so FC can come online at
-        // any time without needing both units activated simultaneously.
-        GNDData.dat_GND_Data.CommandByteIn = HANDSHAKE_GND_BYTE;
-        uint32_t t0 = millis();
-        bool handshakeOK = false;
-        while (millis() - t0 < 5000) {
-            UpdateTelemetry();
-            if (GNDData.dat_FC_Data.CommandResponseByte == HANDSHAKE_FC_BYTE) {
-                handshakeOK = true;
-                break;
-            }
-            osDelay(10);
-        }
-        HAL_GPIO_TogglePin(USR_LED_GPIO_Port, USR_LED_Pin);
-        if (!handshakeOK) continue;   // retry — FC not online yet
-
-        radioConnected = true;
-        initDone = true;
-        return STATUS_OK;
-
-    } // retry loop
-}
-
-int8_t GroundStation::Update()
-{
-    if (!initDone) return STATUS_INIT_FAILURE;
-
-    int8_t ka = UpdateKeepAlive();
-    if (ka == STATUS_ABORT_TRIGGERED) {
-        GNDData.dat_GND_Data.CommandByteIn = SHUTDOWN_KEEPALIVE;
-    }
-
-    UpdateTelemetry();
-    UpdateLogging();
-    return STATUS_OK;
-}
-
-int8_t GroundStation::UpdateSensors()
-{
-    GNDDevices.dev_GPS.update();
-    GNDData.dat_GPS = GNDDevices.dev_GPS.getData();
-    return STATUS_OK;
-}
-
-int8_t GroundStation::UpdateTelemetry()
-{
-    GNDDevices.dev_telemetry.GNDOutData = GNDData.dat_GND_Data;
-
-    // Always carry servo offsets in every packet — FC applies them each cycle
-    // (idempotent: re-applying the same value has no effect).
-    // SERVO_OFFSET_CMD_BYTE replaces REQUEST_DATA_BYTE as the normal operating
-    // command; FC is already configured to respond to it with a telemetry packet.
-    // Only SHUTDOWN_KEEPALIVE and HANDSHAKE_GND_BYTE take priority.
-    GNDDevices.dev_telemetry.GNDOutData.servoOffset1 = GND_SERVO_OFFSET_S1;
-    GNDDevices.dev_telemetry.GNDOutData.servoOffset2 = GND_SERVO_OFFSET_S2;
-
-    if (GNDDevices.dev_telemetry.GNDOutData.CommandByteIn != SHUTDOWN_KEEPALIVE &&
-        GNDDevices.dev_telemetry.GNDOutData.CommandByteIn != HANDSHAKE_GND_BYTE)
-    {
-        GNDDevices.dev_telemetry.GNDOutData.CommandByteIn = SERVO_OFFSET_CMD_BYTE;
-    }
-
-    if (GNDDevices.dev_telemetry.Update() != 0) {
-        if (commsErrCount < 127) commsErrCount++;
-        if (commsErrCount == COMMS_ERR_THRESHOLD && radioConnected) {
-            radioConnected = false;
-            SD_LogNewline("COMMS LOST");
-        }
-        return STATUS_REMOTE_READ_ERR;
-    }
-
-    // Any successful receive = link alive. FC always responds with HANDSHAKE_FC_BYTE,
-    // so a packet getting through is all the confirmation we need.
-    commsErrCount = 0;
-    GNDData.dat_FC_Data = GNDDevices.dev_telemetry.HALOutData;
-
-    if (!radioConnected) {
-        radioConnected = true;
-        SD_LogNewline("COMMS RECONNECTED");
-    }
-
-    return STATUS_OK;
-}
-
-int8_t GroundStation::UpdateKeepAlive()
-{
-    if (abortLatched) return STATUS_ABORT_ACTIVE;
-
-    bool buttonActive =
-        (HAL_GPIO_ReadPin(USR_BUTTON_GPIO_Port, USR_BUTTON_Pin) == USR_BUTTON_ACTIVE_STATE);
-
-    if (buttonActive) {
-        if (holdStartMs == 0) holdStartMs = millis();
-
-        if (millis() - lastLEDToggleMs >= 200) {
-            HAL_GPIO_TogglePin(USR_LED_GPIO_Port, USR_LED_Pin);
-            lastLEDToggleMs = millis();
-        }
-
-        if (millis() - holdStartMs >= ABORT_ACCUM_MS) {
-            abortLatched = true;
-            SD_LogNewline("ABORT TRIGGERED");
-            return STATUS_ABORT_TRIGGERED;
-        }
-    } else {
-        holdStartMs = 0;
-    }
-
-    return STATUS_OK;
-}
-
-int8_t GroundStation::UpdateLogging()
-{
-    if (millis() - lastLogMs < 500) return STATUS_OK;   // 2 Hz log rate
-    lastLogMs = millis();
-
-    char buf[192];
-    snprintf(buf, sizeof(buf),
-        "T=%lu FC ALT=%.1f ACC=%.2f,%.2f,%.2f GYR=%.2f,%.2f,%.2f SRV_TGT=%.1f,%.1f SRV_POS=%.1f,%.1f PYRO=%d%d%d",
-        static_cast<unsigned long>(millis()),
-        GNDData.dat_FC_Data.altitude,
-        GNDData.dat_FC_Data.mAccX,
-        GNDData.dat_FC_Data.mAccY,
-        GNDData.dat_FC_Data.mAccZ,
-        GNDData.dat_FC_Data.mGyrX,
-        GNDData.dat_FC_Data.mGyrY,
-        GNDData.dat_FC_Data.mGyrZ,
-        GNDData.dat_FC_Data.servoTarget1,
-        GNDData.dat_FC_Data.servoTarget2,
-        GNDData.dat_FC_Data.servoPos1,
-        GNDData.dat_FC_Data.servoPos2,
-        static_cast<int>(GNDData.dat_FC_Data.pyroMainDrogueFired),
-        static_cast<int>(GNDData.dat_FC_Data.pyroBackupDrogueFired),
-        static_cast<int>(GNDData.dat_FC_Data.pyroMainChuteFired));
-    SD_LogNewline(buf);
-    return STATUS_OK;
-}
-
 
 // ════════════════════════════════════════════════════════════════════════════
 //  FLIGHT COMPUTER
@@ -204,7 +40,7 @@ int8_t FlightComputer::Init()
             continue;
         }
 
-        if (FCDevices.dev_telemetry.Init(TELEMETRY_MODE_FLIGHT) != 0) {
+        if (FCDevices.dev_telemetry.Init() != 0) {
             SD_LogNewline("FC INIT: radio init failed, retrying");
             osDelay(1000);
             continue;
@@ -264,10 +100,15 @@ int8_t FlightComputer::Update()
     if (!initDone) return STATUS_INIT_FAILURE;
 
     UpdateTelemetry();
-    UpdateAbortAccumulator(); // combine
+    UpdateAbortAccumulator();
+
+    // acquire mutex to sample independently. if sampling, dont use sensor data yet
+    osMutexAcquire(g_ctrls_sensor_mutex, osWaitForever);
     UpdateSensors();
-    UpdateVerticalVelocity(); // combine
-    TrackCONOPS();            // combine
+    UpdateVerticalVelocity();
+    osMutexRelease(g_ctrls_sensor_mutex);
+
+    TrackCONOPS();
     UpdatePyroTrack();
     UpdateLogging();
 
@@ -374,10 +215,12 @@ int8_t FlightComputer::UpdateTelemetry()
     tx.servoPos1             = FCData.dat_Servos.currentAngle.S1;
     tx.servoPos2             = FCData.dat_Servos.currentAngle.S2;
 
-    // Pyro state
-    tx.pyroMainDrogueFired   = pyroMainDrogueFired;
-    tx.pyroBackupDrogueFired = pyroBackupDrogueFired;
-    tx.pyroMainChuteFired    = pyroMainChuteFired;
+    // Pyro state is FLIPPED!!!!
+    // 1 = false = fired!
+    // 0 = true = not fired yet
+    tx.pyroMainDrogueFired   = !pyroMainDrogueFired;
+    tx.pyroBackupDrogueFired = !pyroBackupDrogueFired;
+    tx.pyroMainChuteFired    = !pyroMainChuteFired;
 
     if (FCDevices.dev_telemetry.Update() != 0) {
         if (commsErrCount < 127) commsErrCount++;

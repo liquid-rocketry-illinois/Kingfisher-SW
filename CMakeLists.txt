@@ -42,7 +42,6 @@ add_executable(${CMAKE_PROJECT_NAME}
         Core/Inc/Math/Vector3D.h
         Core/Src/Math/Vector3D.cpp
         Core/Src/interrupt_override.cpp
-        Core/Inc/Sensors.h
         Core/Inc/Math/Math.h
         Core/Inc/bmi3.h
         Core/Inc/bmi3_defs.h
@@ -80,9 +79,16 @@ add_executable(${CMAKE_PROJECT_NAME}
         Core/Inc/Flight_Procedures.h
         Core/Src/Flight_Procedures.cpp
         Core/Inc/constants.h
+        Core/Inc/CTRLS_ControlAlgorithm.h
+        Core/Inc/CTRLS_SensorFusion.h
+        Core/Inc/CTRLS_Controls.h
+        Core/Src/CTRLS_ControlAlgorithm.cpp
+        Core/Src/CTRLS_SensorFusion.cpp
+        Core/Src/CTRLS_Controls.cpp
         Core/Src/MAXM10S.cpp
         Core/Src/TinyGPSPlus.cpp
-        Core/Src/Flight_Computer_State.cpp
+        Core/Src/GLOBAL_SensorUpdate.cpp
+        Core/Inc/GLOBAL_SensorUpdate.h
 )
 
 # Add STM32CubeMX generated sources

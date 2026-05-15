@@ -36,6 +36,9 @@
 /* Private define ------------------------------------------------------------*/
 /* USER CODE BEGIN PD */
 void task(void*);
+void ctrlsInit(void);
+void ctrlsTask(void*);
+void UpdateData(void *argument);
 /* USER CODE END PD */
 
 /* Private macro -------------------------------------------------------------*/
@@ -45,7 +48,12 @@ void task(void*);
 
 /* Private variables ---------------------------------------------------------*/
 /* USER CODE BEGIN Variables */
-
+osThreadId_t updateDataHandle;
+const osThreadAttr_t updateData_attributes = {
+  .name = "updateData",
+  .stack_size = 8192,
+  .priority = (osPriority_t) osPriorityAboveNormal,
+};
 /* USER CODE END Variables */
 /* Definitions for defaultTask */
 osThreadId_t defaultTaskHandle;
@@ -74,7 +82,7 @@ void MX_FREERTOS_Init(void) {
   /* USER CODE END Init */
 
   /* USER CODE BEGIN RTOS_MUTEX */
-  /* add mutexes, ... */
+  ctrlsInit();  // create controls sensor/output mutexes before any task runs
   /* USER CODE END RTOS_MUTEX */
 
   /* USER CODE BEGIN RTOS_SEMAPHORES */
@@ -88,6 +96,14 @@ void MX_FREERTOS_Init(void) {
   /* USER CODE BEGIN RTOS_QUEUES */
   /* add queues, ... */
   defaultTaskHandle = osThreadNew(task, NULL, &defaultTask_attributes);
+  updateDataHandle  = osThreadNew(UpdateData, NULL, &updateData_attributes);
+
+  static const osThreadAttr_t ctrlsTask_attributes = {
+    .name       = "ctrlsTask",
+    .stack_size = 4096 * 3,   // 12 KB — EKF has several 10×10 matrices on stack
+    .priority   = (osPriority_t)osPriorityAboveNormal,
+  };
+  osThreadNew(ctrlsTask, NULL, &ctrlsTask_attributes);
 
   return;
   /* USER CODE END RTOS_QUEUES */
