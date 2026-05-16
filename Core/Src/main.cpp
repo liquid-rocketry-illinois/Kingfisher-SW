@@ -39,3 +39,24 @@ extern "C" void task(void*) {
     }
     /* USER CODE END StartDefaultTask */
 }
+
+extern "C" void updateTask(void*) {
+
+    static bool initDone = false;
+
+    if (initDone != true) {
+        // init all three BMP
+        // init all three BMI
+        // init GPS
+        // init servos
+        initDone = true;
+    }
+
+    while (1) {
+        // update BMP
+        // update BMI
+        // update GPS
+        // update servos
+        // osDelay
+    }
+}
