@@ -40,7 +40,7 @@ extern "C" void task(void*) {
     /* USER CODE END StartDefaultTask */
 }
 
-extern "C" void updateTask(void*) {
+extern "C" void updateSensorTask(void*) {
 
     static bool initDone = false;
 
@@ -59,4 +59,8 @@ extern "C" void updateTask(void*) {
         // update servos
         // osDelay
     }
+}
+
+extern "C" void updateDataTask(void*) {
+
 }

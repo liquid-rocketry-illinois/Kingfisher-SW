@@ -11,7 +11,4 @@
 #include "CTRLS_Controls.h"
 #include <cstdio>
 
-BMI_TMR_Data BMI_Data;
-BMP_TMR_Data BMP_Data;
-GPS_Location GPS_Data;
-ServoAngles servoState;
+
