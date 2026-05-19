@@ -11,4 +11,13 @@
 #include "CTRLS_Controls.h"
 #include <cstdio>
 
+// GLOBAL SENSOR DATA (DEFINED HERE) [We can just directly make these vars here]
+telemetryData     g_telemNow;
+telemetryData     g_telemPrev;
+GndStationData    g_gndData;
+BMI_Data          g_BMI;
+BMP_Data          g_BMP;
+GPS_Data          g_GPS;
+ServoAngles       g_servoAngles;
+
 

@@ -61,17 +61,6 @@ struct ServoAngles {
     float targetS2;
 };
 
-// GLOBAL SENSOR DATA (DEFINED IN FlightComputer.cpp)
-extern telemetryData     g_telemNow;
-extern telemetryData     g_telemPrev;
-extern GndStationData    g_gndData;
-extern BMI_Data          g_BMI;
-extern BMP_Data          g_BMP;
-extern GPS_Data          g_GPS;
-extern ServoAngles       g_servoAngles;
-
-
-
 class FlightComputer {
 private:
     // sensor declarations

@@ -34,29 +34,30 @@ typedef enum {
 
 typedef struct
 {
-    uint8_t  CommandByteIn;
-    uint32_t pyroActivation    = 0;
     float    servoOffset1      = 0.0f;  // S1 zero-point offset (degrees)
     float    servoOffset2      = 0.0f;  // S2 zero-point offset (degrees)
+    uint32_t pyroActivation    = 0;
+    uint8_t  CommandByte; // Byte sent to HAL
 } GndStationData;
 
+// ordering to reduce padding total size
 typedef struct
 {
-    uint8_t callsign[12] = {75, 69, 57, 69, 82, 73, 95, 65, 76, 69, 80, 72};
-    uint8_t CommandResponseByte;
-    float altitude;
-    float longitude, latitude, GPSaltitude;
-    float mAccX, mAccY, mAccZ;
-    float mGyrX, mGyrY, mGyrZ;
-    float bAccX, bAccY, bAccZ;
-    float Qx, Qy, Qz, Qw;
-    float pitch, yaw, roll;
-    float servoTarget1, servoTarget2;
-    float servoPos1, servoPos2;
-    bool pyroMainDrogueFired   = false;
+    float altitude; // new
+    float longitude, latitude, GPSaltitude; // your implementation used four iirc
+    float mAccX, mAccY, mAccZ; // imu stuff
+    float mGyrX, mGyrY, mGyrZ; // imu stuff
+    float Qx, Qy, Qz, Qw; // new (quaternions)
+    float pitch, yaw, roll; // tait-bryan angles (new)
+    float servoTarget1, servoTarget2; // simple float vals (new?) these are commands so gnd station -> hal
+    float servoPos1, servoPos2; // motor encoder readings
+    float temperature; // use averaged temperatures from BMP390L and BMI323 TMR
+    uint8_t callsign[12] = {75, 69, 57, 69, 82, 73, 95, 65, 76, 69, 80, 72}; // (new)
+    uint8_t CommandResponseByte; // (mainly for the radio ping command)
+    int8_t RSSI; // RSSI byte from radio, describes signal strength
+    bool pyroMainDrogueFired   = false; // return status of pyro
     bool pyroBackupDrogueFired = false;
     bool pyroMainChuteFired    = false;
-    uint8_t rssiAtFC           = 0;    // raw RSSI byte FC measured when receiving from GND
 } telemetryData;
 
 class Telemetry {
