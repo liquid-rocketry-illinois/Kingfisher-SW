@@ -11,6 +11,7 @@
 #define HANDSHAKE_GND_BYTE      0xA1u   // GND→FC: (re)connection handshake
 #define HANDSHAKE_FC_BYTE       0xB2u   // FC→GND: handshake acknowledgement (heartbeat)
 #define REQUEST_DATA_BYTE       0xC3u   // GND→FC: "send me a telemetry packet now"
+#define BYTE_DEFLECT_TEST       0x0Cu   // GND→FC: commanded servo deflection test (12)
 
 // ── Ground station polling ────────────────────────────────────────────────────
 #define GND_SENSOR_PERIOD_MS    100u    // 10 Hz local sensor update
@@ -38,6 +39,12 @@
 #define MAX_MAIN_DEPLOY_ALT_M   400.0f  // top of main-chute deploy window
 #define MIN_MAIN_DEPLOY_ALT_M   250.0f  // safety floor for main deploy
 #define TARGET_MAIN_ALT_M       300.0f  // fire main chute at or below this altitude
+
+// ── Pyrotechnic pending bitmask (written by Radio task, consumed by PyroTask) ─
+#define PYRO_DROGUE_MAIN_BIT    (1u << 0)
+#define PYRO_DROGUE_BKP_BIT     (1u << 1)
+#define PYRO_MAIN_BIT           (1u << 2)
+extern volatile uint32_t g_pyroPending;
 
 // ── GPIO ──────────────────────────────────────────────────────────────────────
 #define USR_BUTTON_ACTIVE_STATE GPIO_PIN_RESET

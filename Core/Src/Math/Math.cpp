@@ -11,7 +11,7 @@ float MATHEMATICS::Map(float in, float inMin, float inMax, float outMin, float o
 }
 
 // No input for mag if only accel and gyro inputs
-Q MATHEMATICS::Quaternion_Madgwick( Quaternion* QuatIn,
+void MATHEMATICS::Quaternion_Madgwick( Quaternion* QuatIn,
                                     Vector3D<float> accel,
                                     Vector3D<float> gyro,
                                     Vector3D<float> mag) {
@@ -46,7 +46,7 @@ Q MATHEMATICS::Quaternion_Madgwick( Quaternion* QuatIn,
 
     /* Normalize accelerometer */
     float accelNormSq = ax*ax + ay*ay + az*az;
-    if(accelNormSq == 0.0f) return q;
+    if(accelNormSq == 0.0f) return;
     norm = 1.0F / sqrtf(accelNormSq);
     ax *= norm;
     ay *= norm;
@@ -123,10 +123,8 @@ Q MATHEMATICS::Quaternion_Madgwick( Quaternion* QuatIn,
 
     norm = 1.0F / sqrtf(q1*q1 + q2*q2 + q3*q3 + q4*q4);
 
-    q.w = q1 * norm;
-    q.x = q2 * norm;
-    q.y = q3 * norm;
-    q.z = q4 * norm;
-
-    return q;
+    QuatIn->q.w = q1 * norm;
+    QuatIn->q.x = q2 * norm;
+    QuatIn->q.y = q3 * norm;
+    QuatIn->q.z = q4 * norm;
 }

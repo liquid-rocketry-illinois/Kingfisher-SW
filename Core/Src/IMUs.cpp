@@ -13,15 +13,10 @@ uint8_t IMUs::TMR_Compute() {
     Voted_BMI.ang_vel      = tmrComp.Vote(Raw_BMI.BMIA_d.ang_vel,
                                           Raw_BMI.BMIB_d.ang_vel,
                                           Raw_BMI.BMIC_d.ang_vel);
-
-    Quaternion_BMI.q = MATHEMATICS::Quaternion_Madgwick(&Quaternion_BMI, Voted_BMI.accel_linear, Voted_BMI.ang_vel);
-    // Quaternion_ISM.q = MATHEMATICS::Quaternion_Madgwick(&Quaternion_ISM, Data_ISM.acceleration, Data_ISM.angular_velocity);
     return 0;
 }
 uint8_t IMUs::Normal_Compute() {
     Voted_BMI = BMI323_A.getRawData();
-    Quaternion_BMI.q = MATHEMATICS::Quaternion_Madgwick(&Quaternion_BMI, Voted_BMI.accel_linear, Voted_BMI.ang_vel);
-    // Quaternion_ISM.q = MATHEMATICS::Quaternion_Madgwick(&Quaternion_ISM, Data_ISM.acceleration, Data_ISM.angular_velocity);
     return 0;
 }
 

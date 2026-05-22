@@ -219,6 +219,11 @@ void Servo_Axon_Mini_MKII::Update(float S1_Target_Deg, float S2_Target_Deg) {
     data.trackedError.S2 = fabsf(data.currentAngle.S2 - S2_Target_Deg);
 }
 
+SAsym<float> Servo_Axon_Mini_MKII::getCurrentAngle()
+{
+    return readCurrentAngle();
+};
+
 void Servo_Axon_Mini_MKII::SetOffset(SAsym<float> offset) {
     config.AngleOffsetDEGREES = offset;
 }

@@ -53,39 +53,42 @@ uint8_t MAXM10S::Init(I2C_HandleTypeDef *hi2c)
     HAL_GPIO_WritePin(GPS_RST_GPIO_Port, GPS_RST_Pin, GPIO_PIN_SET);
     osDelay(500);
 
-    // UBX-CFG-NAV5: set dynamic model to Airborne <4g (dynModel=7).
-    // Without this the default "portable" model rejects solutions at high
-    // altitude and vertical velocity — GPS goes silent mid-flight.
-    // Payload is exactly 36 bytes; checksum covers class+ID+length+payload.
-    // CK_A=0x56, CK_B=0x1F (Fletcher-8, verified).
-    static const uint8_t ubx_nav5[] = {
-        0xB5, 0x62,              // sync chars
-        0x06, 0x24,              // class=CFG, ID=NAV5
-        0x24, 0x00,              // payload length = 36 (LE)
-        // payload (36 bytes) ─────────────────────────────────────────────
-        0x01, 0x00,              // [0-1]  mask: bit0 = apply dynModel only
-        0x07,                    // [2]    dynModel  = 7 (Airborne <4g)
-        0x03,                    // [3]    fixMode   = 3 (auto 2D/3D)
-        0x00, 0x00, 0x00, 0x00, // [4-7]  fixedAlt
-        0x10, 0x27, 0x00, 0x00, // [8-11] fixedAltVar
-        0x05,                    // [12]   minElev (deg)
-        0x00,                    // [13]   drLimit
-        0xFA, 0x00,              // [14-15] pDop (×0.1)
-        0xFA, 0x00,              // [16-17] tDop (×0.1)
-        0x64, 0x00,              // [18-19] pAcc (m)
-        0x2C, 0x01,              // [20-21] tAcc (ns)
-        0x00,                    // [22]   staticHoldThresh
-        0x3C,                    // [23]   dgnssTimeout
-        0x00,                    // [24]   cnoThreshNumSVs
-        0x00,                    // [25]   cnoThresh
-        0x00, 0x00,              // [26-27] reserved1
-        0x00, 0x00,              // [28-29] staticHoldMaxDist
-        0x00,                    // [30]   utcStandard
-        0x00, 0x00, 0x00, 0x00, 0x00, // [31-35] reserved2
-        // checksum ──────────────────────────────────────────────────────
-        0x56, 0x1F               // CK_A, CK_B
+    // Verify module is reachable over I2C before sending config.
+    uint8_t probe[2] = {0xFF, 0xFF};
+    if (HAL_I2C_Mem_Read(_hi2c, I2C_ADDRESS, REG_BYTES_AVAIL,
+                         I2C_MEMADD_SIZE_8BIT, probe, 2, 50) != HAL_OK)
+        return 1;
+
+    // UBX-CFG-VALSET: configure dynamic model and enable NMEA on DDC (I2C).
+    //
+    // NOTE: UBX-CFG-NAV5 (0x06/0x24) is NOT supported on the M10 platform —
+    // the module silently NAKs it and keeps its default "portable" model.
+    // M10 uses UBX-CFG-VALSET (0x06/0x8A) for all runtime configuration.
+    //
+    // Keys configured (all 1-byte values, stored little-endian):
+    //   CFG-NAVSPG-DYNMODEL  0x20110021  = 8  (Airborne <4g; 7 = <2g)
+    //   CFG-MSGOUT-NMEA_ID_GGA_I2C 0x209100BB = 1  (position, altitude, sats)
+    //   CFG-MSGOUT-NMEA_ID_RMC_I2C 0x209100AC = 1  (lat/lon, speed, time)
+    //   CFG-MSGOUT-NMEA_ID_GSA_I2C 0x209100C0 = 1  (HDOP, fix type)
+    //
+    // Payload = 4 (header) + 4×5 (key-value pairs) = 24 bytes.
+    // Fletcher-8 checksum over class+ID+length+payload: CK_A=0x46, CK_B=0x64.
+    static const uint8_t ubx_valset[] = {
+        0xB5, 0x62,                          // sync chars
+        0x06, 0x8A,                          // class=CFG, ID=VALSET
+        0x18, 0x00,                          // payload length = 24 (LE)
+        // payload ─────────────────────────────────────────────────────────
+        0x00,                                // version
+        0x07,                                // layers: RAM + BBR + Flash
+        0x00, 0x00,                          // reserved
+        0x21, 0x00, 0x11, 0x20, 0x08,       // CFG-NAVSPG-DYNMODEL = 8
+        0xBB, 0x00, 0x91, 0x20, 0x01,       // CFG-MSGOUT-NMEA_ID_GGA_I2C = 1
+        0xAC, 0x00, 0x91, 0x20, 0x01,       // CFG-MSGOUT-NMEA_ID_RMC_I2C = 1
+        0xC0, 0x00, 0x91, 0x20, 0x01,       // CFG-MSGOUT-NMEA_ID_GSA_I2C = 1
+        // checksum ────────────────────────────────────────────────────────
+        0x46, 0x64                           // CK_A, CK_B
     };
-    sendUBX(ubx_nav5, sizeof(ubx_nav5));
+    sendUBX(ubx_valset, sizeof(ubx_valset));
 
     return 0;
 }

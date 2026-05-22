@@ -6,8 +6,8 @@
 #include <cstdint>
 #include "CTRLS_ControlAlgorithm.h"
 #include "CTRLS_SensorFusion.h"
-#include "Flight_Procedures.h"  // for STAGE enum
 #include "cmsis_os.h"
+#include "FlightComputer_SENSORS.h"
 
 // ─── Sensor snapshot shared between the main FC task and ctrlsTask ───────────
 // The FC task writes this after each UpdateSensors(). ctrlsTask reads it.
@@ -30,6 +30,7 @@ extern CtrlsSensorSnapshot g_SensorData;
 extern osMutexId_t         g_ctrls_sensor_mutex;
 extern float               g_ctrls_canard_cmd_deg;   // output: canard command (degrees)
 extern osMutexId_t         g_ctrls_output_mutex;
+extern volatile bool       g_ctrls_enabled;           // set true to activate control output
 
 // Create RTOS resources — call once from MX_FREERTOS_Init before any task starts.
 extern "C" void ctrlsInit(void);
@@ -70,8 +71,8 @@ private:
 };
 
 // ─── FreeRTOS controls task ───────────────────────────────────────────────────
-// Registered in freertos.c via osThreadNew. Runs at ~100 Hz.
-// Reads CtrlsSensorSnapshot, runs EKF + ControlLaw, writes g_ctrls_canard_cmd_deg.
-extern "C" void ctrlsTask(void* arg);
+// Registered in freertos.c via osThreadNew. Notification-driven by updateDataTask.
+// Runs EKF + ControlLaw and writes servo targets to g_telemNow.
+extern "C" void CTRLs(void* arg);
 
 #endif // KINGFISHER_SW_CONTROLS_H

@@ -14,8 +14,8 @@
 #define GND_RADIO_ADDRLOW 0x4A
 #define GND_RADIO_ADDRHIGH 0x4A
 
-#define SHUTDOWN_KEEPALIVE      0xDE
-#define SHUTDOWN_HOLDOFF_MS     5000
+#define SHUTDOWN_KEEPALIVE      217
+#define DEFLECT_TEST            150
 
 #define E22_NO_DATA             2
 #define E22_RECEIVE_ERR         3
@@ -44,6 +44,7 @@ typedef struct
 typedef struct
 {
     float altitude; // new
+    float verticalVelocity;
     float longitude, latitude, GPSaltitude; // your implementation used four iirc
     float mAccX, mAccY, mAccZ; // imu stuff
     float mGyrX, mGyrY, mGyrZ; // imu stuff
@@ -60,6 +61,24 @@ typedef struct
     bool pyroMainChuteFired    = false;
 } telemetryData;
 
+inline bool operator==(const telemetryData& a, const telemetryData& b) {
+    return a.altitude == b.altitude &&
+           a.longitude == b.longitude && a.latitude == b.latitude && a.GPSaltitude == b.GPSaltitude &&
+           a.mAccX == b.mAccX && a.mAccY == b.mAccY && a.mAccZ == b.mAccZ &&
+           a.mGyrX == b.mGyrX && a.mGyrY == b.mGyrY && a.mGyrZ == b.mGyrZ &&
+           a.Qx == b.Qx && a.Qy == b.Qy && a.Qz == b.Qz && a.Qw == b.Qw &&
+           a.pitch == b.pitch && a.yaw == b.yaw && a.roll == b.roll &&
+           a.servoTarget1 == b.servoTarget1 && a.servoTarget2 == b.servoTarget2 &&
+           a.servoPos1 == b.servoPos1 && a.servoPos2 == b.servoPos2 &&
+           a.temperature == b.temperature &&
+           a.CommandResponseByte == b.CommandResponseByte &&
+           a.RSSI == b.RSSI &&
+           a.pyroMainDrogueFired == b.pyroMainDrogueFired &&
+           a.pyroBackupDrogueFired == b.pyroBackupDrogueFired &&
+           a.pyroMainChuteFired == b.pyroMainChuteFired;
+}
+inline bool operator!=(const telemetryData& a, const telemetryData& b) { return !(a == b); }
+
 class Telemetry {
 
     config_e22_900t22s des_cfg = {};
@@ -73,7 +92,7 @@ class Telemetry {
     // FC-side
     uint8_t sendData(const telemetryData &data);
     uint8_t receiveCommands(GndStationData &gnd);
-    void    processKeepalive(uint8_t keepAliveIn);
+    void    processCmd(uint8_t cmd);
     void    processPyros(uint32_t pyroActivation);
 
     // GND-side

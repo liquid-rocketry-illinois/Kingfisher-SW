@@ -76,8 +76,6 @@ add_executable(${CMAKE_PROJECT_NAME}
         Core/Src/Barometer.cpp
         Core/Inc/Math/FloatTripleModRedundancy.h
         Core/Src/FloatTripleModRedundancy.cpp
-        Core/Inc/Flight_Procedures.h
-        Core/Src/Flight_Procedures.cpp
         Core/Inc/constants.h
         Core/Inc/CTRLS_ControlAlgorithm.h
         Core/Inc/CTRLS_SensorFusion.h
@@ -87,10 +85,8 @@ add_executable(${CMAKE_PROJECT_NAME}
         Core/Src/CTRLS_Controls.cpp
         Core/Src/MAXM10S.cpp
         Core/Src/TinyGPSPlus.cpp
-        Core/Src/GLOBAL_SensorUpdate.cpp
-        Core/Inc/GLOBAL_SensorUpdate.h
-        Core/Src/FlightComputer.cpp
-        Core/Inc/FlightComputer.h
+        Core/Src/FlightComputer_SENSORS.cpp
+        Core/Src/FlightComputer_DATAUPDATE.cpp
 )
 
 # Add STM32CubeMX generated sources
@@ -109,6 +105,7 @@ target_sources(${CMAKE_PROJECT_NAME} PRIVATE
         Core/Src/Math/Math.cpp
         Core/Src/TEST_FUNCTIONS.cpp
         Core/Src/main.cpp
+        Core/Src/Initial_conditions.cpp
         Core/Src/ism6hg256x_reg.c
         Core/Src/IMU_ISM6HGx.cpp
         Core/Src/bmi3.c

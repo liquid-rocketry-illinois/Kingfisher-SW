@@ -9,14 +9,7 @@
 #include "Servo_Axon_Mini_MKII.h"
 #include "IMUs.h"
 #include "Barometer.h"
-#include "LIS2MDL.h"
 #include "Telemetry.h"
-#include "constants.h"
-#include "SDCard.h"
-#include "FreeRTOS.h"
-#include "task.h"
-#include "queue.h"
-#include "semphr.h"
 #include "MAXM10S.h"
 
 // FLIGHT STAGE PROGRESSION
@@ -48,25 +41,33 @@ typedef enum {
     STATUS_ABORT_TRIGGERED  = 127
 } ProcedureStatus;
 
-struct GPS_Data {
+typedef struct {
     double latitude;
     double longitude;
     double altitude;
-};
+} GPS_Data;
 
-struct ServoAngles {
+typedef struct {
     float currS1;
     float currS2;
     float targetS1;
     float targetS2;
-};
+} ServoAngles;
 
-class FlightComputer {
+class Sensors {
 private:
     // sensor declarations
+    IMUs IMU;
+    Baro_Unified Baro;
+    MAXM10S GPS;
+    Servo_Axon_Mini_MKII Servos;
+
 public:
-    // interfaces to interact with each sensor
+    Sensors();
+    int8_t Init();
+    int8_t Update();
 };
+
 /*
 TODO: task UpdateSensors()
     init BMI, BMP, IMU with TMR on and the GPS

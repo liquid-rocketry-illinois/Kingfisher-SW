@@ -62,6 +62,7 @@ public:
                 PRECISION precision,
                 bool debug);
     void Update(float S1_Target_Deg, float S2_Target_Deg);
+    SAsym<float> getCurrentAngle();
     void SetOffset(SAsym<float> offset);   // update zero-point offsets at runtime (GND trim command)
     DATA_Axon_Mini_MKII getData() const;
 };

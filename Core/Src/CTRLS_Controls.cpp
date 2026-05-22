@@ -9,6 +9,7 @@ CtrlsSensorSnapshot g_SensorData           = {};
 osMutexId_t         g_ctrls_sensor_mutex   = nullptr;
 float               g_ctrls_canard_cmd_deg = 0.0f;
 osMutexId_t         g_ctrls_output_mutex   = nullptr;
+volatile bool       g_ctrls_enabled        = false;
 
 static const osMutexAttr_t k_sensor_mutex_attr = {
     "ctrlsSensorMtx", osMutexPrioInherit, nullptr, 0U
@@ -147,91 +148,3 @@ void ControlLaw::updateRollEffectivenessSign(float t, float w3_meas,
     }
 }
 
-// ─── FreeRTOS controls task ───────────────────────────────────────────────────
-// Runs at ~100 Hz. Maintains its own EKF and ControlLaw instances.
-// Reads g_ctrls_sensor (written by main FC task) and writes g_ctrls_canard_cmd_deg.
-extern "C" void ctrlsTask(void* /*arg*/) {
-    // ── Build default config (caller should populate before osKernelStart) ──
-    // The config is read from a globally accessible instance. For now we use
-    // a local default; replace with a pointer/reference to the flight config
-    // once the FlightComputer exposes it.
-    static RocketConfig cfg;
-    cfg.computeDerived();
-
-    // Classes initialization with global config and physics
-    static Physics     phys(cfg);
-    static EKF         ekf(phys, cfg);
-    static ControlLaw  ctrl(phys, cfg);
-
-    // Local copy of last sensor snapshot (used as fallback if no fresh data)
-    CtrlsSensorSnapshot snap = {};
-    snap.temperature_K = 288.15f;
-
-    uint32_t last_tick = osKernelGetTickCount();
-
-    for (;;) {
-        // Wait until next 10 ms slot (100 Hz)
-        osDelayUntil(last_tick + 10U);
-        last_tick = osKernelGetTickCount();
-
-        // ── Compute dt ──────────────────────────────────────────────────────
-        static uint32_t prev_ms = 0U;
-        const uint32_t  now_ms  = millis();
-        const float     dt      = (prev_ms == 0U) ? 0.01f
-                                  : static_cast<float>(now_ms - prev_ms) * 1e-3f;
-        prev_ms = now_ms;
-
-        if (dt <= 0.0f || dt > 0.5f) continue;  // guard: timer rollover / first call
-
-        // ── Read sensor snapshot ─────────────────────────────────────────────
-        bool fresh = false;
-        if (osMutexAcquire(g_ctrls_sensor_mutex, 2U) == osOK) {
-            if (g_SensorData.fresh) {
-                snap  = g_SensorData;
-                g_SensorData.fresh = false;
-                fresh = true;
-            }
-            osMutexRelease(g_ctrls_sensor_mutex);
-        }
-        // If mutex unavailable or no fresh data, snap retains last known values
-        // and fresh = false → predictOnly path below
-
-        float t = snap.flight_time_s;
-        float T_K = snap.temperature_K;
-
-        // ── EKF step ─────────────────────────────────────────────────────────
-        // Read last canard command for the EOM input
-        float u_last = 0.0f;
-        if (osMutexAcquire(g_ctrls_output_mutex, 1U) == osOK) {
-            u_last = g_ctrls_canard_cmd_deg * (static_cast<float>(M_PI) / 180.0f);
-            osMutexRelease(g_ctrls_output_mutex);
-        }
-
-        if (fresh) {
-            // Update roll effectiveness monitor before EKF (uses previous EKF speed)
-            const float vx=ekf.xhat(3,0), vy=ekf.xhat(4,0), vz=ekf.xhat(5,0);
-            ctrl.updateRollEffectivenessSign(t, snap.gyro_rad_s[2], u_last,
-                                              sqrtf(vx*vx + vy*vy + vz*vz));
-
-            // Build measurement vector [accel_g(3), gyro_rad_s(3)]
-            MeasVec y;
-            for (int i = 0; i < 3; i++) {
-                y(i,   0) = snap.accel_g[i];
-                y(3+i, 0) = snap.gyro_rad_s[i];
-            }
-            ekf.update(t, dt, y, u_last, snap.altitude_m, T_K);
-        } else {
-            ekf.predictOnly(t, dt, u_last, snap.altitude_m, T_K);
-        }
-
-        // ── Control law ───────────────────────────────────────────────────────
-        const float u_rad = ctrl.computeControl(t, ekf.xhat, T_K);
-        const float u_deg = u_rad * (180.0f / static_cast<float>(M_PI));
-
-        // ── Write output ─────────────────────────────────────────────────────
-        if (osMutexAcquire(g_ctrls_output_mutex, 2U) == osOK) {
-            g_ctrls_canard_cmd_deg = u_deg;
-            osMutexRelease(g_ctrls_output_mutex);
-        }
-    }
-}

@@ -121,14 +121,12 @@ int8_t init_e22_900t22s(config_e22_900t22s *cfg)
     // if (e22_mutex == NULL)
     //     return E22_ERR_BUSY;
 
-    // active-low
+    // active-low so this turns the radio on
     HAL_GPIO_WritePin(RADIO_RST_GPIO_Port, RADIO_RST_Pin, GPIO_PIN_SET);
 
     /* ensure radio is ready */
     waitAux_e22_900t22s(5000);
 
-    /* switch to configuration mode */
-    changeMode(CONFIG);
     // for safety
     vTaskDelay(pdMS_TO_TICKS(500));
     waitAux_e22_900t22s(1000);
@@ -136,7 +134,8 @@ int8_t init_e22_900t22s(config_e22_900t22s *cfg)
     /* read current radio configuration */
     config_e22_900t22s current_cfg = {};
 
-    writeConfig_e22_900t22s(cfg, true);
+    if (writeConfig_e22_900t22s(cfg, true) != E22_OK)
+        return E22_ERR_UART;
 
     if (readConfig_e22_900t22s(&current_cfg) != E22_OK)
         return E22_ERR_UART;
@@ -220,7 +219,7 @@ static int8_t uartRead(uint8_t *data, uint16_t len)
         len,
         5000); // Make a generous amount of time
 
-    while (!auxHigh()) {} // wait for read to finish in case
+    while (!auxHigh()) { vTaskDelay(pdMS_TO_TICKS(1)); } // wait for read to finish in case
     if(status != HAL_OK) return E22_ERR_UART;
 
     return E22_OK;
@@ -235,6 +234,7 @@ int8_t writeConfig_e22_900t22s(
     bool save_to_flash)
 {
     uint8_t frame[10];
+    uint8_t _echo[10] = {0};
 
     // Head command byte
     frame[0] = save_to_flash ?
@@ -254,11 +254,19 @@ int8_t writeConfig_e22_900t22s(
 
     //xSemaphoreTake(e22_mutex, portMAX_DELAY);
 
-    changeMode(CONFIG);
+    if (HAL_GPIO_ReadPin(M0_Radio_GPIO_Port, M0_Radio_Pin) != GPIO_PIN_RESET ||
+        HAL_GPIO_ReadPin(M1_Radio_GPIO_Port, M1_Radio_Pin) != GPIO_PIN_SET)
+        changeMode(CONFIG);
     // Ensure that config can be written
-    vTaskDelay(pdMS_TO_TICKS(400));
+    vTaskDelay(pdMS_TO_TICKS(500));
+    waitAux_e22_900t22s(1000);
 
     // Construct and write config commands
+
+    // Flush any stale bytes (e.g. from a mode-switch glitch when re-entering
+    // CONFIG while already in CONFIG, or leftovers from a prior operation).
+    while (__HAL_UART_GET_FLAG(&huart8, UART_FLAG_RXFNE))
+        (void)huart8.Instance->RDR;
 
     if(uartWrite(frame, 10) != E22_OK)
     {
@@ -270,8 +278,11 @@ int8_t writeConfig_e22_900t22s(
      * [C1 00 07 ADDH ADDL NETID REG0 REG1 REG2 REG3] (10 bytes).
      * Must be consumed here — it sits in the MCU UART buffer regardless of
      * when changeMode(TRANS) is called, and shifts the next uartRead() by 1 byte. */
-    uint8_t _echo[10];
-    uartRead(_echo, 10);
+    if (uartRead(_echo, 10) != E22_OK)
+        return E22_ERR_UART;
+
+    if (_echo[0] != COMMAND_BYTE_READ_CFG || _echo[1] != 0x00 || _echo[2] != 0x07)
+        return E22_ERR_UART;
 
     changeMode(TRANS);
 
@@ -286,18 +297,22 @@ int8_t readConfig_e22_900t22s(config_e22_900t22s *cfg)
     cmd[0] = COMMAND_BYTE_READ_CFG;
     cmd[1] = 0x00; // Start from ADDH
     cmd[2] = 0x07; // Read all necessary registers
-    uint8_t resp[10] = {0};
-    // resp: {c1, 00, 07, addh, addl, netid, reg0, reg1, reg2, reg3}
 
     //xSemaphoreTake(e22_mutex, portMAX_DELAY);
 
-    changeMode(CONFIG);
+    if (HAL_GPIO_ReadPin(M0_Radio_GPIO_Port, M0_Radio_Pin) != GPIO_PIN_RESET ||
+        HAL_GPIO_ReadPin(M1_Radio_GPIO_Port, M1_Radio_Pin) != GPIO_PIN_SET)
+        changeMode(CONFIG);
 
     // Process mode switch in case aux pin logic is messed
-    HAL_Delay(500);
+    vTaskDelay(pdMS_TO_TICKS(400));
     waitAux_e22_900t22s(1000); // shouldn't need this but just in case
 
-    uartWrite(cmd,3);
+    if (uartWrite(cmd, 3) != E22_OK)
+        return E22_ERR_UART;
+
+    uint8_t resp[10] = {};
+
     int8_t rslt = uartRead(resp,10);
     if(rslt != E22_OK)
     {

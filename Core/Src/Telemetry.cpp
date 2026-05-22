@@ -4,6 +4,7 @@
 #include <cstring>
 
 #include "constants.h"
+#include "CTRLS_Controls.h"
 
 Telemetry::Telemetry()
 {
@@ -57,23 +58,36 @@ uint8_t Telemetry::Init()
 uint8_t Telemetry::Update()
 {
     uint8_t status = 0;
-        // FC slave: receive GND command first, then respond only when asked.
-        // REQUEST_DATA_BYTE  → send full telemetry packet
-        // HANDSHAKE_GND_BYTE → send (CommandResponseByte already set by app layer)
-        // SHUTDOWN_KEEPALIVE → send telemetry so GND stays informed during abort
-        // anything else      → receive only, no TX (GND is rate-limiting)
-        status = receiveCommands(GNDOutData);
-        if (status == 0)
+    // FC slave: receive GND command first, then respond only when asked.
+    // REQUEST_DATA_BYTE  → send full telemetry packet
+    // HANDSHAKE_GND_BYTE → send (CommandResponseByte already set by app layer)
+    // SHUTDOWN_KEEPALIVE → send telemetry so GND stays informed during abort
+    // anything else      → receive only, no TX (GND is rate-limiting)
+    status = receiveCommands(GNDOutData);
+    if (status == 0)
+    {
+        uint8_t cmd = GNDOutData.CommandByte;
+        switch (cmd)
         {
-            uint8_t cmd = GNDOutData.CommandByteIn;
-            if (cmd == REQUEST_DATA_BYTE    ||
-                cmd == HANDSHAKE_GND_BYTE   ||
-                cmd == SHUTDOWN_KEEPALIVE   ||
-                cmd == SERVO_OFFSET_CMD_BYTE)   // always respond so GND link stays healthy
-            {
-                status = sendData(HALOutData);
-            }
+        case REQUEST_DATA_BYTE:
+            ;
+        case SHUTDOWN_KEEPALIVE:
+            // TODO: Set servos to 0deg, latch abort protocol
+            ;
+        case DEFLECT_TEST:
+            ;
+        case SERVO_OFFSET_CMD_BYTE:
+            ;
+        default:
+            HALOutData.CommandResponseByte = 0;
+            status = sendData(HALOutData);
         }
+    }
+
+    // Still send data so ground stations can receive it
+    // Returns error if status is nonzero so we know
+    HALOutData.CommandResponseByte = 0;
+    sendData(HALOutData);
 
     return status;
 }
@@ -191,49 +205,36 @@ uint8_t Telemetry::receiveCommands(GndStationData &gnd)
     if(status != 0)             return (uint8_t)status;
 
     lastRSSI = get_rssi_e22_900t22s();
-    HALOutData.rssiAtFC = lastRSSI;
+    HALOutData.RSSI = lastRSSI;
 
-    processKeepalive(gnd.CommandByteIn);
+    processCmd(gnd.CommandByte);
     processPyros(gnd.pyroActivation);
     return 0;
 }
 
-void Telemetry::processKeepalive(uint8_t keepAliveIn)
+#include "CTRLS_Controls.h"
+
+void Telemetry::processCmd(uint8_t cmd)
 {
-    GNDOutData.CommandByteIn = keepAliveIn;
-
-    if(keepAliveIn == SHUTDOWN_KEEPALIVE)
-    {
-        if(shutdownHoldStart == 0)
-            shutdownHoldStart = HAL_GetTick();
-
-        if((HAL_GetTick() - shutdownHoldStart) >= SHUTDOWN_HOLDOFF_MS)
-            shutdownFlag = true;
+    if (cmd == SHUTDOWN_KEEPALIVE) {
+        shutdownFlag    = true;
+        g_ctrls_enabled = false;  // zero servo outputs immediately on abort
     }
-    else
-    {
-        shutdownHoldStart = 0;
-        shutdownFlag = false;
-    }
+
+    if (cmd == HANDSHAKE_GND_BYTE) HALOutData.CommandResponseByte = HANDSHAKE_FC_BYTE;
+
+    // BYTE_DEFLECT_TEST (12): ground-commanded servo test — enable controls output.
+    // Controls are otherwise managed by the flight state machine via g_ctrls_enabled.
+    if (cmd == BYTE_DEFLECT_TEST) g_ctrls_enabled = true;
 }
 
 void Telemetry::processPyros(uint32_t pyroActivation)
 {
-    if(pyroActivation == PYROMAIN) {
-        HAL_GPIO_WritePin(MAIN_GPIO_Port, MAIN_Pin, GPIO_PIN_SET);
-        vTaskDelay(pdMS_TO_TICKS(2000));
-        HAL_GPIO_WritePin(MAIN_GPIO_Port, MAIN_Pin, GPIO_PIN_RESET);
-    }
-    if(pyroActivation == PYRODROGUEBKP) {
-        HAL_GPIO_WritePin(DROUGE_BACK_GPIO_Port, DROUGE_BACK_Pin, GPIO_PIN_SET);
-        vTaskDelay(pdMS_TO_TICKS(2000));
-        HAL_GPIO_WritePin(DROUGE_BACK_GPIO_Port, DROUGE_BACK_Pin, GPIO_PIN_RESET);
-    }
-    if(pyroActivation == PYRODROGUEMAIN) {
-        HAL_GPIO_WritePin(DROUGE_MAIN_GPIO_Port, DROUGE_MAIN_Pin, GPIO_PIN_SET);
-        vTaskDelay(pdMS_TO_TICKS(2000));
-        HAL_GPIO_WritePin(DROUGE_MAIN_GPIO_Port, DROUGE_MAIN_Pin, GPIO_PIN_RESET);
-    }
+    // Set pending bits — PyroTask fires the GPIO in its own context so the
+    // Radio task is never blocked during the 2-second hold.
+    if (pyroActivation == PYROMAIN)       g_pyroPending |= PYRO_MAIN_BIT;
+    if (pyroActivation == PYRODROGUEBKP)  g_pyroPending |= PYRO_DROGUE_BKP_BIT;
+    if (pyroActivation == PYRODROGUEMAIN) g_pyroPending |= PYRO_DROGUE_MAIN_BIT;
 }
 
 // ---------------------------------------------------------------------------

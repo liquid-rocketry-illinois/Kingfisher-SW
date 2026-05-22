@@ -35,10 +35,15 @@
 
 /* Private define ------------------------------------------------------------*/
 /* USER CODE BEGIN PD */
-void task(void*);
+void FC_Init(void*);
 void ctrlsInit(void);
-void ctrlsTask(void*);
-void UpdateData(void *argument);
+void updateSensorTask(void*);
+void updateDataTask(void*);
+void Radio(void*);
+void CTRLs(void*);
+void PyroTask(void*);
+extern TaskHandle_t updateDataTaskHandle;
+extern TaskHandle_t CTRLIndicationHandle;
 /* USER CODE END PD */
 
 /* Private macro -------------------------------------------------------------*/
@@ -59,7 +64,7 @@ const osThreadAttr_t updateData_attributes = {
 osThreadId_t defaultTaskHandle;
 const osThreadAttr_t defaultTask_attributes = {
   .name = "defaultTask",
-  .stack_size = 4096 * 2,
+  .stack_size = 4096,
   .priority = (osPriority_t) osPriorityNormal,
 };
 
@@ -95,15 +100,37 @@ void MX_FREERTOS_Init(void) {
 
   /* USER CODE BEGIN RTOS_QUEUES */
   /* add queues, ... */
-  defaultTaskHandle = osThreadNew(task, NULL, &defaultTask_attributes);
-  updateDataHandle  = osThreadNew(UpdateData, NULL, &updateData_attributes);
+  // ── FC init (runs once, sets up DWT timer and peripherals) ──────────────────
+  defaultTaskHandle = osThreadNew(FC_Init, NULL, &defaultTask_attributes);
 
-  static const osThreadAttr_t ctrlsTask_attributes = {
-    .name       = "ctrlsTask",
-    .stack_size = 4096 * 3,   // 12 KB — EKF has several 10×10 matrices on stack
-    .priority   = (osPriority_t)osPriorityAboveNormal,
+  // ── Radio (telemetry TX/RX + command processing) ──────────────────────────────
+  static const osThreadAttr_t radioTask_attr = {
+    .name = "Radio", .stack_size = 4096, .priority = osPriorityAboveNormal,
   };
-  osThreadNew(ctrlsTask, NULL, &ctrlsTask_attributes);
+  osThreadNew(Radio, NULL, &radioTask_attr);
+
+  // ── Sensor read → data fusion pipeline ───────────────────────────────────────
+  static const osThreadAttr_t sensorTask_attr = {
+    .name = "updateSensor", .stack_size = 4096, .priority = osPriorityAboveNormal,
+  };
+  updateDataHandle = osThreadNew(updateSensorTask, NULL, &sensorTask_attr);
+
+  static const osThreadAttr_t dataTask_attr = {
+    .name = "updateData", .stack_size = 4096, .priority = osPriorityAboveNormal,
+  };
+  updateDataTaskHandle = osThreadNew(updateDataTask, NULL, &dataTask_attr);
+
+  // ── Controls (EKF + roll law) ─────────────────────────────────────────────────
+  static const osThreadAttr_t ctrlsTask_attr = {
+    .name = "CTRLs", .stack_size = 4096 * 3, .priority = osPriorityAboveNormal,
+  };
+  CTRLIndicationHandle = osThreadNew(CTRLs, NULL, &ctrlsTask_attr);
+
+  // ── Pyrotechnics (GPIO fire + 2 s hold, non-blocking to Radio task) ───────────
+  static const osThreadAttr_t pyroTask_attr = {
+    .name = "PyroTask", .stack_size = 1024, .priority = osPriorityAboveNormal,
+  };
+  osThreadNew(PyroTask, NULL, &pyroTask_attr);
 
   return;
   /* USER CODE END RTOS_QUEUES */
