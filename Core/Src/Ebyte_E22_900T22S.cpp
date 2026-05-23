@@ -424,13 +424,23 @@ int16_t recieve_e22_900t22s(uint8_t *buffer, uint16_t expected_payload_len)
     const uint16_t frame_total     = 5u + expected_payload_len + 2u;   // hdr + payload + CRC
     const uint16_t total_with_rssi = frame_total + 1u;                 // +1 RSSI byte (R3_7_RSSI_BYTE_ENABLE)
 
+    // Clear any latched UART error flags (ORE, NE, PE, FE).
+    // ORE is the critical one: if bytes ever accumulated in the hardware FIFO faster
+    // than they were consumed (e.g. when R1_5 ambient-RSSI was on, adding an extra
+    // byte per packet), the FIFO overflowed, the ORE flag latched, and every
+    // subsequent HAL_UART_Receive() returns HAL_ERROR immediately without reading
+    // anything.  Clearing before every call makes recovery automatic.
+    __HAL_UART_CLEAR_FLAG(e22_cfg.huart,
+                          UART_CLEAR_OREF | UART_CLEAR_NEF |
+                          UART_CLEAR_PEF  | UART_CLEAR_FEF);
+
     /* 300 ms margin: round-trip over RF at 9600 bps air rate is ~160 ms. */
     uint32_t timeout_ms = ((total_with_rssi * 10u * 1000u) / baud) + 300u;
 
     HAL_StatusTypeDef s = HAL_UART_Receive(e22_cfg.huart, buffer, total_with_rssi, timeout_ms);
 
     if (s == HAL_OK) {
-        last_rssi = buffer[frame_total];    // RSSI byte sits immediately after CRC
+        last_rssi = buffer[frame_total];    // RSSI byte appended by E22 after CRC
         return (int16_t)frame_total;
     }
 

@@ -32,7 +32,9 @@ uint8_t Telemetry::Init()
                    | R0_210_E22_AIR_DATA_RATE::E22_AIR_RATE_9_6K;
 
     des_cfg.REG1 =   R1_76_SUB_PACKET_SETTING::BYTES_240
-                   | R1_5_RSSI_ENVIRONMENTAL_NOISE_MEASURE_ENABLE
+                   | R1_5_RSSI_ENVIRONMENTAL_NOISE_MEASURE_DISABLE // must match GND; ENABLE appends a 2nd ambient-noise byte per packet,
+                                                                   // leaving it in the UART FIFO and shifting every subsequent receive by 1,
+                                                                   // causing sync_idx=1 and a constant -4 from decodeData()
                    | R1_2_SOFTWARE_MODE_SWITCHING_OFF
                    | R1_10_E22_TX_POWER::E22_TX_POWER_22DBM;
 
@@ -57,26 +59,16 @@ uint8_t Telemetry::Init()
 
 uint8_t Telemetry::Update()
 {
-    // FC slave: receive GND command first, then respond only when asked.
-    // REQUEST_DATA_BYTE    → send full telemetry packet
-    // HANDSHAKE_GND_BYTE   → send (CommandResponseByte already set by processCmd)
-    // SHUTDOWN_KEEPALIVE   → send telemetry so GND stays informed during abort
-    // BYTE_DEFLECT_TEST    → send telemetry to confirm deflection test started
-    // SERVO_OFFSET_CMD_BYTE→ send telemetry to confirm offset received
-    // anything else        → receive only, no TX (GND is rate-limiting)
     uint8_t status = receiveCommands(GNDOutData);
     if (status == 0)
     {
-        uint8_t cmd = GNDOutData.CommandByte;
-        if (cmd == REQUEST_DATA_BYTE   ||
-            cmd == HANDSHAKE_GND_BYTE  ||
-            cmd == SHUTDOWN_KEEPALIVE  ||
-            cmd == BYTE_DEFLECT_TEST   ||   // 0x0C -- was DEFLECT_TEST(150) in old switch
-            cmd == SERVO_OFFSET_CMD_BYTE)
-        {
-            status = sendData(HALOutData);
-        }
+        // Always respond to any valid GND packet.
+        // processCmd() already handles command side effects.
+        status = sendData(HALOutData);
     }
+    // dont update status but still send
+    else sendData(HALOutData);
+
     return status;
 }
 
@@ -196,8 +188,7 @@ uint8_t Telemetry::receiveCommands(GndStationData &gnd)
 
     if(status != 0)             return (uint8_t)status;
 
-    lastRSSI = get_rssi_e22_900t22s();
-    HALOutData.RSSI = lastRSSI;
+    HALOutData.RSSI = get_rssi_e22_900t22s();
 
     processCmd(gnd.CommandByte);
     processPyros(gnd.pyroActivation);
@@ -215,7 +206,7 @@ void Telemetry::processCmd(uint8_t cmd)
 
     if (cmd == HANDSHAKE_GND_BYTE) HALOutData.CommandResponseByte = HANDSHAKE_FC_BYTE;
 
-    // BYTE_DEFLECT_TEST (12): ground-commanded servo test — enable controls output.
+    // BYTE_DEFLECT_TEST (150): ground-commanded servo test — enable controls output.
     // Controls are otherwise managed by the flight state machine via g_ctrls_enabled.
     if (cmd == BYTE_DEFLECT_TEST) g_ctrls_enabled = true;
 }

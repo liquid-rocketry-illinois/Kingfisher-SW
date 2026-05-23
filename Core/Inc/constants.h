@@ -11,7 +11,7 @@
 #define HANDSHAKE_GND_BYTE      0xA1u   // GND→FC: (re)connection handshake
 #define HANDSHAKE_FC_BYTE       0xB2u   // FC→GND: handshake acknowledgement (heartbeat)
 #define REQUEST_DATA_BYTE       0xC3u   // GND→FC: "send me a telemetry packet now"
-#define BYTE_DEFLECT_TEST       0x0Cu   // GND→FC: commanded servo deflection test (12)
+#define BYTE_DEFLECT_TEST       150u    // GND→FC: commanded servo deflection test — matches DEFLECT_TEST in Telemetry.h and GND RADIO_DEFNS.h
 
 // ── Ground station polling ────────────────────────────────────────────────────
 #define GND_SENSOR_PERIOD_MS    100u    // 10 Hz local sensor update
