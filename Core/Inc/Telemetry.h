@@ -15,7 +15,8 @@
 #define GND_RADIO_ADDRHIGH 0x4A
 
 #define SHUTDOWN_KEEPALIVE      217
-#define DEFLECT_TEST            150
+// NOTE: deflect-test command byte is BYTE_DEFLECT_TEST (0x0C) defined in constants.h.
+// DEFLECT_TEST=150 was a stale duplicate with the wrong value and has been removed.
 
 #define E22_NO_DATA             2
 #define E22_RECEIVE_ERR         3
@@ -100,7 +101,7 @@ class Telemetry {
     uint8_t receiveTelemetry(telemetryData &data);
 
     // shared
-    template<typename T> int8_t decodeData(T &payload);
+    template<typename T> int8_t decodeData(T &payload, uint16_t buf_len);
     template<typename T> uint8_t encodeAndSend(const T &payload);
     uint16_t Checksum(uint8_t *data, uint16_t length);
 

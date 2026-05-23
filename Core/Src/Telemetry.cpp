@@ -1,4 +1,4 @@
-#include "Telemetry.h"
+﻿#include "Telemetry.h"
 #include "usart.h"
 #include "task.h"
 #include <cstring>
@@ -57,38 +57,26 @@ uint8_t Telemetry::Init()
 
 uint8_t Telemetry::Update()
 {
-    uint8_t status = 0;
     // FC slave: receive GND command first, then respond only when asked.
-    // REQUEST_DATA_BYTE  → send full telemetry packet
-    // HANDSHAKE_GND_BYTE → send (CommandResponseByte already set by app layer)
-    // SHUTDOWN_KEEPALIVE → send telemetry so GND stays informed during abort
-    // anything else      → receive only, no TX (GND is rate-limiting)
-    status = receiveCommands(GNDOutData);
+    // REQUEST_DATA_BYTE    → send full telemetry packet
+    // HANDSHAKE_GND_BYTE   → send (CommandResponseByte already set by processCmd)
+    // SHUTDOWN_KEEPALIVE   → send telemetry so GND stays informed during abort
+    // BYTE_DEFLECT_TEST    → send telemetry to confirm deflection test started
+    // SERVO_OFFSET_CMD_BYTE→ send telemetry to confirm offset received
+    // anything else        → receive only, no TX (GND is rate-limiting)
+    uint8_t status = receiveCommands(GNDOutData);
     if (status == 0)
     {
         uint8_t cmd = GNDOutData.CommandByte;
-        switch (cmd)
+        if (cmd == REQUEST_DATA_BYTE   ||
+            cmd == HANDSHAKE_GND_BYTE  ||
+            cmd == SHUTDOWN_KEEPALIVE  ||
+            cmd == BYTE_DEFLECT_TEST   ||   // 0x0C -- was DEFLECT_TEST(150) in old switch
+            cmd == SERVO_OFFSET_CMD_BYTE)
         {
-        case REQUEST_DATA_BYTE:
-            ;
-        case SHUTDOWN_KEEPALIVE:
-            // TODO: Set servos to 0deg, latch abort protocol
-            ;
-        case DEFLECT_TEST:
-            ;
-        case SERVO_OFFSET_CMD_BYTE:
-            ;
-        default:
-            HALOutData.CommandResponseByte = 0;
             status = sendData(HALOutData);
         }
     }
-
-    // Still send data so ground stations can receive it
-    // Returns error if status is nonzero so we know
-    HALOutData.CommandResponseByte = 0;
-    sendData(HALOutData);
-
     return status;
 }
 
@@ -127,6 +115,7 @@ uint8_t Telemetry::encodeAndSend(const T &payload)
         return status;
 
     lastSeq++;
+
     return 0;
 }
 
@@ -135,11 +124,16 @@ uint8_t Telemetry::encodeAndSend(const T &payload)
 // ---------------------------------------------------------------------------
 
 template<typename T>
-int8_t Telemetry::decodeData(T &payload)
+  int8_t Telemetry::decodeData(T &payload, uint16_t buf_len)
 {
-    // search for SYNC1 followed by SYNC2
+    if (buf_len < 7u) return -1; // too short to contain any valid frame
+
+    // Search only within bytes actually received — prevents false sync matches
+    // against stale buffer content from prior receives.
+    const uint16_t search_end = buf_len - 1u;
+
     int16_t sync_idx = -1;
-    for(int16_t i = 0; i < (int16_t)(TELEMETRY_MAX_PAYLOAD - 1); i++)
+    for(int16_t i = 0; i < (int16_t)search_end; i++)
     {
         if(rx_buffer[i] == TELEMETRY_SYNC1 && rx_buffer[i + 1] == TELEMETRY_SYNC2)
         {
@@ -149,11 +143,9 @@ int8_t Telemetry::decodeData(T &payload)
     }
 
     if(sync_idx == -1)
-        return -1;  // sync bytes not found anywhere in buffer
+        return -1;  // sync bytes not found in received data
 
-    // ensure enough bytes remain after sync for the full header
-    // [SYNC1][SYNC2][len][seq_lo][seq_hi] = 5 bytes minimum before payload
-    if((sync_idx + 5) >= TELEMETRY_MAX_PAYLOAD)
+    if((uint16_t)(sync_idx + 5) >= buf_len)
         return -2;  // not enough room for header after sync
 
     uint8_t payload_len = rx_buffer[sync_idx + 2];
@@ -161,9 +153,7 @@ int8_t Telemetry::decodeData(T &payload)
     if(payload_len != sizeof(T))
         return -3;
 
-    // ensure full packet fits in buffer
-    // sync_idx + 5 header bytes + payload + 2 crc bytes
-    if((sync_idx + 5 + payload_len + 2) > TELEMETRY_MAX_PAYLOAD)
+    if((uint16_t)(sync_idx + 5 + payload_len + 2) > buf_len)
         return -4;
 
     uint16_t seq_rx = rx_buffer[sync_idx + 3] | (rx_buffer[sync_idx + 4] << 8);
@@ -183,6 +173,7 @@ int8_t Telemetry::decodeData(T &payload)
     return 0;
 }
 
+
 // ---------------------------------------------------------------------------
 // FC side
 // ---------------------------------------------------------------------------
@@ -201,7 +192,8 @@ uint8_t Telemetry::receiveCommands(GndStationData &gnd)
     if(len <= 0)                return E22_RECEIVE_ERR;
     if(len < 7)                 return E22_BAD_LENGTH;
 
-    int8_t status = decodeData(gnd);
+    int8_t status = decodeData(gnd, len);
+
     if(status != 0)             return (uint8_t)status;
 
     lastRSSI = get_rssi_e22_900t22s();
@@ -237,35 +229,8 @@ void Telemetry::processPyros(uint32_t pyroActivation)
     if (pyroActivation == PYRODROGUEMAIN) g_pyroPending |= PYRO_DROGUE_MAIN_BIT;
 }
 
-// ---------------------------------------------------------------------------
-// GND side
-// ---------------------------------------------------------------------------
 
-uint8_t Telemetry::sendCommands(const GndStationData &gnd)
-{
-    return encodeAndSend(gnd);
-}
-
-uint8_t Telemetry::receiveTelemetry(telemetryData &data)
-{
-    // No e22_available() gate — GND sends first then immediately calls this,
-    // so HAL_UART_Receive is already running when FC's response bytes arrive.
-    int16_t len = recieve_e22_900t22s(rx_buffer, sizeof(telemetryData));
-    if(len <= 0)                return E22_RECEIVE_ERR;
-    if(len < 7)                 return E22_BAD_LENGTH;
-
-    int8_t status = decodeData(data);
-    if(status != 0)
-        return (uint8_t)status;
-
-    lastRSSI = get_rssi_e22_900t22s();
-
-    return 0;
-}
-
-// ---------------------------------------------------------------------------
-// shared utils
-// ---------------------------------------------------------------------------
+// UTILS
 
 uint16_t Telemetry::Checksum(uint8_t *data, uint16_t length)
 {
