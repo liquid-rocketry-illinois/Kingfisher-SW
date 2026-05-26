@@ -1,10 +1,14 @@
-﻿#include "Telemetry.h"
+#include "Telemetry.h"
 #include "usart.h"
 #include "task.h"
 #include <cstring>
 
 #include "constants.h"
 #include "CTRLS_Controls.h"
+
+// g_gndData is defined in FlightComputer_SENSORS.cpp; updated here after every
+// successful receive so the CTRLs task always has current servo offsets.
+extern GndStationData g_gndData;
 
 Telemetry::Telemetry()
 {
@@ -32,9 +36,7 @@ uint8_t Telemetry::Init()
                    | R0_210_E22_AIR_DATA_RATE::E22_AIR_RATE_9_6K;
 
     des_cfg.REG1 =   R1_76_SUB_PACKET_SETTING::BYTES_240
-                   | R1_5_RSSI_ENVIRONMENTAL_NOISE_MEASURE_DISABLE // must match GND; ENABLE appends a 2nd ambient-noise byte per packet,
-                                                                   // leaving it in the UART FIFO and shifting every subsequent receive by 1,
-                                                                   // causing sync_idx=1 and a constant -4 from decodeData()
+                   | R1_5_RSSI_ENVIRONMENTAL_NOISE_MEASURE_ENABLE
                    | R1_2_SOFTWARE_MODE_SWITCHING_OFF
                    | R1_10_E22_TX_POWER::E22_TX_POWER_22DBM;
 
@@ -51,44 +53,53 @@ uint8_t Telemetry::Init()
     if(status != 0)
         return 1;
 
-
     changeMode(TRANS);
     vTaskDelay(pdMS_TO_TICKS(400));
     return 0;
 }
 
+// ---------------------------------------------------------------------------
+// FC is the slave: receive GND command first, then always send telemetry back.
+// GND transmits before it tries to receive; both sides must agree on this order
+// or they deadlock waiting on each other's RX.
+// ---------------------------------------------------------------------------
 uint8_t Telemetry::Update()
 {
-    uint8_t status = receiveCommands(GNDOutData);
-    if (status == 0)
-    {
-        // Always respond to any valid GND packet.
-        // processCmd() already handles command side effects.
-        status = sendData(HALOutData);
-    }
-    // dont update status but still send
-    else sendData(HALOutData);
+    uint8_t rx_status = receiveCommands(GNDOutData);
 
-    return status;
+    // Always send telemetry back.
+    // GND has already transmitted and is waiting on our response.
+    sendData(HALOutData);
+    return rx_status;
 }
 
 // ---------------------------------------------------------------------------
-// shared encode/send — works for any struct
+// Encode + transmit — FC sends telemetryData, GND receives it.
+// Frame layout (matching GND's decodeData exactly):
+//   [0]   GND_RADIO_ADDRHIGH  \  fixed-point routing header —
+//   [1]   GND_RADIO_ADDRLOW    > stripped by E22 module before delivery,
+//   [2]   CH915               /  not seen by the remote MCU's UART
+//   [3]   SYNC1 (0xAA)        \  start sync pair
+//   [4]   SYNC2 (0x55)        /
+//   [5]   payload_len
+//   [6]   seq lo
+//   [7]   seq hi
+//   [8 .. 8+N-1]  payload (N bytes)
+//   [8+N] CRC lo
+//   [9+N] CRC hi
+//   [10+N] SYNC2 (0x55)       \  end sync pair — SYNC2 first,
+//   [11+N] SYNC1 (0xAA)       /  SYNC1 is the final byte of the packet
 // ---------------------------------------------------------------------------
-
 template<typename T>
 uint8_t Telemetry::encodeAndSend(const T &payload)
 {
-    static_assert(sizeof(T) <= TELEMETRY_MAX_PAYLOAD - 10, "payload exceeds TX buffer size");
+    static_assert(sizeof(T) <= TELEMETRY_MAX_PAYLOAD - 12, "payload exceeds TX buffer size");
     uint8_t payload_len = sizeof(T);
 
-    // fixed mode header — module strips these before delivering to receiver
     tx_buffer[0] = GND_RADIO_ADDRHIGH;
     tx_buffer[1] = GND_RADIO_ADDRLOW;
-
     tx_buffer[2] = CH915;
 
-    // your packet starts at offset 3
     tx_buffer[3] = TELEMETRY_SYNC1;
     tx_buffer[4] = TELEMETRY_SYNC2;
     tx_buffer[5] = payload_len;
@@ -97,35 +108,51 @@ uint8_t Telemetry::encodeAndSend(const T &payload)
 
     memcpy(&tx_buffer[8], &payload, payload_len);
 
-    uint16_t crc = Checksum(&tx_buffer[3], 5 + payload_len);  // start at SYNC1
-    tx_buffer[8 + payload_len] = crc & 0xFF;
-    tx_buffer[9 + payload_len] = (crc >> 8) & 0xFF;
+    uint16_t crc = Checksum(&tx_buffer[3], 5 + payload_len);  // covers SYNC1 → end of payload
+    tx_buffer[8 + payload_len]  = crc & 0xFF;
+    tx_buffer[9 + payload_len]  = (crc >> 8) & 0xFF;
 
-    // Not using transmit_fixed
-    int8_t status = transmit_e22_900t22s(tx_buffer, 10 + payload_len);
+    // Ending sync pair: SYNC2 then SYNC1 (SYNC1 is the final byte)
+    tx_buffer[10 + payload_len] = TELEMETRY_SYNC2;
+    tx_buffer[11 + payload_len] = TELEMETRY_SYNC1;
+
+    int8_t status = transmit_e22_900t22s(tx_buffer, 12 + payload_len);
     if(status != E22_OK)
         return status;
 
     lastSeq++;
-
     return 0;
 }
 
 // ---------------------------------------------------------------------------
-// shared decode — works for any struct
+// Decode a received frame from rx_buffer into payload.
+// buf_len is the number of bytes actually returned by recieve_e22_900t22s(),
+// bounding the sync search to valid data so stale buffer bytes cannot match.
+// Matches GND's Radio::decodeData exactly — all checks enabled.
+//
+// Expected frame layout (offsets relative to sync_idx):
+//   [+0]  SYNC1 (0xAA)        \  start sync pair
+//   [+1]  SYNC2 (0x55)        /
+//   [+2]  payload_len
+//   [+3]  seq lo
+//   [+4]  seq hi
+//   [+5 .. +4+N]  payload (N bytes)
+//   [+5+N] CRC lo
+//   [+6+N] CRC hi
+//   [+7+N] SYNC2 (0x55)       \  end sync pair — SYNC2 first,
+//   [+8+N] SYNC1 (0xAA)       /  SYNC1 is the final byte of the packet
 // ---------------------------------------------------------------------------
-
 template<typename T>
-  int8_t Telemetry::decodeData(T &payload, uint16_t buf_len)
+int8_t Telemetry::decodeData(T &payload, uint16_t buf_len)
 {
-    if (buf_len < 7u) return -1; // too short to contain any valid frame
+    // Minimum frame: 5-byte header + 0 payload + 2-byte CRC + 2-byte end sync = 9 bytes
+    if (buf_len < 9u) return -1;
 
-    // Search only within bytes actually received — prevents false sync matches
-    // against stale buffer content from prior receives.
     const uint16_t search_end = buf_len - 1u;
 
+    // Locate start sync pair (SYNC1 followed by SYNC2)
     int16_t sync_idx = -1;
-    for(int16_t i = 0; i < (int16_t)search_end; i++)
+    for(int16_t i = 0; i < static_cast<int16_t>(search_end); i++)
     {
         if(rx_buffer[i] == TELEMETRY_SYNC1 && rx_buffer[i + 1] == TELEMETRY_SYNC2)
         {
@@ -135,18 +162,25 @@ template<typename T>
     }
 
     if(sync_idx == -1)
-        return -1;  // sync bytes not found in received data
+        return -1;  // start sync bytes not found
 
     if((uint16_t)(sync_idx + 5) >= buf_len)
-        return -2;  // not enough room for header after sync
+        return -2;  // not enough bytes for the 5-byte header after sync
 
     uint8_t payload_len = rx_buffer[sync_idx + 2];
 
     if(payload_len != sizeof(T))
-        return -3;
+        return -3;  // length mismatch — wrong packet type or struct size skew
 
-    if((uint16_t)(sync_idx + 5 + payload_len + 2) > buf_len)
-        return -4;
+    // Full packet (5-byte header + payload + 2-byte CRC + 2-byte end sync) must fit.
+    if((uint16_t)(sync_idx + 9 + payload_len) > buf_len)
+        return -4;  // truncated — not all bytes arrived
+
+    // Validate end sync bytes at their deterministic positions.
+    // End sync is SYNC2 then SYNC1; SYNC1 is the final byte of the packet.
+    if(rx_buffer[sync_idx + 7 + payload_len] != TELEMETRY_SYNC2 ||
+       rx_buffer[sync_idx + 8 + payload_len] != TELEMETRY_SYNC1)
+        return -6;  // end sync bytes missing or mismatched
 
     uint16_t seq_rx = rx_buffer[sync_idx + 3] | (rx_buffer[sync_idx + 4] << 8);
 
@@ -157,7 +191,7 @@ template<typename T>
     uint16_t crc_calc = Checksum(&rx_buffer[sync_idx], 5 + payload_len);
 
     if(crc_rx != crc_calc)
-        return -5;
+        return -5;  // corrupt frame — discard
 
     memcpy(&payload, &rx_buffer[sync_idx + 5], sizeof(T));
 
@@ -165,50 +199,71 @@ template<typename T>
     return 0;
 }
 
-
 // ---------------------------------------------------------------------------
-// FC side
+// FC side — public wrappers
 // ---------------------------------------------------------------------------
 
 uint8_t Telemetry::sendData(const telemetryData &data)
 {
-    uint8_t status = encodeAndSend(data);
-    return status;
+    return encodeAndSend(data);
 }
 
 uint8_t Telemetry::receiveCommands(GndStationData &gnd)
 {
-    // No e22_available() gate — FC is slave and must always be in receive mode
-    // so GND's bytes land in HAL_UART_Receive before the 16-byte FIFO overflows.
+    // Pass the full rx_buffer size so the entire framed packet is read.
+    // The framing overhead is 10 bytes (3-byte E22 header + 5-byte frame header
+    // + 2-byte CRC), so passing sizeof(GndStationData) would truncate the packet
+    // and make CRC verification impossible.
+
+    // reset rx_buffer to all zeroes in anticipation of new byte
+    memset(rx_buffer, 0, sizeof(rx_buffer));
     int16_t len = recieve_e22_900t22s(rx_buffer, sizeof(GndStationData));
-    if(len <= 0)                return E22_RECEIVE_ERR;
-    if(len < 7)                 return E22_BAD_LENGTH;
+    if(len <= 0) return E22_RECEIVE_ERR;
+    if(len < 7)  return E22_BAD_LENGTH;
 
-    int8_t status = decodeData(gnd, len);
-
-    if(status != 0)             return (uint8_t)status;
+    int8_t status = decodeData(gnd, (uint16_t)len);
+    if(status != 0) return static_cast<uint8_t>(-status);  // positive non-zero error code
 
     HALOutData.RSSI = get_rssi_e22_900t22s();
+
+    // Propagate servo offsets to g_gndData so the CTRLs task can apply them.
+    // The CTRLs task reads g_gndData under g_ctrls_sensor_mutex; acquire it here
+    // too so the two-float update is atomic from its perspective.
+    if (osMutexAcquire(g_ctrls_sensor_mutex, 5) == osOK) {
+        g_gndData.servoOffset1 = gnd.servoOffset1;
+        g_gndData.servoOffset2 = gnd.servoOffset2;
+        osMutexRelease(g_ctrls_sensor_mutex);
+    }
 
     processCmd(gnd.CommandByte);
     processPyros(gnd.pyroActivation);
     return 0;
 }
 
-#include "CTRLS_Controls.h"
-
+// ---------------------------------------------------------------------------
+// Command handler — byte values must match GND's RADIO_DEFNS.h exactly.
+// ---------------------------------------------------------------------------
 void Telemetry::processCmd(uint8_t cmd)
 {
-    if (cmd == SHUTDOWN_KEEPALIVE) {
-        shutdownFlag    = true;
-        g_ctrls_enabled = false;  // zero servo outputs immediately on abort
+    switch (cmd) {
+        case SHUTDOWN_KEEPALIVE:      // 217 — BYTE_ABORT on GND
+            shutdownFlag    = true;
+            g_ctrls_enabled = false;  // zero servo outputs immediately on abort
+            break;
+
+        case HANDSHAKE_GND_BYTE:      // 0xA1 — BYTE_HANDSHAKE on GND
+            HALOutData.CommandResponseByte = HANDSHAKE_FC_BYTE;  // 0xB2
+            break;
+
+        case BYTE_DEFLECT_TEST:       // 150 — servo deflection test, enable controls output
+            g_ctrls_enabled = true;
+            break;
+
+        default:
+            // SERVO_OFFSET_CMD_BYTE (0xD4): offsets already applied in receiveCommands().
+            // BYTE_NO_CMD (0), BYTE_REQUEST_DATA (0xC3): no side effects needed.
+            break;
     }
-
-    if (cmd == HANDSHAKE_GND_BYTE) HALOutData.CommandResponseByte = HANDSHAKE_FC_BYTE;
-
-    // BYTE_DEFLECT_TEST (150): ground-commanded servo test — enable controls output.
-    // Controls are otherwise managed by the flight state machine via g_ctrls_enabled.
-    if (cmd == BYTE_DEFLECT_TEST) g_ctrls_enabled = true;
 }
 
 void Telemetry::processPyros(uint32_t pyroActivation)
@@ -220,8 +275,9 @@ void Telemetry::processPyros(uint32_t pyroActivation)
     if (pyroActivation == PYRODROGUEMAIN) g_pyroPending |= PYRO_DROGUE_MAIN_BIT;
 }
 
-
-// UTILS
+// ---------------------------------------------------------------------------
+// Utilities
+// ---------------------------------------------------------------------------
 
 uint16_t Telemetry::Checksum(uint8_t *data, uint16_t length)
 {

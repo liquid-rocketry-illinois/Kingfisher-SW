@@ -97,7 +97,7 @@ extern "C" void Radio(void*)
             g_telemPrev      = g_telemNow;
             osMutexRelease(g_ctrls_sensor_mutex);
         }
-        telem.Update();
+        uint8_t status = telem.Update();
         HAL_GPIO_TogglePin(USR_LED_GPIO_Port, USR_LED_Pin);
     }
 }

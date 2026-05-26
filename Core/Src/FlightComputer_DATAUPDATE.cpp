@@ -25,8 +25,13 @@ void DataUpdate::FuseQuat(Quaternion* QObj)
     if (g_dt > 0.0f)
         QObj->sampleFreq = 1.0f / g_dt;
 
+    static constexpr float DEG_TO_RAD = 3.14159265358979323846f / 180.0f;
+
     Vector3D<float> a = Vector3D(g_telemNow.mAccX, g_telemNow.mAccY, g_telemNow.mAccZ);
-    Vector3D<float> w = Vector3D(g_telemNow.mGyrX, g_telemNow.mGyrY, g_telemNow.mGyrZ);
+    // g_telemNow gyro is in deg/s (raw from BMI); Madgwick integrates in rad/s.
+    Vector3D<float> w = Vector3D(g_telemNow.mGyrX * DEG_TO_RAD,
+                                  g_telemNow.mGyrY * DEG_TO_RAD,
+                                  g_telemNow.mGyrZ * DEG_TO_RAD);
     MATHEMATICS::Quaternion_Madgwick(QObj, a, w);
     g_telemNow.Qw = QObj->q.w;
     g_telemNow.Qx = QObj->q.x;
@@ -42,8 +47,14 @@ void DataUpdate::QuatToYPR(Q* quaternionIn)
     float y = quaternionIn->y;
     float z = quaternionIn->z;
 
+    // Clamp the asinf argument to [-1, 1] to prevent NaN from floating-point
+    // rounding on a near-unit quaternion (would poison all three outputs).
+    float sinp = 2.0f * (w*y - z*x);
+    if (sinp >  1.0f) sinp =  1.0f;
+    if (sinp < -1.0f) sinp = -1.0f;
+
     float roll  = atan2f(2.0f * (w*x + y*z), 1.0f - 2.0f * (x*x + y*y));
-    float pitch = asinf( 2.0f * (w*y - z*x));
+    float pitch = asinf(sinp);
     float yaw   = atan2f(2.0f * (w*z + x*y), 1.0f - 2.0f * (y*y + z*z));
 
     Vector3D<float> deg = Vector3D(yaw, pitch, roll) * (180.0f / static_cast<float>(M_PI));

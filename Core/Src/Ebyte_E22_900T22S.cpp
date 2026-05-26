@@ -357,6 +357,17 @@ int8_t transmit_e22_900t22s(uint8_t *data, size_t length)
         status = uartWrite(data, length);
     waitAux_e22_900t22s(200);
 
+    // Flush any stale RX bytes HERE — immediately after our own transmission completes,
+    // while AUX is high and the remote has not yet had time to respond.
+    // This is the only safe window: we KNOW no valid inbound packet is mid-stream.
+    // Flushing inside recieve_e22_900t22s() races with the E22 clocking bytes onto
+    // UART and silently discards the first N bytes of the incoming packet.
+    __HAL_UART_CLEAR_FLAG(e22_cfg.huart,
+                          UART_CLEAR_OREF | UART_CLEAR_NEF |
+                          UART_CLEAR_PEF  | UART_CLEAR_FEF);
+    while (__HAL_UART_GET_FLAG(e22_cfg.huart, UART_FLAG_RXNE))
+        (void)e22_cfg.huart->Instance->RDR;
+
     //xSemaphoreGive(e22_mutex);
 
     return status;
@@ -421,18 +432,9 @@ uint8_t get_rssi_e22_900t22s(void)
 int16_t recieve_e22_900t22s(uint8_t *buffer, uint16_t expected_payload_len)
 {
     const uint32_t baud            = e22_cfg.huart->Init.BaudRate;
-    const uint16_t frame_total     = 5u + expected_payload_len + 2u;   // hdr + payload + CRC
-    const uint16_t total_with_rssi = frame_total + 1u;                 // +1 RSSI byte (R3_7_RSSI_BYTE_ENABLE)
-
-    // Clear any latched UART error flags (ORE, NE, PE, FE).
-    // ORE is the critical one: if bytes ever accumulated in the hardware FIFO faster
-    // than they were consumed (e.g. when R1_5 ambient-RSSI was on, adding an extra
-    // byte per packet), the FIFO overflowed, the ORE flag latched, and every
-    // subsequent HAL_UART_Receive() returns HAL_ERROR immediately without reading
-    // anything.  Clearing before every call makes recovery automatic.
-    __HAL_UART_CLEAR_FLAG(e22_cfg.huart,
-                          UART_CLEAR_OREF | UART_CLEAR_NEF |
-                          UART_CLEAR_PEF  | UART_CLEAR_FEF);
+    const uint16_t frame_total     = 9u + expected_payload_len;   // start-sync(2) + hdr(3) + payload + CRC(2) + end-sync(2)
+    const bool rssi_append = (e22_cfg.REG3 & R3_7_RSSI_BYTE_ENABLE) != 0u;
+    const uint16_t total_with_rssi = rssi_append ? frame_total + 1u : frame_total;
 
     /* 300 ms margin: round-trip over RF at 9600 bps air rate is ~160 ms. */
     uint32_t timeout_ms = ((total_with_rssi * 10u * 1000u) / baud) + 300u;

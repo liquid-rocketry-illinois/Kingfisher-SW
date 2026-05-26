@@ -68,7 +68,7 @@
 #define configTICK_RATE_HZ                       ((TickType_t)1000)
 #define configMAX_PRIORITIES                     ( 56 )
 #define configMINIMAL_STACK_SIZE                 ((uint16_t)128)
-#define configTOTAL_HEAP_SIZE                    ((size_t)49152)  /* 48 KB: task stacks alone need ~31 KB (FC_Init/Radio/updateSensor/updateData/CTRLs/Pyro + idle/timer) */
+#define configTOTAL_HEAP_SIZE                    ((size_t)48000)
 #define configMAX_TASK_NAME_LEN                  ( 16 )
 #define configUSE_TRACE_FACILITY                 1
 #define configUSE_16_BIT_TICKS                   0
