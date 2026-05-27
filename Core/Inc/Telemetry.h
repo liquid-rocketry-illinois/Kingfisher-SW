@@ -25,6 +25,11 @@
 #define E22_RECEIVE_ERR         3
 #define E22_BAD_LENGTH          4
 
+// ── RX-window: how long to keep trying after the first byte is detected ───────
+// FC normally transmits continuously; this is the maximum time it spends in the
+// receive path after GND starts a transmission.  A successful decode exits early.
+#define RX_WINDOW_MS            5000u
+
 // ── EXTI flag (set by interrupt, polled by radio task) ────────────────────────
 extern volatile bool e22_data_ready;
 
@@ -104,6 +109,13 @@ class Telemetry {
     uint8_t  tx_buffer[TELEMETRY_MAX_PAYLOAD]{};
     uint8_t  rx_buffer[TELEMETRY_MAX_PAYLOAD]{};
     uint16_t lastSeq = 0;
+
+    // ── RX-window state ────────────────────────────────────────────────────
+    // rx_listening: set when the first incoming byte is detected; cleared on
+    //   a successful decode or when RX_WINDOW_MS has elapsed.
+    // rx_window_start: FreeRTOS tick snapshot taken when the window opens.
+    bool     rx_listening    = false;
+    uint32_t rx_window_start = 0;
 
     // FC → GND data path
     uint8_t sendData(const telemetryData &data);

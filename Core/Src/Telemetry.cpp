@@ -12,7 +12,9 @@ extern GndStationData g_gndData;
 
 Telemetry::Telemetry()
 {
-    lastSeq = 0;
+    lastSeq          = 0;
+    rx_listening     = false;
+    rx_window_start  = 0;
 }
 
 uint8_t Telemetry::Init()
@@ -59,17 +61,64 @@ uint8_t Telemetry::Init()
 }
 
 // ---------------------------------------------------------------------------
-// FC is the slave: receive GND command first, then always send telemetry back.
-// GND transmits before it tries to receive; both sides must agree on this order
-// or they deadlock waiting on each other's RX.
+// FC is the primary transmitter: it broadcasts HALOutData every call.
+// GND listens most of the time and only transmits when a command is needed.
+//
+// RX detection model:
+//   After our own TX completes, e22_rx_pending() checks the AUX pin and UART
+//   RXNE flag.  If either is asserted, GND is transmitting and we open a
+//   5-second (RX_WINDOW_MS) receive window.  Inside the window we attempt to
+//   decode a full GND packet each cycle; a successful decode closes the window
+//   early so the next cycle returns straight to broadcast mode.
+//
+// Return value (rx_status):
+//   0              — valid GND packet decoded this cycle
+//   E22_NO_DATA    — no incoming bytes detected; broadcast-only cycle
+//   E22_RECEIVE_ERR / E22_BAD_LENGTH / positive framing error codes
+//              — inside window but no valid packet yet (caller may log)
 // ---------------------------------------------------------------------------
 uint8_t Telemetry::Update()
 {
+    // ── 1. Always broadcast telemetry ─────────────────────────────────────
+    sendData(HALOutData);
+
+    // ── 2. Probe for incoming data from GND ───────────────────────────────
+    // e22_rx_pending() returns true when:
+    //   • AUX is low  — the E22 is receiving a packet over-the-air and will
+    //                    start clocking bytes onto UART imminently, OR
+    //   • RXNE is set — at least one byte has already arrived in the UART FIFO.
+    if (e22_rx_pending()) {
+        if (!rx_listening) {
+            // First byte detected — open the RX window.
+            rx_listening    = true;
+            rx_window_start = xTaskGetTickCount();
+        }
+    }
+
+    if (!rx_listening)
+        return E22_NO_DATA;     // nothing incoming; fast path back to broadcast
+
+    // ── 3. Attempt to receive and decode one complete GND frame ───────────
     uint8_t rx_status = receiveCommands(GNDOutData);
 
-    // Always send telemetry back.
-    // GND has already transmitted and is waiting on our response.
-    sendData(HALOutData);
+    if (rx_status == 0) {
+        // Good packet — close the window; next cycle is broadcast-only again.
+        rx_listening = false;
+        return 0;
+    }
+
+    // ── 4. Check whether the 5-second window has expired ─────────────────
+    // portTICK_PERIOD_MS = 1000 / configTICK_RATE_HZ  (typically 1 ms/tick).
+    uint32_t elapsed_ms = (xTaskGetTickCount() - rx_window_start)
+                          * portTICK_PERIOD_MS;
+
+    if (elapsed_ms >= RX_WINDOW_MS) {
+        // Timed out without a valid packet — return to broadcast-only mode.
+        rx_listening = false;
+    }
+
+    // Return whatever error the last receive attempt produced so the caller
+    // can log or count consecutive failures if desired.
     return rx_status;
 }
 
@@ -100,6 +149,7 @@ uint8_t Telemetry::encodeAndSend(const T &payload)
     tx_buffer[1] = GND_RADIO_ADDRLOW;
     tx_buffer[2] = CH915;
 
+    // What is actually transmitted
     tx_buffer[3] = TELEMETRY_SYNC1;
     tx_buffer[4] = TELEMETRY_SYNC2;
     tx_buffer[5] = payload_len;
@@ -145,14 +195,11 @@ uint8_t Telemetry::encodeAndSend(const T &payload)
 template<typename T>
 int8_t Telemetry::decodeData(T &payload, uint16_t buf_len)
 {
-    // Minimum frame: 5-byte header + 0 payload + 2-byte CRC + 2-byte end sync = 9 bytes
-    if (buf_len < 9u) return -1;
+    if (buf_len < 7u) return -1; // too short to contain any valid frame
+    // buf_len >= 7 here, so buf_len - 1u >= 6u — no underflow risk.
 
-    const uint16_t search_end = buf_len - 1u;
-
-    // Locate start sync pair (SYNC1 followed by SYNC2)
     int16_t sync_idx = -1;
-    for(int16_t i = 0; i < static_cast<int16_t>(search_end); i++)
+    for(int16_t i = 0; i < buf_len; i++)
     {
         if(rx_buffer[i] == TELEMETRY_SYNC1 && rx_buffer[i + 1] == TELEMETRY_SYNC2)
         {
@@ -162,25 +209,23 @@ int8_t Telemetry::decodeData(T &payload, uint16_t buf_len)
     }
 
     if(sync_idx == -1)
-        return -1;  // start sync bytes not found
+        return -1;  // sync bytes not found in received data
 
+    // Enough bytes after sync for the full 5-byte header?
+    // [SYNC1][SYNC2][len][seq_lo][seq_hi] = 5 bytes before payload starts.
     if((uint16_t)(sync_idx + 5) >= buf_len)
-        return -2;  // not enough bytes for the 5-byte header after sync
+        return -2;
 
     uint8_t payload_len = rx_buffer[sync_idx + 2];
 
     if(payload_len != sizeof(T))
         return -3;  // length mismatch — wrong packet type or struct size skew
 
-    // Full packet (5-byte header + payload + 2-byte CRC + 2-byte end sync) must fit.
-    if((uint16_t)(sync_idx + 9 + payload_len) > buf_len)
-        return -4;  // truncated — not all bytes arrived
-
-    // Validate end sync bytes at their deterministic positions.
-    // End sync is SYNC2 then SYNC1; SYNC1 is the final byte of the packet.
-    if(rx_buffer[sync_idx + 7 + payload_len] != TELEMETRY_SYNC2 ||
-       rx_buffer[sync_idx + 8 + payload_len] != TELEMETRY_SYNC1)
-        return -6;  // end sync bytes missing or mismatched
+    // Full packet (header + payload + CRC + trailing sync pair) must fit inside received bytes.
+    // Layout after sync_idx: [S1][S2][len][seq_lo][seq_hi][payload x N][CRC_lo][CRC_hi][S2][S1]
+    //                          0   1   2    3       4       5..4+N      5+N     6+N     7+N  8+N
+    if((uint16_t)(sync_idx + 5 + payload_len + 4) > buf_len)
+        return -4;
 
     uint16_t seq_rx = rx_buffer[sync_idx + 3] | (rx_buffer[sync_idx + 4] << 8);
 
@@ -191,7 +236,12 @@ int8_t Telemetry::decodeData(T &payload, uint16_t buf_len)
     uint16_t crc_calc = Checksum(&rx_buffer[sync_idx], 5 + payload_len);
 
     if(crc_rx != crc_calc)
-        return -5;  // corrupt frame — discard
+        return -5;
+
+    // Verify trailing sync bytes (mirror of header: SYNC2 then SYNC1)
+    if(rx_buffer[sync_idx + 7 + payload_len] != TELEMETRY_SYNC2 ||
+       rx_buffer[sync_idx + 8 + payload_len] != TELEMETRY_SYNC1)
+        return -6;  // trailing sync mismatch — frame boundary corrupted
 
     memcpy(&payload, &rx_buffer[sync_idx + 5], sizeof(T));
 
@@ -242,26 +292,50 @@ uint8_t Telemetry::receiveCommands(GndStationData &gnd)
 
 // ---------------------------------------------------------------------------
 // Command handler — byte values must match GND's RADIO_DEFNS.h exactly.
+//
+// Default behaviour: echo the received command byte back in CommandResponseByte
+// so GND always gets positive confirmation that HAL received its instruction.
+// CommandResponseByte is only written here; no other path touches it, so the
+// echo-then-override pattern below is the single source of truth.
+//
+// Exception — HANDSHAKE (0xA1): GND expects the dedicated ACK byte 0xB2, not
+// a mirror of its own request byte, so that one case overrides the default.
 // ---------------------------------------------------------------------------
 void Telemetry::processCmd(uint8_t cmd)
 {
+    // Echo by default — GND inspects this field to confirm delivery.
+    HALOutData.CommandResponseByte = cmd;
+
     switch (cmd) {
-        case SHUTDOWN_KEEPALIVE:      // 217 — BYTE_ABORT on GND
+        case SHUTDOWN_KEEPALIVE:          // 217  — BYTE_ABORT
             shutdownFlag    = true;
-            g_ctrls_enabled = false;  // zero servo outputs immediately on abort
+            g_ctrls_enabled = false;      // zero servo outputs immediately
             break;
 
-        case HANDSHAKE_GND_BYTE:      // 0xA1 — BYTE_HANDSHAKE on GND
+        case HANDSHAKE_GND_BYTE:          // 0xA1 — BYTE_HANDSHAKE
+            // Override echo: reply with the dedicated ACK byte so GND can
+            // distinguish a handshake response from its own request byte.
             HALOutData.CommandResponseByte = HANDSHAKE_FC_BYTE;  // 0xB2
             break;
 
-        case BYTE_DEFLECT_TEST:       // 150 — servo deflection test, enable controls output
+        case BYTE_DEFLECT_TEST:           // 150  — BYTE_DEFLECT_TEST
             g_ctrls_enabled = true;
             break;
 
+        case REQUEST_DATA_BYTE:           // 0xC3 — BYTE_REQUEST_DATA
+            // FC always sends telemetry; no extra action beyond the echo.
+            break;
+
+        case SERVO_OFFSET_CMD_BYTE:       // 0xD4 — BYTE_SERVO_TARE
+            // Servo offsets already propagated in receiveCommands();
+            // the echo confirms receipt to GND.
+            break;
+
+        case 0:                           // BYTE_NO_CMD — idle / no-op
+            HALOutData.CommandResponseByte = 0;
+            break;
+
         default:
-            // SERVO_OFFSET_CMD_BYTE (0xD4): offsets already applied in receiveCommands().
-            // BYTE_NO_CMD (0), BYTE_REQUEST_DATA (0xC3): no side effects needed.
             break;
     }
 }

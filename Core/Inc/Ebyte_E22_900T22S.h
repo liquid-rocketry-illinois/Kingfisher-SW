@@ -29,6 +29,12 @@ int16_t recieve_e22_900t22s(uint8_t *buffer, uint16_t expected_payload_len);
 inline volatile bool e22_data_ready = false;
 bool e22_available(void);
 
+// Returns true when the E22 is actively outputting a received packet onto UART
+// (AUX low) OR at least one byte has already arrived in the UART FIFO.
+// Use this in Telemetry::Update() to detect incoming GND transmissions without
+// blocking on a blind HAL_UART_Receive() call.
+bool e22_rx_pending(void);
+
 // Last RSSI byte appended by module when R3_7_RSSI_BYTE_ENABLE is set.
 // Raw value from module; actual signal strength = -(256 - raw)/2 dBm (see E22 datasheet).
 uint8_t get_rssi_e22_900t22s(void);

@@ -407,6 +407,22 @@ bool e22_available()
     return false;
 }
 
+// ---------------------------------------------------------------------------
+// Returns true if the E22 is currently clocking a received packet out onto
+// UART (AUX low) OR if at least one byte has already landed in the UART RX
+// register/FIFO.  Used by Telemetry::Update() so the FC only enters the
+// blocking receive path when GND is actually transmitting something, keeping
+// the normal FC→GND broadcast loop tight and non-blocking.
+//
+// On STM32H7, UART_FLAG_RXNE maps to USART_ISR_RXNE_RXFNE and covers both
+// the non-FIFO and FIFO-enabled cases.
+// ---------------------------------------------------------------------------
+bool e22_rx_pending(void)
+{
+    return !auxHigh() ||
+           __HAL_UART_GET_FLAG(e22_cfg.huart, UART_FLAG_RXNE);
+}
+
 uint8_t get_rssi_e22_900t22s(void)
 {
     return last_rssi;
@@ -431,32 +447,17 @@ uint8_t get_rssi_e22_900t22s(void)
  */
 int16_t recieve_e22_900t22s(uint8_t *buffer, uint16_t expected_payload_len)
 {
-    const uint32_t baud            = e22_cfg.huart->Init.BaudRate;
-    const uint16_t frame_total     = 9u + expected_payload_len;   // start-sync(2) + hdr(3) + payload + CRC(2) + end-sync(2)
-    const bool rssi_append = (e22_cfg.REG3 & R3_7_RSSI_BYTE_ENABLE) != 0u;
-    const uint16_t total_with_rssi = rssi_append ? frame_total + 1u : frame_total;
+    const uint16_t total    = 5u + expected_payload_len + 2u;   // hdr + payload + CRC
 
-    /* 300 ms margin: round-trip over RF at 9600 bps air rate is ~160 ms. */
-    uint32_t timeout_ms = ((total_with_rssi * 10u * 1000u) / baud) + 300u;
+    int8_t s = uartRead(buffer, total);
 
-    HAL_StatusTypeDef s = HAL_UART_Receive(e22_cfg.huart, buffer, total_with_rssi, timeout_ms);
+    if (s == E22_OK)
+        return (int16_t)total;
 
-    if (s == HAL_OK) {
-        last_rssi = buffer[frame_total];    // RSSI byte appended by E22 after CRC
-        return (int16_t)frame_total;
-    }
-
-    if (s == HAL_TIMEOUT) {
-        uint16_t received = total_with_rssi - e22_cfg.huart->RxXferCount;
-        if (received >= total_with_rssi)
-            last_rssi = buffer[frame_total];
-        if (received < 7u)
-            return -2;
-        return (int16_t)(received > frame_total ? frame_total : received);
-    }
-
-    /* HAL_ERROR or HAL_BUSY */
-    return -1;
+    uint16_t received = total - e22_cfg.huart->RxXferCount;
+    if (received < 7u)
+        return -2;   // not enough bytes for any valid packet
+    return (int16_t)received;
 }
 
 /* ================= ADDRESS ================= */
