@@ -100,6 +100,7 @@ uint8_t Telemetry::Update()
 
     // ── 3. Attempt to receive and decode one complete GND frame ───────────
     uint8_t rx_status = receiveCommands(GNDOutData);
+    HALOutData.RSSI = get_rssi_e22_900t22s(); // RSSI from telem
 
     if (rx_status == 0) {
         // Good packet — close the window; next cycle is broadcast-only again.
@@ -273,8 +274,6 @@ uint8_t Telemetry::receiveCommands(GndStationData &gnd)
 
     int8_t status = decodeData(gnd, (uint16_t)len);
     if(status != 0) return static_cast<uint8_t>(-status);  // positive non-zero error code
-
-    HALOutData.RSSI = get_rssi_e22_900t22s();
 
     // Propagate servo offsets to g_gndData so the CTRLs task can apply them.
     // The CTRLs task reads g_gndData under g_ctrls_sensor_mutex; acquire it here

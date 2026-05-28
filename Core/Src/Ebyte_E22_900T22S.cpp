@@ -205,7 +205,7 @@ static int8_t uartWrite(uint8_t *data, uint16_t len)
         &huart8,// e22_cfg.huart,
         data,
         len,
-        5000) != HAL_OK)
+        1000) != HAL_OK)
         return E22_ERR_UART;
 
     return E22_OK;
@@ -217,7 +217,7 @@ static int8_t uartRead(uint8_t *data, uint16_t len)
         &huart8, // e22_cfg.huart,
         data,
         len,
-        5000); // Make a generous amount of time
+        1000);
 
     while (!auxHigh()) { vTaskDelay(pdMS_TO_TICKS(1)); } // wait for read to finish in case
     if(status != HAL_OK) return E22_ERR_UART;
@@ -423,9 +423,40 @@ bool e22_rx_pending(void)
            __HAL_UART_GET_FLAG(e22_cfg.huart, UART_FLAG_RXNE);
 }
 
-uint8_t get_rssi_e22_900t22s(void)
+int8_t get_rssi_e22_900t22s(void)
 {
-    return last_rssi;
+    // only callable in trans or WOR mode
+    if ((HAL_GPIO_ReadPin(M0_Radio_GPIO_Port, M0_Radio_Pin) == GPIO_PIN_RESET &&
+        HAL_GPIO_ReadPin(M1_Radio_GPIO_Port, M1_Radio_Pin) == GPIO_PIN_RESET) ||
+        (HAL_GPIO_ReadPin(M0_Radio_GPIO_Port, M0_Radio_Pin) == GPIO_PIN_SET &&
+        HAL_GPIO_ReadPin(M1_Radio_GPIO_Port, M1_Radio_Pin) == GPIO_PIN_RESET))
+    {
+        static uint8_t RSSISend[6] = {0xC0, 0xC1, 0xC2, 0xC3, 0x00, 0x01};
+        uint8_t RSSIReceive[5] = {};
+
+        // Flush any stale bytes (preamble zeros, prior echo leftovers) before read
+        __HAL_UART_FLUSH_DRREGISTER(e22_cfg.huart);
+
+        waitAux_e22_900t22s(200);
+        uartWrite(RSSISend, 6);
+        uartRead(RSSIReceive, 5);
+
+        // all bytes OK
+        for (int i=0; i<2; i++) {
+            if (RSSIReceive[i] == 0xC1 && RSSIReceive[i+1] == 0x00 && RSSIReceive[i+2] == 0x01)
+            {
+                // byte 3 is the current RSSI which doesn't have purpose for the FC. We want
+                // the RSSI of the signal
+                last_rssi = RSSIReceive[4];
+                return static_cast<int8_t>((last_rssi) / -2);
+            }
+        }
+
+        return 0;
+    }
+
+    // Wrong mode
+    return -1;
 }
 
 /*

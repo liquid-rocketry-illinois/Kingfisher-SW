@@ -37,7 +37,7 @@ bool e22_rx_pending(void);
 
 // Last RSSI byte appended by module when R3_7_RSSI_BYTE_ENABLE is set.
 // Raw value from module; actual signal strength = -(256 - raw)/2 dBm (see E22 datasheet).
-uint8_t get_rssi_e22_900t22s(void);
+int8_t get_rssi_e22_900t22s(void);
 
 // Switch from trans, WOR, config, and off modes
 void changeMode(EBYTE_MODE mode);
