@@ -105,7 +105,7 @@ void MX_FREERTOS_Init(void) {
 
   // ── Radio (telemetry TX/RX + command processing) ──────────────────────────────
   static const osThreadAttr_t radioTask_attr = {
-    .name = "Radio", .stack_size = 4096, .priority = osPriorityAboveNormal,
+    .name = "Radio", .stack_size = 4096, .priority = osPriorityRealtime,
   };
   osThreadNew(Radio, NULL, &radioTask_attr);
 
