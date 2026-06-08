@@ -9,6 +9,7 @@
 #include "Servo_Axon_Mini_MKII.h"
 #include "IMUs.h"
 #include "Barometer.h"
+#include "LIS2MDL.h"
 #include "Telemetry.h"
 #include "MAXM10S.h"
 
@@ -55,26 +56,16 @@ typedef struct {
 } ServoAngles;
 
 class Sensors {
-private:
-    // sensor declarations
     IMUs IMU;
     Baro_Unified Baro;
     MAXM10S GPS;
     Servo_Axon_Mini_MKII Servos;
+    Magnetometer mag;
 
 public:
     Sensors();
     int8_t Init();
     int8_t Update();
 };
-
-/*
-TODO: task UpdateSensors()
-    init BMI, BMP, IMU with TMR on and the GPS
-TODO: task UpdateData()
-*/
-
-// instead of while(1) use while(bool ex. initDone) and check initDone after each init run to ensure
-// we don't move on to Update() while Init() hasn't finished yet
 
 #endif //KINGFISHER_SW_FLIGHTCOMPUTER_H

@@ -12,9 +12,9 @@ extern GndStationData g_gndData;
 
 Telemetry::Telemetry()
 {
-    lastSeq          = 0;
-    rx_listening     = false;
-    rx_window_start  = 0;
+    lastSeq         = 0;
+    tx_burst_count  = 0;
+    lastRxGood      = false;
 }
 
 uint8_t Telemetry::Init()
@@ -61,65 +61,36 @@ uint8_t Telemetry::Init()
 }
 
 // ---------------------------------------------------------------------------
-// FC is the primary transmitter: it broadcasts HALOutData every call.
-// GND listens most of the time and only transmits when a command is needed.
+// FC and GND alternate on a fixed cadence: FC sends TX_BURST_SIZE packets,
+// then listens for exactly one packet from GND, then repeats.  GND mirrors
+// this: it receives TX_BURST_SIZE packets, then sends one.
 //
-// RX detection model:
-//   After our own TX completes, e22_rx_pending() checks the AUX pin and UART
-//   RXNE flag.  If either is asserted, GND is transmitting and we open a
-//   5-second (RX_WINDOW_MS) receive window.  Inside the window we attempt to
-//   decode a full GND packet each cycle; a successful decode closes the window
-//   early so the next cycle returns straight to broadcast mode.
+// Return value:
+//   0              — RX cycle: valid GND packet decoded
+//   E22_NO_DATA    — TX cycle: packet sent, no receive attempted
+//   E22_RECEIVE_ERR / E22_BAD_LENGTH / positive framing codes
+//                  — RX cycle: receive or decode failed
 //
-// Return value (rx_status):
-//   0              — valid GND packet decoded this cycle
-//   E22_NO_DATA    — no incoming bytes detected; broadcast-only cycle
-//   E22_RECEIVE_ERR / E22_BAD_LENGTH / positive framing error codes
-//              — inside window but no valid packet yet (caller may log)
+// Check lastRxGood after each call to see whether the last RX cycle
+// successfully decoded a GND packet.
 // ---------------------------------------------------------------------------
 uint8_t Telemetry::Update()
 {
-    // ── 1. Always broadcast telemetry ─────────────────────────────────────
-    sendData(HALOutData);
-
-    // ── 2. Probe for incoming data from GND ───────────────────────────────
-    // e22_rx_pending() returns true when:
-    //   • AUX is low  — the E22 is receiving a packet over-the-air and will
-    //                    start clocking bytes onto UART imminently, OR
-    //   • RXNE is set — at least one byte has already arrived in the UART FIFO.
-    if (e22_rx_pending()) {
-        if (!rx_listening) {
-            // First byte detected — open the RX window.
-            rx_listening    = true;
-            rx_window_start = xTaskGetTickCount();
-        }
+    // ── TX phase ──────────────────────────────────────────────────────────
+    if (tx_burst_count < TX_BURST_SIZE) {
+        sendData(HALOutData);
+        tx_burst_count++;
+        lastRxGood = false;
+        return E22_NO_DATA;
     }
 
-    if (!rx_listening)
-        return E22_NO_DATA;     // nothing incoming; fast path back to broadcast
+    // ── RX phase (one cycle after TX_BURST_SIZE sends) ────────────────────
+    tx_burst_count = 0;  // reset for the next burst regardless of outcome
 
-    // ── 3. Attempt to receive and decode one complete GND frame ───────────
     uint8_t rx_status = receiveCommands(GNDOutData);
-    HALOutData.RSSI = get_rssi_e22_900t22s(); // RSSI from telem
+    HALOutData.RSSI = get_rssi_e22_900t22s();
 
-    if (rx_status == 0) {
-        // Good packet — close the window; next cycle is broadcast-only again.
-        rx_listening = false;
-        return 0;
-    }
-
-    // ── 4. Check whether the 5-second window has expired ─────────────────
-    // portTICK_PERIOD_MS = 1000 / configTICK_RATE_HZ  (typically 1 ms/tick).
-    uint32_t elapsed_ms = (xTaskGetTickCount() - rx_window_start)
-                          * portTICK_PERIOD_MS;
-
-    if (elapsed_ms >= RX_WINDOW_MS) {
-        // Timed out without a valid packet — return to broadcast-only mode.
-        rx_listening = false;
-    }
-
-    // Return whatever error the last receive attempt produced so the caller
-    // can log or count consecutive failures if desired.
+    lastRxGood = (rx_status == 0);
     return rx_status;
 }
 

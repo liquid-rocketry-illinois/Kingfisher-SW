@@ -12,55 +12,66 @@ float g_dt = 0.0f;
 
 void DataUpdate::ComputeDt()
 {
-    static uint32_t lastMicros = 0;
-    uint32_t now = micros();
-    g_dt = (lastMicros == 0) ? 0.0f : static_cast<float>(now - lastMicros) * 1e-6f;
-    lastMicros = now;
+    // Use raw DWT cycle counts rather than micros().
+    //
+    // micros() = DWT->CYCCNT / us_f, which wraps at (2^32 / us_f) ≈ 8.95 s
+    // at 480 MHz — not at 2^32.  Subtracting two values that wrap at a
+    // non-power-of-two boundary with uint32 arithmetic gives a spurious
+    // ~4286 s spike every ~8.95 s, which caused the Madgwick integrator to
+    // apply a massive rotation step and produce the periodic quaternion jumps.
+    //
+    // DWT->CYCCNT wraps at exactly 2^32 cycles, so uint32 subtraction is
+    // always correct.  We convert to seconds only after the subtraction.
+    static uint32_t lastCycles = 0;
+    const uint32_t now = DWT->CYCCNT;
+    if (lastCycles == 0) {
+        g_dt = 0.0f;
+    } else {
+        const uint32_t elapsed = now - lastCycles;   // correct across 2^32 rollover
+        g_dt = static_cast<float>(elapsed) /
+               static_cast<float>(HAL_RCC_GetHCLKFreq());
+    }
+    lastCycles = now;
 }
 
-void DataUpdate::FuseQuat(Quaternion* QObj)
+void DataUpdate::FuseAttitude(stateestimation::AttitudeEstimator* est)
 {
-    // Drive the filter at the actual measured dt so integration is accurate.
-    // Falls back to 1 kHz on the first call (g_dt == 0) before ComputeDt has run.
-    if (g_dt > 0.0f)
-        QObj->sampleFreq = 1.0f / g_dt;
+    if (g_dt <= 0.0f) return;
 
-    static constexpr float DEG_TO_RAD = 3.14159265358979323846f / 180.0f;
+    static constexpr double DEG_TO_RAD = 3.14159265358979323846 / 180.0;
+    static constexpr double RAD_TO_DEG = 180.0 / 3.14159265358979323846;
 
-    Vector3D<float> a = Vector3D(g_telemNow.mAccX, g_telemNow.mAccY, g_telemNow.mAccZ);
-    // g_telemNow gyro is in deg/s (raw from BMI); Madgwick integrates in rad/s.
-    Vector3D<float> w = Vector3D(g_telemNow.mGyrX * DEG_TO_RAD,
-                                  g_telemNow.mGyrY * DEG_TO_RAD,
-                                  g_telemNow.mGyrZ * DEG_TO_RAD);
-    MATHEMATICS::Quaternion_Madgwick(QObj, a, w);
-    g_telemNow.Qw = QObj->q.w;
-    g_telemNow.Qx = QObj->q.x;
-    g_telemNow.Qy = QObj->q.y;
-    g_telemNow.Qz = QObj->q.z;
-}
+    // FlightComputer_SENSORS already remapped BMI axes so that:
+    //   mAccX / mGyrX  = BMI.x  (lateral 1)
+    //   mAccY / mGyrY  = BMI.z  (lateral 2)
+    //   mAccZ / mGyrZ  = BMI.y  (rocket longitudinal axis, pointing up)
+    // Pass these directly: no second remap. The estimator's Z axis = rocket-up.
+    const double gx = g_telemNow.mGyrX * DEG_TO_RAD;
+    const double gy = g_telemNow.mGyrY * DEG_TO_RAD;
+    const double gz = g_telemNow.mGyrZ * DEG_TO_RAD;
+    const double ax = g_telemNow.mAccX;
+    const double ay = g_telemNow.mAccY;
+    const double az = g_telemNow.mAccZ;
 
-// Returns yaw, pitch, roll, all in degrees
-void DataUpdate::QuatToYPR(Q* quaternionIn)
-{
-    float w = quaternionIn->w;
-    float x = quaternionIn->x;
-    float y = quaternionIn->y;
-    float z = quaternionIn->z;
+    est->update(static_cast<double>(g_dt),
+                gx, gy, gz,
+                ax, ay, az,
+                0.0, 0.0, 0.0);   // no magnetometer
 
-    // Clamp the asinf argument to [-1, 1] to prevent NaN from floating-point
-    // rounding on a near-unit quaternion (would poison all three outputs).
-    float sinp = 2.0f * (w*y - z*x);
-    if (sinp >  1.0f) sinp =  1.0f;
-    if (sinp < -1.0f) sinp = -1.0f;
+    double q[4];
+    est->getAttitude(q);  // q[0]=w, q[1]=x, q[2]=y, q[3]=z
+    g_telemNow.Qw = static_cast<float>(q[0]);
+    g_telemNow.Qx = static_cast<float>(q[1]);
+    g_telemNow.Qy = static_cast<float>(q[2]);
+    g_telemNow.Qz = static_cast<float>(q[3]);
 
-    float roll  = atan2f(2.0f * (w*x + y*z), 1.0f - 2.0f * (x*x + y*y));
-    float pitch = asinf(sinp);
-    float yaw   = atan2f(2.0f * (w*z + x*y), 1.0f - 2.0f * (y*y + z*z));
-
-    Vector3D<float> deg = Vector3D(yaw, pitch, roll) * (180.0f / static_cast<float>(M_PI));
-    g_telemNow.yaw      = roundf(deg.x * 100.0f) / 100.0f;
-    g_telemNow.pitch    = roundf(deg.y * 100.0f) / 100.0f;
-    g_telemNow.roll     = roundf(deg.z * 100.0f) / 100.0f;
+    // ZYX Euler convention with Z = rocket longitudinal axis:
+    //   eulerYaw()   = rotation about Z = spin about rocket axis  → physical roll
+    //   eulerPitch() = rotation about Y = lateral tilt            → physical yaw
+    //   eulerRoll()  = rotation about X = lateral tilt            → physical pitch
+    g_telemNow.roll  = static_cast<float>(est->eulerYaw()   * RAD_TO_DEG);
+    g_telemNow.yaw   = static_cast<float>(est->eulerPitch() * RAD_TO_DEG);
+    g_telemNow.pitch = static_cast<float>(est->eulerRoll()  * RAD_TO_DEG);
 }
 
 float DataUpdate::getVerticalVelocity()

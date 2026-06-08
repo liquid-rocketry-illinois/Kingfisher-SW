@@ -25,10 +25,10 @@
 #define E22_RECEIVE_ERR         3
 #define E22_BAD_LENGTH          4
 
-// ── RX-window: how long to keep trying after the first byte is detected ───────
-// FC normally transmits continuously; this is the maximum time it spends in the
-// receive path after GND starts a transmission.  A successful decode exits early.
-#define RX_WINDOW_MS            5000u
+// ── TX burst size ─────────────────────────────────────────────────────────────
+// FC sends this many telemetry packets, then switches to one receive cycle.
+// Must match GND's receive-N-then-send-1 count exactly.
+#define TX_BURST_SIZE           5u
 
 // ── EXTI flag (set by interrupt, polled by radio task) ────────────────────────
 extern volatile bool e22_data_ready;
@@ -98,7 +98,8 @@ inline bool operator==(const telemetryData& a, const telemetryData& b) {
 inline bool operator!=(const telemetryData& a, const telemetryData& b) { return !(a == b); }
 
 // ── Telemetry class ─────────────────────────────────────────────────────────────
-// FC is the slave: receive GND command first, then always reply with telemetry.
+// FC alternates: TX_BURST_SIZE send cycles, then one receive cycle.
+// GND mirrors this: it receives TX_BURST_SIZE packets, then sends one.
 class Telemetry {
 
     config_e22_900t22s des_cfg = {};
@@ -107,12 +108,11 @@ class Telemetry {
     uint8_t  rx_buffer[TELEMETRY_MAX_PAYLOAD]{};
     uint16_t lastSeq = 0;
 
-    // ── RX-window state ────────────────────────────────────────────────────
-    // rx_listening: set when the first incoming byte is detected; cleared on
-    //   a successful decode or when RX_WINDOW_MS has elapsed.
-    // rx_window_start: FreeRTOS tick snapshot taken when the window opens.
-    bool     rx_listening    = false;
-    uint32_t rx_window_start = 0;
+    // ── Burst-counter state ────────────────────────────────────────────────
+    // Counts TX cycles in the current burst (0 … TX_BURST_SIZE-1).
+    // When it reaches TX_BURST_SIZE the next Update() call is an RX cycle,
+    // after which the counter resets to 0 for the next burst.
+    uint8_t  tx_burst_count = 0;
 
     // FC → GND data path
     uint8_t sendData(const telemetryData &data);
@@ -144,6 +144,10 @@ public:
     GndStationData GNDOutData = {};
 
     bool shutdownFlag = false;
+
+    // Set to true after a successful GND packet decode; false on TX cycles and
+    // failed RX cycles.  Caller can poll this to detect incoming data.
+    bool lastRxGood = false;
 };
 
 #endif // KINGFISHER_SW_TELEMETRY_H

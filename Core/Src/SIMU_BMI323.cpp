@@ -65,17 +65,22 @@ int SIMU_BMI323::Init(BMI_INDEX DeviceNum)
         return 4;
     }
 
-    config[0].cfg.acc.odr = BMI3_ACC_ODR_50HZ;
-    config[0].cfg.acc.range = BMI3_ACC_RANGE_16G;
-    config[0].cfg.acc.bwp = BMI3_ACC_BW_ODR_QUARTER;
-    config[0].cfg.acc.avg_num = BMI3_ACC_AVG64;
+    // 200 Hz ODR: matches the CTRLs task rate and gives fresh data every 5 ms.
+    // AVG64 on accel: hardware averages 64 internal samples, yielding a
+    // noise-reduced output; effective anti-aliasing bandwidth = ODR/4 = 50 Hz,
+    // which keeps the 30 Hz digital cutoff well within the passband.
+    // Gyro AVG1: no averaging for lowest latency; hardware BW = ODR/2 = 100 Hz.
+    config[0].cfg.acc.odr      = BMI3_ACC_ODR_200HZ;
+    config[0].cfg.acc.range    = BMI3_ACC_RANGE_16G;
+    config[0].cfg.acc.bwp      = BMI3_ACC_BW_ODR_QUARTER;
+    config[0].cfg.acc.avg_num  = BMI3_ACC_AVG64;
     config[0].cfg.acc.acc_mode = BMI3_ACC_MODE_NORMAL;
 
-    config[1].cfg.gyr.odr = BMI3_GYR_ODR_50HZ;
-    config[1].cfg.gyr.range = BMI3_GYR_RANGE_2000DPS;
-    config[1].cfg.gyr.bwp = BMI3_GYR_BW_ODR_HALF;
+    config[1].cfg.gyr.odr      = BMI3_GYR_ODR_200HZ;
+    config[1].cfg.gyr.range    = BMI3_GYR_RANGE_2000DPS;
+    config[1].cfg.gyr.bwp      = BMI3_GYR_BW_ODR_HALF;
     config[1].cfg.gyr.gyr_mode = BMI3_GYR_MODE_NORMAL;
-    config[1].cfg.gyr.avg_num = BMI3_GYR_AVG1;
+    config[1].cfg.gyr.avg_num  = BMI3_GYR_AVG1;
 
     if (bmi323_set_sensor_config(config, 2, &device) != BMI3_OK)
         return 5;
@@ -93,56 +98,41 @@ int SIMU_BMI323::Update()
         return -999;
     }
 
-    uint16_t limit = 0;
-    bmi3_sensor_data sensor_data[3] = {0};
     uint16_t int_status = 0;
-    float temperature_value; // use temp for sense calibration
 
-    uint8_t indx = 0;
-    float acc_x = 0, acc_y = 0, acc_z = 0;
-    float gyr_x = 0, gyr_y = 0, gyr_z = 0;
+    rslt = bmi323_get_int1_status(&int_status, &device);
+    if (rslt != BMI3_OK)
+        return rslt;
 
-    /* Select accel and gyro sensor. */
+    // ODR is 200 Hz (new data every 5 ms); sensor task polls every 2 ms.
+    // Return early on calls where data isn't ready yet rather than
+    // spinning and blocking the FreeRTOS scheduler.
+    if (!((int_status & BMI3_INT_STATUS_ACC_DRDY) &&
+          (int_status & BMI3_INT_STATUS_GYR_DRDY)  &&
+          (int_status & BMI3_INT_STATUS_TEMP_DRDY)))
+    {
+        return BMI3_OK;
+    }
+
+    bmi3_sensor_data sensor_data[3] = {};
     sensor_data[0].type = BMI323_ACCEL;
     sensor_data[1].type = BMI323_GYRO;
     sensor_data[2].type = BMI323_TEMP;
 
-    while (indx <= limit)
-    {
-        /* To get the status of accel data ready interrupt. */
-        rslt = bmi323_get_int1_status(&int_status, &device);
+    rslt = bmi323_get_sensor_data(sensor_data, 3, &device);
+    if (rslt != BMI3_OK)
+        return rslt;
 
-        if ((int_status & BMI3_INT_STATUS_ACC_DRDY) && (int_status & BMI3_INT_STATUS_GYR_DRDY) &&
-            (int_status & BMI3_INT_STATUS_TEMP_DRDY))
-        {
-            /* Get accelerometer data for x, y and z axis. */
-            rslt = bmi323_get_sensor_data(sensor_data, 3, &device);
+    _raw.accel_linear.x = lsb_to_g(sensor_data[0].sens_data.acc.x, 16.0f, device.resolution);
+    _raw.accel_linear.y = lsb_to_g(sensor_data[0].sens_data.acc.y, 16.0f, device.resolution);
+    _raw.accel_linear.z = lsb_to_g(sensor_data[0].sens_data.acc.z, 16.0f, device.resolution);
 
-            /* Converting lsb to gravity for 16 bit accelerometer at 16G range. */
-            acc_x = lsb_to_g(sensor_data[0].sens_data.acc.x, 16.0f, device.resolution);
-            acc_y = lsb_to_g(sensor_data[0].sens_data.acc.y, 16.0f, device.resolution);
-            acc_z = lsb_to_g(sensor_data[0].sens_data.acc.z, 16.0f, device.resolution);
+    _raw.ang_vel.x = lsb_to_dps(sensor_data[1].sens_data.gyr.x, 2000.0f, device.resolution);
+    _raw.ang_vel.y = lsb_to_dps(sensor_data[1].sens_data.gyr.y, 2000.0f, device.resolution);
+    _raw.ang_vel.z = lsb_to_dps(sensor_data[1].sens_data.gyr.z, 2000.0f, device.resolution);
 
-            /* Converting lsb to degree per second for 16 bit gyro at 2000dps range. */
-            gyr_x = lsb_to_dps(sensor_data[1].sens_data.gyr.x, (float)2000, device.resolution);
-            gyr_y = lsb_to_dps(sensor_data[1].sens_data.gyr.y, (float)2000, device.resolution);
-            gyr_z = lsb_to_dps(sensor_data[1].sens_data.gyr.z, (float)2000, device.resolution);
-
-            temperature_value =
-                (float)((((float)((int16_t)sensor_data[2].sens_data.temp.temp_data)) / 512.0) + 23.0);
-
-            indx++;
-        }
-    }
-
-    _raw.accel_linear.x = acc_x;
-    _raw.accel_linear.y = acc_y;
-    _raw.accel_linear.z = acc_z;
-    _raw.ang_vel.x = gyr_x;
-    _raw.ang_vel.y = gyr_y;
-    _raw.ang_vel.z = gyr_z;
-
-    float tempForDBG = temperature_value;
+    float tempForDBG =
+        (float)(((float)((int16_t)sensor_data[2].sens_data.temp.temp_data) / 512.0f) + 23.0f);
 
     return rslt;
 }

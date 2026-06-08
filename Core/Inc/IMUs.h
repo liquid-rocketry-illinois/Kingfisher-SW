@@ -9,6 +9,7 @@
 #include "IMU_ISM6HGx.h"
 #include "Math/Vector3TripleModRedundancy.h"
 
+
 struct IMUsStatus {
     int8_t A = 0;
     int8_t B = 0;
@@ -34,9 +35,6 @@ class   IMUs {
     IMUsStatus sensorStatus;
 
     bool TMR_STATE = false;
-
-    Quaternion Quaternion_BMI;
-    Quaternion Quaternion_ISM;
 
     ISM_Data Data_ISM;
 

@@ -73,16 +73,6 @@ float ControlLaw::computeControl(float t, const StateVec& xhat, float T_K) {
     if (u_cmd >  cfg_.max_deflection_rad) u_cmd =  cfg_.max_deflection_rad;
     if (u_cmd < -cfg_.max_deflection_rad) u_cmd = -cfg_.max_deflection_rad;
 
-    // IREC compliance: inhibit during motor burn
-    if (cfg_.irec_compliant && t < cfg_.t_burnout) u_cmd = 0.0f;
-
-    // Mach-based activation: also inhibit post-burnout until below Mach threshold
-    if (cfg_.mach_activation_threshold > 0.0f) {
-        const float v1=xhat(3,0), v2=xhat(4,0), v3=xhat(5,0);
-        const float mach = sqrtf(v1*v1+v2*v2+v3*v3) / Physics::speedOfSound(T_K);
-        if (t < cfg_.t_burnout || mach > cfg_.mach_activation_threshold) u_cmd = 0.0f;
-    }
-
     // Pre-launch: no command
     if (t <= 0.0f) u_cmd = 0.0f;
 

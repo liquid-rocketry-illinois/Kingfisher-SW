@@ -15,7 +15,7 @@ GPS_Data          g_GPS;
 ServoAngles       g_servoAngles;
 
 
-Sensors::Sensors() {}
+Sensors::Sensors() : mag(&hspi1) {}
 
 int8_t Sensors::Init()
 {
@@ -32,11 +32,13 @@ int8_t Sensors::Init()
     if (GPS.Init(&hi2c4) != 0)
         result = STATUS_SENSOR_FAIL;
 
-    // TODO uncomment when using servos
-    // bool servoOk = Servos.Init({g_gndData.servoOffset1, g_gndData.servoOffset2},
-    //                             PRECISION::TENTH_DEGREE, false);
-    // if (!servoOk)
-    //     result = STATUS_SENSOR_FAIL;
+    bool servoOk = Servos.Init({g_gndData.servoOffset1, g_gndData.servoOffset2},
+                                PRECISION::TENTH_DEGREE, false);
+    //if (!servoOk)
+    //result = STATUS_SENSOR_FAIL;
+
+    if (mag.Init() != 0)
+        //result = STATUS_SENSOR_FAIL;
 
     if (result == STATUS_OK) {
         g_telemNow  = {0};

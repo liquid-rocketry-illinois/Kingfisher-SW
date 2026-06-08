@@ -13,58 +13,38 @@
 static uint32_t Servo_ADC_ENC_Data[2] = {};
 
 // PRIVATE
-/** @brief readCurrentAngle(void);
- *  Reads the current angle of the servo. This is basically just here for
- *  the init inputs.
- *
- *  @return Motor encoder output angle state. {Servo1 Angle, Servo2 Angle}
- */
-SAsym<float> Servo_Axon_Mini_MKII::readCurrentAngle() {
-    // Calculate other components of servo
-    // Current angle is derived from the voltage reading from
-    // the servo pin. 0 is 0deg, 1.65V is 180deg, 3.3V is 360deg.
 
-    // Configure channel with raw1 channel
-    ADC_ChannelConfTypeDef sConfig = {0};
-    sConfig.Channel = ADC_CHANNEL_0;
-    sConfig.Rank = ADC_REGULAR_RANK_1;
-    sConfig.SamplingTime = ADC_SAMPLETIME_810CYCLES_5;
-    sConfig.SingleDiff = ADC_SINGLE_ENDED;
-    sConfig.OffsetNumber = ADC_OFFSET_NONE;
-    sConfig.Offset = 0;
-    sConfig.OffsetSignedSaturation = DISABLE;
-    if (HAL_ADC_ConfigChannel(&hadc3, &sConfig) != HAL_OK)
-    {
-        return {};
-    }
-    /* Convert raw1 */
+SAsym<float> Servo_Axon_Mini_MKII::readRawVoltage() {
+    // ADC3 is configured in scan mode (NbrOfConversion=2):
+    //   Rank 1 = CH0 (PC2_C, S1 encoder)
+    //   Rank 2 = CH1 (PC3_C, S2 encoder)
+    // Start once, poll twice — no channel reconfiguration needed.
     HAL_ADC_Start(&hadc3);
+
     HAL_ADC_PollForConversion(&hadc3, 100);
     uint32_t raw1 = HAL_ADC_GetValue(&hadc3);
-    HAL_ADC_Stop(&hadc3);
 
-    // Swap to raw2 channel
-    sConfig.Channel = ADC_CHANNEL_1;
-    if (HAL_ADC_ConfigChannel(&hadc3, &sConfig) != HAL_OK)
-    {
-        return {};
-    }
-    /* Convert raw1 */
-    HAL_ADC_Start(&hadc3);
     HAL_ADC_PollForConversion(&hadc3, 100);
     uint32_t raw2 = HAL_ADC_GetValue(&hadc3);
+
     HAL_ADC_Stop(&hadc3);
 
-    // Convert 16-bit ADC to voltage
-    float reading1 = (3.3f * raw1) / 65535.0f; // read voltage from SERVO1_ENC_Pin / SERVO1_ENC_GPIO
-    float reading2 = (3.3f * raw2) / 65535.0f; // vice versa
-
-    // Linearly map readings to between 0 and 360 degree angles
-    SAsym<float> output = {
-        MATHEMATICS::Map(reading1, 0.0f, 3.3f, 0.0f, 360.0f),
-        MATHEMATICS::Map(reading2, 0.0f, 3.3f, 0.0f, 360.0f)
+    return {
+        (3.3f * static_cast<float>(raw1)) / 4095.0f,
+        (3.3f * static_cast<float>(raw2)) / 4095.0f
     };
-    return output;
+}
+
+/** @brief readCurrentAngle(void);
+ *  Returns angle relative to the zero-voltage reference captured during Init().
+ *  0° = servo at calibrated neutral position.
+ */
+SAsym<float> Servo_Axon_Mini_MKII::readCurrentAngle() {
+    SAsym<float> v = readRawVoltage();
+    return {
+        (v.S1 - _zeroVoltage.S1) * (360.0f / 3.3f),
+        (v.S2 - _zeroVoltage.S2) * (360.0f / 3.3f)
+    };
 }
 
 /** @brief calculateError(void);
@@ -132,11 +112,19 @@ bool Servo_Axon_Mini_MKII::Init(SAsym<float> AngOffset,
     config = configDesired;
 
     // Calibrate ADC before any reads
-    HAL_ADCEx_Calibration_Start(&hadc3, ADC_CALIB_OFFSET_LINEARITY, ADC_SINGLE_ENDED);
+    HAL_ADCEx_Calibration_Start(&hadc3, ADC_CALIB_OFFSET, ADC_SINGLE_ENDED);
 
     // Start TIM3 PWM channels
     HAL_TIM_PWM_Start(&htim3, TIM_CHANNEL_1);
     HAL_TIM_PWM_Start(&htim3, TIM_CHANNEL_2);
+
+    // Drive to mechanical center, let servo settle, then capture zero reference.
+    // _zeroVoltage defaults to 1.65V so readCurrentAngle() is valid during the settle wait.
+    Actuate({0.0f, 0.0f});
+    vTaskDelay(pdMS_TO_TICKS(200));
+    SAsym<float> zv = readRawVoltage();
+    _zeroVoltage.S1 = zv.S1;
+    _zeroVoltage.S2 = zv.S2;
 
     // Tolerance based on precision setting
     float tolerance = 0.0f;
