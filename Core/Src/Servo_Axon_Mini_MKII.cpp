@@ -21,11 +21,11 @@ SAsym<float> Servo_Axon_Mini_MKII::readRawVoltage() {
     // Start once, poll twice — no channel reconfiguration needed.
     HAL_ADC_Start(&hadc3);
 
-    HAL_ADC_PollForConversion(&hadc3, 100);
-    uint32_t raw1 = HAL_ADC_GetValue(&hadc3);
-
-    HAL_ADC_PollForConversion(&hadc3, 100);
-    uint32_t raw2 = HAL_ADC_GetValue(&hadc3);
+    uint32_t raw1 = 0, raw2 = 0;
+    if (HAL_ADC_PollForConversion(&hadc3, 5) == HAL_OK)
+        raw1 = HAL_ADC_GetValue(&hadc3);
+    if (HAL_ADC_PollForConversion(&hadc3, 5) == HAL_OK)
+        raw2 = HAL_ADC_GetValue(&hadc3);
 
     HAL_ADC_Stop(&hadc3);
 

@@ -217,7 +217,7 @@ static int8_t uartRead(uint8_t *data, uint16_t len)
         &huart8, // e22_cfg.huart,
         data,
         len,
-        1000);
+        500);
 
     while (!auxHigh()) { vTaskDelay(pdMS_TO_TICKS(1)); } // wait for read to finish in case
     if(status != HAL_OK) return E22_ERR_UART;
@@ -465,9 +465,11 @@ int8_t get_rssi_e22_900t22s(void)
  * Reads exactly (5 + expected_payload_len + 4) bytes — the full frame:
  *   [SYNC1][SYNC2][len][seq_lo][seq_hi][payload x len][crc_lo][crc_hi][SYNC2][SYNC1]
  *
- * Timeout is calculated from the actual UART baud rate so it is tight
- * regardless of whether the baud is 9600 or 115200, with a 100 ms margin
- * to cover E22 wireless decode latency before UART output begins.
+ * Timeout is derived from the actual byte count and UART baud rate so it
+ * scales automatically with payload size and stays as tight as possible.
+ * A 25 ms margin covers the E22's air-to-UART pipeline flush.
+ * The HAL_UART_Receive call is kept as a single blocking transfer so the
+ * receive is never interrupted mid-packet.
  *
  * SYNC validation and length/CRC checking are left to decodeData() in
  * Telemetry.cpp — this function only guarantees a full buffer fill.
@@ -478,14 +480,23 @@ int8_t get_rssi_e22_900t22s(void)
  */
 int16_t recieve_e22_900t22s(uint8_t *buffer, uint16_t expected_payload_len)
 {
-    const uint16_t total    = 5u + expected_payload_len + 4u;   // hdr + payload + CRC
+    const uint16_t total = 5u + expected_payload_len + 4u;  // hdr + payload + trailing sync/CRC
 
-    int8_t s = uartRead(buffer, total);
+    // Tight timeout: bytes × bits-per-byte / baud-rate, converted to ms, + 25 ms margin.
+    // At 38400 baud, 8N1: each byte = 10 bits = 0.26 ms.
+    // For sizeof(GndStationData)=13 → total=22 bytes → ~5.7 ms UART + 25 ms = ~31 ms.
+    // This replaces the blanket 500 ms used by uartRead() for all packet sizes.
+    const uint32_t timeout_ms = ((uint32_t)total * 10u * 1000u) / 38400u + 25u;
 
-    if (s == E22_OK)
+    HAL_StatusTypeDef status = HAL_UART_Receive(&huart8, buffer, total, timeout_ms);
+
+    // Wait for AUX to return high (E22 finished clocking bytes onto UART).
+    while (!auxHigh()) { vTaskDelay(pdMS_TO_TICKS(1)); }
+
+    if (status == HAL_OK)
         return (int16_t)total;
 
-    uint16_t received = total - e22_cfg.huart->RxXferCount;
+    uint16_t received = total - huart8.RxXferCount;
     if (received < 7u)
         return -2;   // not enough bytes for any valid packet
     return (int16_t)received;

@@ -3,6 +3,7 @@
 //
 
 #include "BMP390.h"
+#include "constants.h"
 
 #include <cstring>
 
@@ -104,22 +105,24 @@ uint8_t Barometer::Update()
     if(!_sensor_active || (bmp3_get_status(&status, &device) != BMP3_OK))
         return 1;
 
+    if (status.intr.drdy != BMP3_ENABLE)
+        return 0; // no new sample yet — retain last valid _raw
+
     bmp3_data data = { 0 };
 
-    if (status.intr.drdy == BMP3_ENABLE) {
-        if (bmp3_get_sensor_data(BMP3_PRESS_TEMP, &data, &device) != BMP3_OK)
-            return 2;
-        if (bmp3_get_status(&status, &device) != BMP3_OK)
-            return 3;
-    }
+    if (bmp3_get_sensor_data(BMP3_PRESS_TEMP, &data, &device) != BMP3_OK)
+        return 2;
+    if (bmp3_get_status(&status, &device) != BMP3_OK)
+        return 3;
 
-    _raw.Pressure = static_cast<float>(data.pressure);
+    if (data.pressure < BARO_PRESS_MIN_PA || data.pressure > BARO_PRESS_MAX_PA)
+        return 0; // implausible reading — retain last valid _raw
+
+    _raw.Pressure    = static_cast<float>(data.pressure);
     _raw.Temperature = static_cast<float>(data.temperature);
-
-    /* Calculate altitude from pressure */
     _raw.heightMeters =
         44330.0F *
-        (1.0f - powf(data.pressure / SEA_LEVEL_PRESSURE, 0.1903f));
+        (1.0f - powf(static_cast<float>(data.pressure) / SEA_LEVEL_PRESSURE, 0.1903f));
 
     return 0;
 }

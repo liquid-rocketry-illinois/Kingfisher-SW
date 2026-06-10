@@ -75,7 +75,7 @@ extern "C" void updateDataTask(void*)
 
     while (1)
     {
-        ulTaskNotifyTake(pdTRUE, portMAX_DELAY);
+        ulTaskNotifyTake(pdTRUE, pdMS_TO_TICKS(100)); // 100ms watchdog: if sensor task stalls, don't block forever
 
         if (osMutexAcquire(g_ctrls_sensor_mutex, 20) == osOK) {
             DataUpdate::ComputeDt();

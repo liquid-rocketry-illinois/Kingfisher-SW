@@ -42,6 +42,7 @@ void updateDataTask(void*);
 void Radio(void*);
 void CTRLs(void*);
 void PyroTask(void*);
+void SDLogTask(void*);
 extern TaskHandle_t updateDataTaskHandle;
 extern TaskHandle_t CTRLIndicationHandle;
 /* USER CODE END PD */
@@ -104,25 +105,29 @@ void MX_FREERTOS_Init(void) {
   defaultTaskHandle = osThreadNew(FC_Init, NULL, &defaultTask_attributes);
 
   // ── Radio (telemetry TX/RX + command processing) ──────────────────────────────
+  // Must match CTRLs priority so FreeRTOS time-slices between them rather than
+  // letting CTRLs preempt Radio mid HAL_UART_Receive and corrupt the RX window.
   static const osThreadAttr_t radioTask_attr = {
     .name = "Radio", .stack_size = 4096, .priority = osPriorityRealtime,
   };
   osThreadNew(Radio, NULL, &radioTask_attr);
 
   // ── Sensor read → data fusion pipeline ───────────────────────────────────────
+  // Realtime priority so neither task is preempted mid-commit by CTRLs, and so
+  // the notification chain (sensor → fusion → CTRLs) runs with minimum latency.
   static const osThreadAttr_t sensorTask_attr = {
-    .name = "updateSensor", .stack_size = 4096, .priority = osPriorityAboveNormal,
+    .name = "updateSensor", .stack_size = 4096, .priority = osPriorityRealtime,
   };
   updateDataHandle = osThreadNew(updateSensorTask, NULL, &sensorTask_attr);
 
   static const osThreadAttr_t dataTask_attr = {
-    .name = "updateData", .stack_size = 4096, .priority = osPriorityAboveNormal,
+    .name = "updateData", .stack_size = 4096, .priority = osPriorityRealtime,
   };
   updateDataTaskHandle = osThreadNew(updateDataTask, NULL, &dataTask_attr);
 
   // ── Controls (EKF + roll law) ─────────────────────────────────────────────────
   static const osThreadAttr_t ctrlsTask_attr = {
-    .name = "CTRLs", .stack_size = 4096 * 3, .priority = osPriorityAboveNormal,
+    .name = "CTRLs", .stack_size = 4096 * 3, .priority = osPriorityRealtime,
   };
   CTRLIndicationHandle = osThreadNew(CTRLs, NULL, &ctrlsTask_attr);
 
@@ -131,6 +136,12 @@ void MX_FREERTOS_Init(void) {
     .name = "PyroTask", .stack_size = 1024, .priority = osPriorityAboveNormal,
   };
   osThreadNew(PyroTask, NULL, &pyroTask_attr);
+
+  // ── SD card logger (50 Hz CSV, AboveNormal so it doesn't starve flight tasks) ──
+  static const osThreadAttr_t sdlogTask_attr = {
+    .name = "SDLog", .stack_size = 2048, .priority = osPriorityAboveNormal,
+  };
+  osThreadNew(SDLogTask, NULL, &sdlogTask_attr);
 
   return;
   /* USER CODE END RTOS_QUEUES */
