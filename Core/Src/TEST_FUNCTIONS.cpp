@@ -64,7 +64,7 @@ int TEST::BARO_TEST()
 
 int TEST::LIS2_TEST()
 {
-    Magnetometer mag;
+    Magnetometer mag(&hspi1);
     LIS2_Data data;
     uint8_t status = 0;
     uint8_t init = mag.Init();

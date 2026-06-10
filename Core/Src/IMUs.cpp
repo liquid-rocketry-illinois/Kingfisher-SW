@@ -22,8 +22,7 @@ uint8_t IMUs::Normal_Compute() {
 
 //PUBLIC:
 
-// Also initialize quaternions for BMI and ISM imus.
-IMUs::IMUs() : Quaternion_BMI(), Quaternion_ISM(), Data_ISM() {}
+IMUs::IMUs() : Data_ISM() {}
 
 IMUsStatus IMUs::Init(bool tmr_on) {
     TMR_STATE = tmr_on;

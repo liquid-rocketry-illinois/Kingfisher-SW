@@ -40,6 +40,13 @@
 #define MIN_MAIN_DEPLOY_ALT_M   250.0f  // safety floor for main deploy
 #define TARGET_MAIN_ALT_M       300.0f  // fire main chute at or below this altitude
 
+// ── Controls activation gate ──────────────────────────────────────────────────
+#define CTRLS_MIN_ALT_M         100.0f  // AGL metres before roll control arms
+
+// ── Backup drogue autonomous trigger ─────────────────────────────────────────
+#define BACKUP_DROGUE_MIN_ALT_M 1000.0f // minimum altitude (m) to trigger backup
+#define BACKUP_DROGUE_VEL_MS    (-40.0f)// falling faster than this without primary
+
 // ── Pyrotechnic pending bitmask (written by Radio task, consumed by PyroTask) ─
 #define PYRO_DROGUE_MAIN_BIT    (1u << 0)
 #define PYRO_DROGUE_BKP_BIT     (1u << 1)

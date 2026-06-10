@@ -51,9 +51,12 @@ private:
     CFG_Axon_Mini_MKII config = {}; // Both servos use same config
     DATA_Axon_Mini_MKII data = {};
 
-    SAsym<float> readCurrentAngle(); // For async calls outside of Update()
+    SAsym<float> readRawVoltage();    // ADC read → volts, no offset applied
+    SAsym<float> readCurrentAngle(); // volts → degrees relative to _zeroVoltage
     SAsym<float> calculateError();
     void Actuate(SAsym<float> input);
+
+    SAsym<float> _zeroVoltage = {1.65f, 1.65f}; // captured in Init(); default is nominal center
 
 public:
     Servo_Axon_Mini_MKII();
