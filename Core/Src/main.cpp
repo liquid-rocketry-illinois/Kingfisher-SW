@@ -151,6 +151,7 @@ extern "C" void CTRLs(void*)
     // ctrlsInit() in MX_FREERTOS_Init before the scheduler starts, so they are
     // safe to acquire as soon as this task runs.
     static RocketConfig cfg;
+    loadControlFreakRocketConfig(cfg);
     cfg.computeDerived();
     static Physics    phys(cfg);
     static EKF        ekf(phys, cfg);
@@ -177,7 +178,7 @@ extern "C" void CTRLs(void*)
 
             // ── Read sensor snapshot ─────────────────────────────────────────────
             // snap retains last known values if no fresh data is available,
-            // so predictOnly always has a valid flight time / temperature / altitude.
+            // so predictOnly always has a valid flight time and altitude.
             bool fresh = false;
             if (osMutexAcquire(g_ctrls_sensor_mutex, 2U) == osOK) {
                 if (g_SensorData.fresh) {
@@ -188,8 +189,7 @@ extern "C" void CTRLs(void*)
                 osMutexRelease(g_ctrls_sensor_mutex);
             }
 
-            const float t   = snap.flight_time_s;
-            const float T_K = snap.temperature_K;
+            const float t = snap.flight_time_s;
 
             // ── EKF step ─────────────────────────────────────────────────────────
             if (fresh) {
@@ -201,15 +201,15 @@ extern "C" void CTRLs(void*)
                     y(i,   0) = snap.accel_g[i];
                     y(3+i, 0) = snap.gyro_rad_s[i];
                 }
-                ekf.update(t, dt, y, u_last_rad, snap.altitude_m, T_K);
+                ekf.update(t, dt, y, u_last_rad, snap.altitude_m);
             } else {
-                ekf.predictOnly(t, dt, u_last_rad, snap.altitude_m, T_K);
+                ekf.predictOnly(t, dt, u_last_rad, snap.altitude_m);
             }
 
             // ── Control law ───────────────────────────────────────────────────────
             // EKF always runs above to keep the state estimate warm.
             // Output is zeroed when controls are disabled so servos hold neutral.
-            const float u_rad = g_ctrls_enabled ? ctrl.computeControl(t, ekf.xhat, T_K) : 0.0f;
+            const float u_rad = g_ctrls_enabled ? ctrl.computeControl(t, ekf.xhat) : 0.0f;
             u_last_rad = u_rad;
             const float u_deg = u_rad * (180.0f / static_cast<float>(M_PI));
 

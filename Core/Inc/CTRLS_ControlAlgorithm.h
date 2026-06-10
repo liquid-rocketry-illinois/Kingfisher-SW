@@ -73,8 +73,16 @@ using MeasVec  = Mat<6,1>;    // [ax,ay,az, gx,gy,gz]
 using MeasMat  = Mat<6,10>;
 using InputMat = Mat<10,1>;   // B column (df/du), scalar u
 
+struct WeatherSample {
+    float rho           = 1.225f;   // kg/m^3
+    float temperature_K = 288.15f;  // K
+    float g             = 9.80665f; // m/s^2
+    float wind_x        = 0.0f;     // world-frame m/s
+    float wind_y        = 0.0f;     // world-frame m/s
+};
+
 // ─── Rocket configuration ─────────────────────────────────────────────────────
-// TUNE ALL VALUES BEFORE FLIGHT — these are structural placeholders.
+// Fallback defaults only. Call loadControlFreakRocketConfig() before flight.
 struct RocketConfig {
     // Mass (kg)
     float m_0   = 14.0f;   // launch mass
@@ -147,7 +155,7 @@ struct RocketConfig {
     float x0[10] = {0,0,0, 0,0,0, 1,0,0,0};
 
     // Thrust curve table (time vs Newtons)
-    static constexpr int MAX_TABLE = 64;
+    static constexpr int MAX_TABLE = 132;
     float thrust_t[MAX_TABLE] = {};
     float thrust_N[MAX_TABLE] = {};
     int   thrust_n = 0;
@@ -161,11 +169,6 @@ struct RocketConfig {
     float drag_off_mach[MAX_TABLE] = {};
     float drag_off_cd[MAX_TABLE]   = {};
     int   drag_off_n = 0;
-
-    // ── Mach-based activation ─────────────────────────────────────────────────
-    // If > 0, control is inhibited post-burnout until Mach drops below this.
-    // Negative or zero = disabled (starts immediately at burnout).
-    float mach_activation_threshold = -1.0f;
 
     // ── Roll effectiveness monitor (REM) ──────────────────────────────────────
     // Detects reversed canard roll effectiveness at runtime and flips the
@@ -193,6 +196,9 @@ struct RocketConfig {
     }
 };
 
+// Populates RocketConfig from FV-Controls/rockets/Control Freak/sim setup.
+void loadControlFreakRocketConfig(RocketConfig& cfg);
+
 // Piecewise-linear interpolation with binary search. Clamps at endpoints.
 float lerp(const float* xs, const float* ys, int n, float xi);
 
@@ -212,6 +218,7 @@ public:
     float getCG(float t) const;
     float getThrust(float t) const;
     float getDragCoeff(float mach, float t) const;
+    WeatherSample weatherAtAltitude(float alt_m) const;
     static float speedOfSound(float T_kelvin);
 
     // Rotation helpers
@@ -219,29 +226,29 @@ public:
     static void R_BW(float qw, float qx, float qy, float qz, float R[3][3]);
     // Air-relative velocity in body frame (body velocity minus rotated wind)
     void airRelativeVelocity(const StateVec& x, float v_air[3]) const;
+    void airRelativeVelocity(const StateVec& x, float wind_x, float wind_y,
+                             float v_air[3]) const;
 
     // Canard roll moment (CFD numeric model)
     float canardMoment(float v_mag, float zeta_rad) const;
     float canardMomentJacobian(float v_mag) const;
 
     // Full nonlinear equations of motion
-    StateVec eom(float t, const StateVec& x, float u_zeta,
-                 float alt = 0.0f, float T_K = 288.15f) const;
+    StateVec eom(float t, const StateVec& x, float u_zeta, float alt = 0.0f) const;
 
     // Numerical Jacobian df/dx (20 eom calls via central differences)
-    StateMat jacobianA(float t, const StateVec& x, float u,
-                       float alt = 0.0f, float T_K = 288.15f) const;
+    StateMat jacobianA(float t, const StateVec& x, float u, float alt = 0.0f) const;
 
     // Analytic B column (df/du) — only roll row is nonzero
     InputMat jacobianB(float t, const StateVec& x) const;
 
     // Measurement Jacobian dy/dx (6×10)
     MeasMat jacobianC(float t, const StateVec& x, float u,
-                      const StateMat& A) const;
+                      const StateMat& A, float alt = 0.0f) const;
 
     // IMU measurement prediction (accel in g, gyro in rad/s)
     MeasVec predictMeasurement(float t, const StateVec& x, float u,
-                               float alt = 0.0f, float T_K = 288.15f) const;
+                               float alt = 0.0f) const;
 
 private:
     // Precomputed fin roll geometry constants (computed in constructor)

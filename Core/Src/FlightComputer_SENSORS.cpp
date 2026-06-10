@@ -4,6 +4,7 @@
 #include "FlightComputer_SENSORS.h"
 #include "i2c.h"
 #include "CTRLS_Controls.h"
+#include "constants.h"
 
 // GLOBAL SENSOR DATA (DEFINED HERE) [We can just directly make these vars here]
 telemetryData     g_telemNow;
@@ -63,6 +64,23 @@ int8_t Sensors::Update()
     g_BMP = Baro.getData().Filtered;
 
     static constexpr float DEG_TO_RAD = 3.14159265358979323846f / 180.0f;
+    static uint32_t liftoffDetectMs = 0U;
+    static uint32_t liftoffMs       = 0U;
+
+    const uint32_t nowMs = HAL_GetTick();
+    if (liftoffMs == 0U) {
+        if (g_BMI.accel_linear.magnitude() > LIFTOFF_ACCEL_G) {
+            if (liftoffDetectMs == 0U) liftoffDetectMs = nowMs;
+            if (static_cast<uint32_t>(nowMs - liftoffDetectMs) > LIFTOFF_SUSTAIN_MS) {
+                liftoffMs = liftoffDetectMs;
+            }
+        } else {
+            liftoffDetectMs = 0U;
+        }
+    }
+
+    const float flightTimeS =
+        (liftoffMs == 0U) ? 0.0f : static_cast<float>(nowMs - liftoffMs) * 1.0e-3f;
 
     // Sensors mutex is acquired when updating g_SensorData and g_telemNow.
     // The return value MUST be checked: releasing a mutex you don't own corrupts
@@ -95,10 +113,12 @@ int8_t Sensors::Update()
     g_SensorData.gyro_rad_s[0] = g_BMI.ang_vel.x * DEG_TO_RAD;
     g_SensorData.gyro_rad_s[1] = g_BMI.ang_vel.z * DEG_TO_RAD;
     g_SensorData.gyro_rad_s[2] = g_BMI.ang_vel.y * DEG_TO_RAD;
-    g_SensorData.altitude_m    = g_BMP.heightMeters;
-    g_SensorData.temperature_K = g_BMP.Temperature + 273.15f;
-    g_SensorData.timestamp_ms  = HAL_GetTick();
-    g_SensorData.fresh         = true;
+	g_SensorData.altitude_m    = g_BMP.heightMeters;
+	// Kept for telemetry/diagnostics; controls use weather-profile temperature.
+	g_SensorData.temperature_K = g_BMP.Temperature + 273.15f;
+	g_SensorData.flight_time_s = flightTimeS;
+	g_SensorData.timestamp_ms  = HAL_GetTick();
+	g_SensorData.fresh         = true;
 
     osMutexRelease(g_ctrls_sensor_mutex);
     } // osMutexAcquire
@@ -107,5 +127,3 @@ int8_t Sensors::Update()
 }
 
 // ============= PRIVATE FUNCS ============
-
-

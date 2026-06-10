@@ -17,7 +17,7 @@ struct CtrlsSensorSnapshot {
     float    accel_g[3]     = {};   // body-frame accelerometer reading (g units)
     float    gyro_rad_s[3]  = {};   // body-frame gyro (rad/s)
     float    altitude_m     = 0.0f; // AGL altitude from barometer (m)
-    float    temperature_K  = 288.15f; // ambient temperature (K)
+    float    temperature_K  = 288.15f; // sensor temperature, telemetry/diagnostics only
     float    flight_time_s  = 0.0f; // seconds since liftoff (0 = pre-launch)
     STAGE    stage          = PREFLIGHT;
     uint32_t timestamp_ms   = 0;    // HAL_GetTick() when written
@@ -41,7 +41,7 @@ public:
     ControlLaw(const Physics& phys, const RocketConfig& cfg);
 
     // Returns canard deflection command (rad). Call after EKF update.
-    float computeControl(float t, const StateVec& xhat, float T_K = 288.15f);
+    float computeControl(float t, const StateVec& xhat);
 
     // Update roll effectiveness sign. Call once per loop with the CURRENT gyro
     // w3 reading and the command (rad) applied in the PREVIOUS step, and the
