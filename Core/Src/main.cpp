@@ -168,7 +168,7 @@ extern "C" void CTRLs(void*)
 
         for (;;)
         {
-            if (!g_ctrls_enabled) { osDelay(10); continue; }
+            //if (!g_ctrls_enabled) { osDelay(10); continue; }
 
             const uint32_t now_ms = millis();
             const float dt = (prev_ms == 0U) ? 0.01f
