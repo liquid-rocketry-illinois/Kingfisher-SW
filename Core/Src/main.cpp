@@ -23,24 +23,35 @@ Servo_Axon_Mini_MKII Servos;
 
 static volatile bool initDone = false;
 
+static void ledBlink(int n) {
+    for (int i = 0; i < n; i++) {
+        HAL_GPIO_WritePin(USR_LED_GPIO_Port, USR_LED_Pin, GPIO_PIN_RESET);
+        osDelay(200);
+        HAL_GPIO_WritePin(USR_LED_GPIO_Port, USR_LED_Pin, GPIO_PIN_SET);
+        osDelay(200);
+    }
+}
+
 extern "C" void FC_Init(void*) {
     MICROS_DWT_Timebase_Init();
 
-    HAL_GPIO_WritePin(USR_LED_GPIO_Port, USR_LED_Pin, GPIO_PIN_SET);
+    HAL_GPIO_WritePin(USR_LED_GPIO_Port, USR_LED_Pin, GPIO_PIN_SET); // solid ON = waiting on sensors
 
-    // Retry until every sensor (IMU A/B/C, baro A/B/C, GPS) reports success.
-    // Radio init is handled independently in the Radio task.
     while (S.Init() != STATUS_OK)
         osDelay(100);
+    ledBlink(1); // 1 blink = sensors OK
 
     while (telem.Init() != STATUS_OK)
         osDelay(100);
+    ledBlink(2); // 2 blinks = radio OK
 
     while (Servos.Init({0,0}, TENTH_DEGREE, false) != true)
         osDelay(100);
+    ledBlink(3); // 3 blinks = servos OK
 
-    while (SD_Init() != 0)
-        osDelay(100);
+    // SD is non-critical: log if it fails but don't block init.
+    // Required for ground testing where SD may not be available.
+    SD_Init();
 
     initDone = true;
     HAL_GPIO_TogglePin(USR_LED_GPIO_Port, USR_LED_Pin);
@@ -306,7 +317,22 @@ extern "C" void CTRLs(void*)
             // ── Control law ───────────────────────────────────────────────────────
             // EKF always runs above to keep the state estimate warm.
             // Output is zeroed when controls are disabled so servos hold neutral.
-            const float u_rad = g_ctrls_enabled ? ctrl.computeControl(t, ekf.xhat) : 0.0f;
+            //
+            // Ground test mode (BYTE_DEFLECT_TEST from GND): bypasses the two
+            // gates that suppress output before flight —
+            //   1. t <= 0  (no liftoff detected yet)
+            //   2. vmag < min_control_speed  (EKF velocity is zero on the bench)
+            // A copy of xhat is used so the real EKF state and covariance are
+            // not corrupted by the injected airspeed.
+            static constexpr float GROUND_TEST_AIRSPEED_MS = 50.0f; // above min_control_speed (30 m/s)
+            static constexpr float GROUND_TEST_TIME_S      = 5.0f;  // post-burnout (cfg.t_burnout = 3.5 s)
+            float      t_ctrl   = t;
+            StateVec   xhat_ctrl = ekf.xhat;
+            if (g_ctrls_test_mode) {
+                t_ctrl             = GROUND_TEST_TIME_S;
+                xhat_ctrl(5, 0)    = GROUND_TEST_AIRSPEED_MS;
+            }
+            const float u_rad = g_ctrls_enabled ? ctrl.computeControl(t_ctrl, xhat_ctrl) : 0.0f;
             u_last_rad = u_rad;
             const float u_deg = u_rad * (180.0f / static_cast<float>(M_PI));
 

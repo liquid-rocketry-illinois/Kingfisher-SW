@@ -278,8 +278,9 @@ void Telemetry::processCmd(uint8_t cmd)
 
     switch (cmd) {
         case SHUTDOWN_KEEPALIVE:          // 217  — BYTE_ABORT
-            shutdownFlag    = true;
-            g_ctrls_enabled = false;      // zero servo outputs immediately
+            shutdownFlag       = true;
+            g_ctrls_enabled    = false;   // zero servo outputs immediately
+            g_ctrls_test_mode  = false;   // exit test mode on abort
             break;
 
         case HANDSHAKE_GND_BYTE:          // 0xA1 — BYTE_HANDSHAKE
@@ -289,7 +290,8 @@ void Telemetry::processCmd(uint8_t cmd)
             break;
 
         case BYTE_DEFLECT_TEST:           // 150  — BYTE_DEFLECT_TEST
-            g_ctrls_enabled = true;
+            g_ctrls_enabled   = true;
+            g_ctrls_test_mode = true;     // enter ground test: bypass time/speed gates
             break;
 
         case REQUEST_DATA_BYTE:           // 0xC3 — BYTE_REQUEST_DATA
