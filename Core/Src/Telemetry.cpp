@@ -35,7 +35,7 @@ uint8_t Telemetry::Init()
 
     des_cfg.REG0 =   R0_765_E22_UART_BAUD::E22_UART_BAUD_38400
                    | R0_43_SERIAL_PORT_PARITY_BIT::MODE_8N1
-                   | R0_210_E22_AIR_DATA_RATE::E22_AIR_RATE_9_6K;
+                   | R0_210_E22_AIR_DATA_RATE::E22_AIR_RATE_4_8K;
 
     des_cfg.REG1 =   R1_76_SUB_PACKET_SETTING::BYTES_240
                    | R1_5_RSSI_ENVIRONMENTAL_NOISE_MEASURE_ENABLE

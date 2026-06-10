@@ -252,6 +252,9 @@ extern "C" void CTRLs(void*)
     // rocket by hand, confirm canards oppose the spin, then increase until satisfied.
     static constexpr float KP              = 0.30f;  // deg deflection per deg/s roll rate -- TUNE
     static constexpr float MAX_DEFLECT_DEG = 7.0f;  // canard travel limit -- verify against stops
+    // Dead-band: suppress control below 6 deg/s to avoid fighting
+    // natural spin-up and reduce servo wear at low roll rates.
+    static constexpr float ROLL_RATE_THRESHOLD_RPS = M_PI/180.0f * 1.0; // last number is deg/sec
 
     // Wait for altitude > CTRLS_MIN_ALT_M and motor burnout (accel < BURNOUT_ACCEL_G)
     for (;;) {
@@ -281,6 +284,17 @@ extern "C" void CTRLs(void*)
             if (osMutexAcquire(g_ctrls_sensor_mutex, 2U) == osOK) {
                 roll_rate_dps = g_telemNow.mGyrZ;
                 osMutexRelease(g_ctrls_sensor_mutex);
+            }
+
+            if (fabsf(roll_rate_dps) <= ROLL_RATE_THRESHOLD_RPS) {
+                Servos.Update(0.0f, 0.0f);
+                if (osMutexAcquire(g_ctrls_sensor_mutex, 2U) == osOK) {
+                    g_telemNow.servoTarget1 = 0.0f;
+                    g_telemNow.servoTarget2 = 0.0f;
+                    osMutexRelease(g_ctrls_sensor_mutex);
+                }
+                ulTaskNotifyTake(pdTRUE, pdMS_TO_TICKS(10));
+                continue;
             }
 
             // Oppose the roll: positive rate -> negative deflection, and vice versa.
