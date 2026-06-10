@@ -311,6 +311,8 @@ extern "C" void CTRLs(void*)
             const float u_deg = u_rad * (180.0f / static_cast<float>(M_PI));
 
             // ── Write outputs ─────────────────────────────────────────────────────
+            static float servo_offset1_deg = 0.0f;
+            static float servo_offset2_deg = 0.0f;
             if (osMutexAcquire(g_ctrls_output_mutex, 2U) == osOK) {
                 g_ctrls_canard_cmd_deg = u_deg;
                 osMutexRelease(g_ctrls_output_mutex);
@@ -319,10 +321,15 @@ extern "C" void CTRLs(void*)
             // Both canards receive the same deflection command to produce roll.
             // Ground-station offsets apply the per-servo zero-point trim.
             if (osMutexAcquire(g_ctrls_sensor_mutex, 20) == osOK) {
-                g_telemNow.servoTarget1 = u_deg + g_gndData.servoOffset1;
-                g_telemNow.servoTarget2 = u_deg + g_gndData.servoOffset2;
+                servo_offset1_deg = g_gndData.servoOffset1;
+                servo_offset2_deg = g_gndData.servoOffset2;
+                g_telemNow.servoTarget1 = u_deg + servo_offset1_deg;
+                g_telemNow.servoTarget2 = u_deg + servo_offset2_deg;
                 osMutexRelease(g_ctrls_sensor_mutex);
             }
+
+            Servos.SetOffset({servo_offset1_deg, servo_offset2_deg});
+            Servos.Update(u_deg, u_deg);
 
             osDelay(5); // ~200 Hz ceiling; yields CPU between EKF iterations
         }
