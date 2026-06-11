@@ -37,9 +37,13 @@ extern "C" void FC_Init(void*) {
     while (Servos.Init({0,0}, TENTH_DEGREE, false) != true)
         osDelay(100);
 
-    // while (SD_Init() != 0)
-    //     osDelay(100);
-    SD_Init();
+    //debug
+    int8_t stateSD = SD_Init();
+
+    while (stateSD != 0) {
+        stateSD = SD_Init();
+        osDelay(100);
+    }
 
     initDone = true;
     HAL_GPIO_TogglePin(USR_LED_GPIO_Port, USR_LED_Pin);
