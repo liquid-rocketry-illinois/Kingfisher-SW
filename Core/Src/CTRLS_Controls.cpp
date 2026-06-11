@@ -123,7 +123,7 @@ void ControlLaw::updateRollEffectivenessSign(float t, float w3_meas,
     if (fabsf(expected_accel) < cfg_.rem_min_expected_accel ||
         fabsf(measured_accel) < cfg_.rem_min_measured_accel) {
         rem_mismatch_count_ = 0; return;
-    }
+        }
 
     // Accumulate or reset mismatch counter
     if (measured_accel * expected_accel < 0.0f) {

@@ -28,8 +28,6 @@ extern "C" void FC_Init(void*) {
 
     HAL_GPIO_WritePin(USR_LED_GPIO_Port, USR_LED_Pin, GPIO_PIN_SET);
 
-    // Retry until every sensor (IMU A/B/C, baro A/B/C, GPS) reports success.
-    // Radio init is handled independently in the Radio task.
     while (S.Init() != STATUS_OK)
         osDelay(100);
 
@@ -39,8 +37,9 @@ extern "C" void FC_Init(void*) {
     while (Servos.Init({0,0}, TENTH_DEGREE, false) != true)
         osDelay(100);
 
-    while (SD_Init() != 0)
-        osDelay(100);
+    // while (SD_Init() != 0)
+    //     osDelay(100);
+    SD_Init();
 
     initDone = true;
     HAL_GPIO_TogglePin(USR_LED_GPIO_Port, USR_LED_Pin);
