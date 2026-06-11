@@ -33,39 +33,23 @@ static float modelVerticalVelocityMS(const StateVec& x)
     return R[0][2] * x(3,0) + R[1][2] * x(4,0) + R[2][2] * x(5,0);
 }
 
-static void ledBlink(int n) {
-    for (int i = 0; i < n; i++) {
-        HAL_GPIO_WritePin(USR_LED_GPIO_Port, USR_LED_Pin, GPIO_PIN_RESET);
-        osDelay(200);
-        HAL_GPIO_WritePin(USR_LED_GPIO_Port, USR_LED_Pin, GPIO_PIN_SET);
-        osDelay(200);
-    }
-}
-
 extern "C" void FC_Init(void*) {
     MICROS_DWT_Timebase_Init();
 
-    HAL_GPIO_WritePin(USR_LED_GPIO_Port, USR_LED_Pin, GPIO_PIN_SET); // solid ON = waiting on sensors
-
     while (S.Init() != STATUS_OK)
         osDelay(100);
-    ledBlink(1); // 1 blink = sensors OK
 
     while (telem.Init() != STATUS_OK)
         osDelay(100);
-    ledBlink(2); // 2 blinks = radio OK
-
+    
     while (Servos.Init({0,0}, TENTH_DEGREE, false) != true)
         osDelay(100);
-    ledBlink(3); // 3 blinks = servos OK
 
     // SD is non-critical: log if it fails but don't block init.
     // Required for ground testing where SD may not be available.
     SD_Init();
 
     initDone = true;
-    HAL_GPIO_TogglePin(USR_LED_GPIO_Port, USR_LED_Pin);
-
     vTaskSuspend(NULL); // suspend permanently
 }
 
@@ -127,7 +111,7 @@ extern "C" void Radio(void*)
             g_telemPrev      = g_telemNow;
             osMutexRelease(g_ctrls_sensor_mutex);
         }
-        uint8_t status = telem.Update();
+        telem.Update();
         HAL_GPIO_TogglePin(USR_LED_GPIO_Port, USR_LED_Pin);
     }
 }
@@ -282,8 +266,6 @@ extern "C" void CTRLs(void*)
         static uint32_t prev_ms         = 0U;
         static uint32_t launch_start_ms = 0U;
         static float    model_alt_m     = 0.0f;
-        static float    prev_model_vz   = 0.0f;
-        static bool     saw_climb       = false;
         static bool     apogee_latched  = false;
         static uint32_t apogee_blink_ms = 0U;
         static bool     apogee_blink_done = false;
@@ -331,12 +313,11 @@ extern "C" void CTRLs(void*)
                 ctrl.updateRollEffectivenessSign(t, snap.gyro_rad_s[2], u_last_rad,
                                                   sqrtf(vx*vx + vy*vy + vz*vz));
                 MeasVec y;
-                for (int i = 0; i < 3; i++) {
-                    // y(i, 0) used to carry accelerometer data for full EKF correction.
-                    // It is deliberately left at zero in dynamics-test mode.
-                    // y(i,   0) = snap.accel_g[i];
-                    y(3+i, 0) = snap.gyro_rad_s[i];
-                }
+                // y(i, 0) used to carry accelerometer data for full EKF correction.
+                // It is deliberately left at zero in dynamics-test mode.
+                // y(i,   0) = snap.accel_g[i];
+                // y(3+i, 0) = snap.gyro_rad_s[i];  // all three gyro axes
+                y(5, 0) = snap.gyro_rad_s[2];        // roll axis (w3) only
                 // Old full-sensor correction path:
                 // ekf.update(t, dt, y, u_last_rad, snap.altitude_m);
                 ekf.updateGyroOnly(t, dt, y, u_last_rad, model_alt_for_step);
@@ -350,22 +331,22 @@ extern "C" void CTRLs(void*)
             model_alt_m += model_vz_ms * dt;
             if (model_alt_m < 0.0f) model_alt_m = 0.0f;
 
-            // Model-based apogee: latch on the first upward-to-downward vertical
-            // velocity crossing after a real modeled climb.
-            if (model_vz_ms > 5.0f) saw_climb = true;
-            if (!apogee_latched && saw_climb && t > cfg.t_burnout &&
-                prev_model_vz > 0.0f && model_vz_ms <= 0.0f) {
-                apogee_latched = true;
+            // Model-based apogee: trigger when vertical velocity drops below 3 m/s
+            // after burnout. saw_climb guard removed for ground testing — EKF
+            // velocity stays near 0 on the bench so a climb is never observed.
+            if (!apogee_latched && t > cfg.t_burnout && model_vz_ms < 3.0f) {
+                apogee_latched  = true;
                 apogee_blink_ms = now_ms;
+                g_ctrls_enabled = false;   // zero servo output immediately
+                Servos.Update(0.0f, 0.0f);
                 SD_LogNewline("ModelApogee");
             }
-            prev_model_vz = model_vz_ms;
 
-            // Non-blocking apogee indication: three short LED blinks.
+            // Non-blocking apogee indication: rapid LED strobe for 2 seconds.
             if (apogee_latched && !apogee_blink_done) {
                 const uint32_t blink_elapsed = now_ms - apogee_blink_ms;
-                if (blink_elapsed < 1500U) {
-                    const bool led_on = (blink_elapsed % 400U) < 150U;
+                if (blink_elapsed < 2000U) {
+                    const bool led_on = (blink_elapsed % 200U) < 100U;
                     HAL_GPIO_WritePin(USR_LED_GPIO_Port, USR_LED_Pin,
                                       led_on ? GPIO_PIN_SET : GPIO_PIN_RESET);
                 } else {
