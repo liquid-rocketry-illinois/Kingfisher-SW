@@ -23,6 +23,16 @@ Servo_Axon_Mini_MKII Servos;
 
 static volatile bool initDone = false;
 
+static float modelVerticalVelocityMS(const StateVec& x)
+{
+    float R[3][3];
+    Physics::R_BW(x(6,0), x(7,0), x(8,0), x(9,0), R);
+
+    // R_BW maps world vectors into body frame, so R^T maps body velocity
+    // back to world.  The third world component is vertical velocity.
+    return R[0][2] * x(3,0) + R[1][2] * x(4,0) + R[2][2] * x(5,0);
+}
+
 static void ledBlink(int n) {
     for (int i = 0; i < n; i++) {
         HAL_GPIO_WritePin(USR_LED_GPIO_Port, USR_LED_Pin, GPIO_PIN_RESET);
@@ -269,7 +279,15 @@ extern "C" void CTRLs(void*)
 
     {
         // ── Update loop ──────────────────────────────────────────────────────────
-        static uint32_t prev_ms  = 0U;
+        static uint32_t prev_ms         = 0U;
+        static uint32_t launch_start_ms = 0U;
+        static float    model_alt_m     = 0.0f;
+        static float    prev_model_vz   = 0.0f;
+        static bool     saw_climb       = false;
+        static bool     apogee_latched  = false;
+        static uint32_t apogee_blink_ms = 0U;
+        static bool     apogee_blink_done = false;
+
         float u_last_rad         = 0.0f;  // previous canard command (rad) — fed back into EKF EOM
         CtrlsSensorSnapshot snap = {};
         snap.temperature_K       = 288.15f;
@@ -279,14 +297,23 @@ extern "C" void CTRLs(void*)
             //if (!g_ctrls_enabled) { osDelay(10); continue; }
 
             const uint32_t now_ms = millis();
+            if (launch_start_ms == 0U) launch_start_ms = now_ms;
+
             const float dt = (prev_ms == 0U) ? 0.01f
                              : static_cast<float>(now_ms - prev_ms) * 1e-3f;
             prev_ms = now_ms;
             if (dt <= 0.0f || dt > 0.5f) { osDelay(1); continue; }
 
+            // Dynamics-test mode: time starts at controls-task start, not at
+            // sensor-detected liftoff.  This lets the flight computer propagate
+            // the model from launch for bench/ground dynamics tests.
+            const float t = static_cast<float>(now_ms - launch_start_ms) * 1.0e-3f;
+
             // ── Read sensor snapshot ─────────────────────────────────────────────
-            // snap retains last known values if no fresh data is available,
-            // so predictOnly always has a valid flight time and altitude.
+            // The sensor task still populates full telemetry, but controls and
+            // dynamics intentionally consume only gyro.  Accel, baro altitude,
+            // GPS, temperature, and sensor-derived flight_time_s are left out
+            // of the loop so they cannot disturb model propagation.
             bool fresh = false;
             if (osMutexAcquire(g_ctrls_sensor_mutex, 2U) == osOK) {
                 if (g_SensorData.fresh) {
@@ -297,54 +324,74 @@ extern "C" void CTRLs(void*)
                 osMutexRelease(g_ctrls_sensor_mutex);
             }
 
-            const float t = snap.flight_time_s;
-
             // ── EKF step ─────────────────────────────────────────────────────────
+            const float model_alt_for_step = model_alt_m;
             if (fresh) {
                 const float vx=ekf.xhat(3,0), vy=ekf.xhat(4,0), vz=ekf.xhat(5,0);
                 ctrl.updateRollEffectivenessSign(t, snap.gyro_rad_s[2], u_last_rad,
                                                   sqrtf(vx*vx + vy*vy + vz*vz));
                 MeasVec y;
                 for (int i = 0; i < 3; i++) {
-                    y(i,   0) = snap.accel_g[i];
+                    // y(i, 0) used to carry accelerometer data for full EKF correction.
+                    // It is deliberately left at zero in dynamics-test mode.
+                    // y(i,   0) = snap.accel_g[i];
                     y(3+i, 0) = snap.gyro_rad_s[i];
                 }
-                ekf.update(t, dt, y, u_last_rad, snap.altitude_m);
+                // Old full-sensor correction path:
+                // ekf.update(t, dt, y, u_last_rad, snap.altitude_m);
+                ekf.updateGyroOnly(t, dt, y, u_last_rad, model_alt_for_step);
             } else {
-                ekf.predictOnly(t, dt, u_last_rad, snap.altitude_m);
+                // Old baro-altitude propagation path:
+                // ekf.predictOnly(t, dt, u_last_rad, snap.altitude_m);
+                ekf.predictOnly(t, dt, u_last_rad, model_alt_for_step);
+            }
+
+            const float model_vz_ms = modelVerticalVelocityMS(ekf.xhat);
+            model_alt_m += model_vz_ms * dt;
+            if (model_alt_m < 0.0f) model_alt_m = 0.0f;
+
+            // Model-based apogee: latch on the first upward-to-downward vertical
+            // velocity crossing after a real modeled climb.
+            if (model_vz_ms > 5.0f) saw_climb = true;
+            if (!apogee_latched && saw_climb && t > cfg.t_burnout &&
+                prev_model_vz > 0.0f && model_vz_ms <= 0.0f) {
+                apogee_latched = true;
+                apogee_blink_ms = now_ms;
+                SD_LogNewline("ModelApogee");
+            }
+            prev_model_vz = model_vz_ms;
+
+            // Non-blocking apogee indication: three short LED blinks.
+            if (apogee_latched && !apogee_blink_done) {
+                const uint32_t blink_elapsed = now_ms - apogee_blink_ms;
+                if (blink_elapsed < 1500U) {
+                    const bool led_on = (blink_elapsed % 400U) < 150U;
+                    HAL_GPIO_WritePin(USR_LED_GPIO_Port, USR_LED_Pin,
+                                      led_on ? GPIO_PIN_SET : GPIO_PIN_RESET);
+                } else {
+                    HAL_GPIO_WritePin(USR_LED_GPIO_Port, USR_LED_Pin, GPIO_PIN_RESET);
+                    apogee_blink_done = true;
+                }
             }
 
             // ── Control law ───────────────────────────────────────────────────────
             // EKF always runs above to keep the state estimate warm.
             // Output is zeroed when controls are disabled so servos hold neutral.
             //
-            // Ground test mode (BYTE_DEFLECT_TEST from GND): bypasses the two
-            // gates that suppress output before flight —
-            //   1. t <= 0  (no liftoff detected yet)
-            //   2. vmag < min_control_speed  (EKF velocity is zero on the bench)
-            // A copy of xhat is used so the real EKF state and covariance are
-            // not corrupted by the injected airspeed.
-            static constexpr float    GROUND_TEST_AIRSPEED_MS = 50.0f;
-            static constexpr float    GROUND_TEST_TIME_S      = 5.0f;
-            static constexpr uint32_t GROUND_TEST_DURATION_MS = 60000U;
-            static uint32_t           test_start_ms           = 0U;
-            if (g_ctrls_test_mode) {
-                if (test_start_ms == 0U) test_start_ms = now_ms;
-                if ((now_ms - test_start_ms) >= GROUND_TEST_DURATION_MS) {
-                    g_ctrls_test_mode = false;
-                    g_ctrls_enabled   = false;
-                    test_start_ms     = 0U;
-                }
-            } else {
-                test_start_ms = 0U;
-            }
-            float      t_ctrl    = t;
-            StateVec   xhat_ctrl = ekf.xhat;
-            if (g_ctrls_test_mode) {
-                t_ctrl          = GROUND_TEST_TIME_S;
-                xhat_ctrl(5, 0) = GROUND_TEST_AIRSPEED_MS;
-            }
-            const float u_rad = g_ctrls_enabled ? ctrl.computeControl(t_ctrl, xhat_ctrl) : 0.0f;
+            // Old ground-test behavior injected fixed time/airspeed and shut
+            // controls off after 60 s.  For dynamics testing, ground test now
+            // means "run the model from launch and observe roll response."
+            //
+            // static constexpr float    GROUND_TEST_AIRSPEED_MS = 50.0f;
+            // static constexpr float    GROUND_TEST_TIME_S      = 5.0f;
+            // static constexpr uint32_t GROUND_TEST_DURATION_MS = 60000U;
+            // static uint32_t           test_start_ms           = 0U;
+            // if (g_ctrls_test_mode) { ... }
+            // if (g_ctrls_test_mode) {
+            //     t_ctrl          = GROUND_TEST_TIME_S;
+            //     xhat_ctrl(5, 0) = GROUND_TEST_AIRSPEED_MS;
+            // }
+            const float u_rad = g_ctrls_enabled ? ctrl.computeControl(t, ekf.xhat) : 0.0f;
             u_last_rad = u_rad;
             const float u_deg = u_rad * (180.0f / static_cast<float>(M_PI));
 
@@ -363,6 +410,8 @@ extern "C" void CTRLs(void*)
                 servo_offset2_deg = g_gndData.servoOffset2;
                 g_telemNow.servoTarget1 = u_deg + servo_offset1_deg;
                 g_telemNow.servoTarget2 = u_deg + servo_offset2_deg;
+                g_telemNow.altitude = model_alt_m;
+                g_telemNow.verticalVelocity = model_vz_ms;
                 osMutexRelease(g_ctrls_sensor_mutex);
             }
 

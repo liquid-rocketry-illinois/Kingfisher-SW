@@ -18,6 +18,11 @@ public:
     StateVec update(float t, float dt, const MeasVec& y_meas, float u,
                     float alt = 0.0f);
 
+    // Predict + correct using only gyro rows from y_meas. Accel/baro/GPS are
+    // intentionally excluded for dynamics bench testing.
+    StateVec updateGyroOnly(float t, float dt, const MeasVec& y_meas, float u,
+                            float alt = 0.0f);
+
     // Predict only — no correction. Call when no new IMU sample is available.
     void predictOnly(float t, float dt, float u, float alt = 0.0f);
 

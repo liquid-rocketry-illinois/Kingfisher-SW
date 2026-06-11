@@ -291,7 +291,7 @@ void Telemetry::processCmd(uint8_t cmd)
 
         case BYTE_DEFLECT_TEST:           // 150  — BYTE_DEFLECT_TEST
             g_ctrls_enabled   = true;
-            g_ctrls_test_mode = true;     // enter ground test: bypass time/speed gates
+            g_ctrls_test_mode = true;     // enter ground dynamics test
             break;
 
         case REQUEST_DATA_BYTE:           // 0xC3 — BYTE_REQUEST_DATA

@@ -131,6 +131,31 @@ StateVec EKF::update(float t, float dt, const MeasVec& y_meas, float u,
     return xhat;
 }
 
+StateVec EKF::updateGyroOnly(float t, float dt, const MeasVec& y_meas, float u,
+                             float alt) {
+    const bool on_rail = (t < cfg_.t_rail);
+
+    if (on_rail) {
+        applyRailConstraint_();
+    }
+
+    StateMat A;
+    predict_(t, dt, u, alt, A);
+
+    if (on_rail) {
+        applyRailConstraint_();
+    }
+
+    correct_(t, u, y_meas, alt, A, false, true);
+
+    if (on_rail) {
+        applyRailConstraint_();
+    }
+
+    normalizeQuaternion_();
+    return xhat;
+}
+
 void EKF::predictOnly(float t, float dt, float u, float alt) {
     StateMat A;
     predict_(t, dt, u, alt, A);
