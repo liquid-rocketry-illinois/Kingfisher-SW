@@ -324,13 +324,25 @@ extern "C" void CTRLs(void*)
             //   2. vmag < min_control_speed  (EKF velocity is zero on the bench)
             // A copy of xhat is used so the real EKF state and covariance are
             // not corrupted by the injected airspeed.
-            static constexpr float GROUND_TEST_AIRSPEED_MS = 50.0f; // above min_control_speed (30 m/s)
-            static constexpr float GROUND_TEST_TIME_S      = 5.0f;  // post-burnout (cfg.t_burnout = 3.5 s)
-            float      t_ctrl   = t;
+            static constexpr float    GROUND_TEST_AIRSPEED_MS = 50.0f;
+            static constexpr float    GROUND_TEST_TIME_S      = 5.0f;
+            static constexpr uint32_t GROUND_TEST_DURATION_MS = 60000U;
+            static uint32_t           test_start_ms           = 0U;
+            if (g_ctrls_test_mode) {
+                if (test_start_ms == 0U) test_start_ms = now_ms;
+                if ((now_ms - test_start_ms) >= GROUND_TEST_DURATION_MS) {
+                    g_ctrls_test_mode = false;
+                    g_ctrls_enabled   = false;
+                    test_start_ms     = 0U;
+                }
+            } else {
+                test_start_ms = 0U;
+            }
+            float      t_ctrl    = t;
             StateVec   xhat_ctrl = ekf.xhat;
             if (g_ctrls_test_mode) {
-                t_ctrl             = GROUND_TEST_TIME_S;
-                xhat_ctrl(5, 0)    = GROUND_TEST_AIRSPEED_MS;
+                t_ctrl          = GROUND_TEST_TIME_S;
+                xhat_ctrl(5, 0) = GROUND_TEST_AIRSPEED_MS;
             }
             const float u_rad = g_ctrls_enabled ? ctrl.computeControl(t_ctrl, xhat_ctrl) : 0.0f;
             u_last_rad = u_rad;
