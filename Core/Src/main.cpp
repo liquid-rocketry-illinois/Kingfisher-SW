@@ -45,9 +45,10 @@ extern "C" void FC_Init(void*) {
     while (Servos.Init({0,0}, TENTH_DEGREE, false) != true)
         osDelay(100);
 
-    // SD is non-critical: log if it fails but don't block init.
-    // Required for ground testing where SD may not be available.
-    SD_Init();
+    while (SD_Init() != 0) {
+        HAL_GPIO_TogglePin(USR_LED_GPIO_Port, USR_LED_Pin);
+        osDelay(100);
+    }
 
     initDone = true;
     vTaskSuspend(NULL); // suspend permanently
@@ -272,6 +273,8 @@ extern "C" void CTRLs(void*)
 
     while (!initDone) osDelay(10);
 
+    SD_DynInit();
+
     {
         // ── Update loop ──────────────────────────────────────────────────────────
         static uint32_t prev_ms         = 0U;
@@ -280,6 +283,7 @@ extern "C" void CTRLs(void*)
         static bool     apogee_latched  = false;
         static uint32_t apogee_blink_ms = 0U;
         static bool     apogee_blink_done = false;
+        static uint32_t dyn_log_ms      = 0U;
 
         float u_last_rad         = 0.0f;  // previous canard command (rad) — fed back into EKF EOM
         CtrlsSensorSnapshot snap = {};
@@ -341,6 +345,19 @@ extern "C" void CTRLs(void*)
             const float model_vz_ms = modelVerticalVelocityMS(ekf.xhat);
             model_alt_m += model_vz_ms * dt;
             if (model_alt_m < 0.0f) model_alt_m = 0.0f;
+
+            // Log dynamics model state at 2 Hz (every 500 ms)
+            if (now_ms - dyn_log_ms >= 500U) {
+                dyn_log_ms = now_ms;
+                const float vx = ekf.xhat(3,0), vy = ekf.xhat(4,0);
+                const float horiz_v = sqrtf(vx*vx + vy*vy);
+                const float roll_rate = ekf.xhat(2,0);  // w3 rad/s
+                char dyn_ln[64];
+                snprintf(dyn_ln, sizeof(dyn_ln),
+                    "DYN,%.2f,%.1f,%.2f,%.2f,%.3f",
+                    t, model_alt_m, model_vz_ms, horiz_v, roll_rate);
+                SD_LogDyn(dyn_ln);
+            }
 
             // Model-based apogee: trigger when vertical velocity drops below 3 m/s
             // after burnout. saw_climb guard removed for ground testing — EKF

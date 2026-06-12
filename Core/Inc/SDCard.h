@@ -26,6 +26,12 @@ int8_t SD_LogInline(const char* msg);
 int8_t SD_LogGPS(double lat, double lon, double alt,
                  uint8_t hour, uint8_t min, uint8_t sec);
 
+// Open HAL1_DYN.TXT for dynamics model logging. Call after SD_Init().
+int8_t SD_DynInit();
+
+// Append one dynamics line to HAL1_DYN.TXT.
+int8_t SD_LogDyn(const char* msg);
+
 // Flush, close the log file, and unmount. Call before power-down.
 int8_t SD_Close();
 
