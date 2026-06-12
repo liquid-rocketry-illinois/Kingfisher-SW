@@ -88,7 +88,7 @@ uint8_t Telemetry::Update()
     tx_burst_count = 0;  // reset for the next burst regardless of outcome
 
     uint8_t rx_status = receiveCommands(GNDOutData);
-    HALOutData.RSSI = get_rssi_e22_900t22s();
+    HALOutData.RSSI =
 
     lastRxGood = (rx_status == 0);
     return rx_status;
@@ -216,6 +216,14 @@ int8_t Telemetry::decodeData(T &payload, uint16_t buf_len)
         return -6;  // trailing sync mismatch — frame boundary corrupted
 
     memcpy(&payload, &rx_buffer[sync_idx + 5], sizeof(T));
+
+    // extract appended rssi byte from radio
+    // layout: [S1][S2][len][seq_lo][seq_hi][payload x N][CRC_lo][CRC_hi][S2][S1][RSSI]
+    //           0   1   2    3       4       5..4+N      5+N     6+N    7+N 8+N  9+N
+    const uint16_t rssi_idx = static_cast<uint16_t>(sync_idx) + 9u + payload_len;
+    HALOutData.RSSI = (rssi_idx < buf_len)
+                ? static_cast<float>(rx_buffer[rssi_idx]) / -2.0F
+                : 0.0F;
 
     lastSeq = seq_rx;
     return 0;
