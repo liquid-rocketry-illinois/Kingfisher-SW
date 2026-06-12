@@ -71,6 +71,7 @@ extern telemetryData g_telemNow;
 extern telemetryData g_telemPrev;
 extern GndStationData g_gndData;
 extern osMutexId_t g_ctrls_sensor_mutex;
+extern GPS_Data g_GPS;
 
 extern "C" void updateDataTask(void*)
 {
@@ -206,19 +207,23 @@ extern "C" void SDLogTask(void*) {
     while (!initDone)
         osDelay(10);
 
-    // CSV headers — two-line schema per sample
+    // CSV headers — three-line schema per sample
+    SD_LogNewline("\n\n\n\n BEGINNING NEW FLIGHT DATA.");
     SD_LogNewline("tick_ms,lat,lon,baro_alt,gps_alt,vvel_ms,temp_c");
     SD_LogNewline("accX,accY,accZ,gyrX,gyrY,gyrZ,roll,pitch,yaw,s1cmd,s2cmd,rssi,pyro_dm,pyro_db,pyro_mc");
+    SD_LogNewline("hh:mm:ss,#sats,hdop");
 
     for (;;) {
         // Snapshot under mutex — release before slow SD write
         telemetryData s = {};
+        GPS_Data gps   = {};
         if (osMutexAcquire(g_ctrls_sensor_mutex, 5) == osOK) {
-            s = g_telemNow;
+            s   = g_telemNow;
+            gps = g_GPS;
             osMutexRelease(g_ctrls_sensor_mutex);
         }
 
-        char ln1[100], ln2[140];
+        char ln1[100], ln2[140], ln3[32];
 
         snprintf(ln1, sizeof(ln1),
             "%lu,%.5f,%.5f,%.1f,%.1f,%.2f,%.1f",
@@ -238,8 +243,14 @@ extern "C" void SDLogTask(void*) {
             (int)s.pyroBackupDrogueFired,
             (int)s.pyroMainChuteFired);
 
+        snprintf(ln3, sizeof(ln3),
+            "%02u:%02u:%02u,%u,%.1f",
+            gps.hour, gps.minute, gps.second,
+            gps.satellites, (double)gps.hdop);
+
         SD_LogNewline(ln1);
         SD_LogNewline(ln2);
+        SD_LogNewline(ln3);
 
         osDelay(20); // 50 Hz
     }

@@ -43,9 +43,14 @@ typedef enum {
 } ProcedureStatus;
 
 typedef struct {
-    double latitude;
-    double longitude;
-    double altitude;
+    double  latitude;
+    double  longitude;
+    double  altitude;
+    uint8_t hour;
+    uint8_t minute;
+    uint8_t second;
+    uint8_t satellites;
+    float   hdop;
 } GPS_Data;
 
 typedef struct {

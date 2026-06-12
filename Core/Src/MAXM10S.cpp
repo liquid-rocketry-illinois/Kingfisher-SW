@@ -21,12 +21,15 @@ bool MAXM10S::sendUBX(const uint8_t *msg, uint16_t len)
 
 uint16_t MAXM10S::getAvailableBytes()
 {
-    uint8_t buf[2] = {0};
-    // 2-byte register read at 400kHz I2C takes <1ms; 20ms is a generous ceiling
+    availBuf[0] = availBuf[1] = 0;
     if (HAL_I2C_Mem_Read(_hi2c, I2C_ADDRESS, REG_BYTES_AVAIL,
-                         I2C_MEMADD_SIZE_8BIT, buf, 2, 20) != HAL_OK)
+                         I2C_MEMADD_SIZE_8BIT, availBuf, 2, 50) != HAL_OK) {
+        // Recover stuck I2C peripheral — common on STM32H7 after NACK/timeout
+        HAL_I2C_DeInit(_hi2c);
+        HAL_I2C_Init(_hi2c);
         return 0;
-    uint16_t n = (uint16_t)((buf[0] << 8) | buf[1]);
+    }
+    uint16_t n = (uint16_t)((availBuf[0] << 8) | availBuf[1]);
     return (n == 0xFFFF) ? 0 : n;  // 0xFFFF = I2C FIFO stall; treat as 0
 }
 

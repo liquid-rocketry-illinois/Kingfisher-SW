@@ -447,7 +447,7 @@ int8_t get_rssi_e22_900t22s(void)
             {
                 // byte 3 is the current RSSI which doesn't have purpose for the FC. We want
                 // the RSSI of the signal
-                last_rssi = RSSIReceive[4];
+                last_rssi = RSSIReceive[3];
                 return static_cast<int8_t>((last_rssi) / -2);
             }
         }
