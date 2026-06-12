@@ -42,7 +42,7 @@ public:
     ControlLaw(const Physics& phys, const RocketConfig& cfg);
 
     // Returns canard deflection command (rad). Call after EKF update.
-    float computeControl(float t, const StateVec& xhat);
+    float computeControl(float t, const StateVec& xhat, float alt = 0.0f);
 
     // Update roll effectiveness sign. Call once per loop with the CURRENT gyro
     // w3 reading and the command (rad) applied in the PREVIOUS step, and the
@@ -68,7 +68,7 @@ private:
     float rem_prev_w3_       =  0.0f;
 
     // Compute scalar gain K for current flight condition (incorporates rem_sign_).
-    float gainSchedule_(float t, const StateVec& xhat) const;
+    float gainSchedule_(float t, const StateVec& xhat, float alt) const;
 };
 
 // ─── FreeRTOS controls task ───────────────────────────────────────────────────

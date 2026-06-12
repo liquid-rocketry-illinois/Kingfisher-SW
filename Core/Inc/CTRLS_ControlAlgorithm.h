@@ -151,7 +151,7 @@ struct RocketConfig {
     float v_wind_x  = 0.0f;     // world-frame wind (m/s)
     float v_wind_y  = 0.0f;
 
-    // Initial state: zeros + qw = 1
+    // Initial state. Control Freak runtime overrides this from rail-angle setup.
     float x0[10] = {0,0,0, 0,0,0, 1,0,0,0};
 
     // Thrust curve table (time vs Newtons)
@@ -253,11 +253,11 @@ public:
 private:
     // Precomputed fin roll geometry constants (computed in constructor)
     float K_f;   // fin cant roll forcing coefficient (N·m per unit dynamic pressure)
-    float K_d;   // roll damping coefficient
+    float K_d;   // roll damping coefficient used as 0.5*rho*v*K_d*w3
     float y_ma;  // mean aerodynamic chord lateral offset (m)
     float C_ldw; // roll damping derivative
-    float r_t;   // fin tip radial position (m)
-    float tau;   // fin taper ratio Ct/Cr
+    float r_t;   // body radius at fin root (m)
+    float tau;   // Barrowman span ratio (s + r_t) / r_t
 };
 
 #endif // KINGFISHER_SW_CONTROLALGORITHM_H

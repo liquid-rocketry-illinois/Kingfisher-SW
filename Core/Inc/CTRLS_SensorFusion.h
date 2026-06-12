@@ -18,6 +18,11 @@ public:
     StateVec update(float t, float dt, const MeasVec& y_meas, float u,
                     float alt = 0.0f);
 
+    // Predict + gyro-only correct step. Used by dynamics bench mode so
+    // stationary accel/baro readings do not overwrite the propagated model.
+    StateVec updateGyroOnly(float t, float dt, const MeasVec& y_meas, float u,
+                            float alt = 0.0f);
+
     // Predict only — no correction. Call when no new IMU sample is available.
     void predictOnly(float t, float dt, float u, float alt = 0.0f);
 

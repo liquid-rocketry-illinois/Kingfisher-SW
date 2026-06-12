@@ -20,23 +20,35 @@ static constexpr float kThrustN[] = {
 };
 
 static constexpr float kDragMach[] = {
-    0.01f, 0.02f, 0.04f, 0.06f, 0.08f, 0.1f, 0.12f, 0.14f,
-    0.16f, 0.18f, 0.2f, 0.22f, 0.24f, 0.26f, 0.28f, 0.3f,
-    0.32f, 0.34f, 0.36f, 0.38f, 0.4f, 0.42f, 0.44f, 0.46f,
-    0.48f, 0.5f, 0.52f, 0.54f, 0.56f, 0.58f, 0.6f, 0.62f,
-    0.64f, 0.66f, 0.68f, 0.7f, 0.72f, 0.74f, 0.76f, 0.78f,
-    0.8f, 0.82f, 0.84f, 0.86f, 0.88f, 0.9f, 0.92f, 0.94f,
-    0.96f, 0.98f, 1.0f, 1.02f, 1.04f, 1.06f, 1.08f, 1.1f
+    0.01f, 0.02f, 0.03f, 0.04f, 0.05f, 0.06f, 0.07f, 0.08f,
+    0.09f, 0.1f, 0.11f, 0.12f, 0.13f, 0.14f, 0.15f, 0.16f,
+    0.17f, 0.18f, 0.19f, 0.2f, 0.21f, 0.22f, 0.23f, 0.24f,
+    0.25f, 0.26f, 0.27f, 0.28f, 0.29f, 0.3f, 0.31f, 0.32f,
+    0.33f, 0.34f, 0.35f, 0.36f, 0.37f, 0.38f, 0.39f, 0.4f,
+    0.41f, 0.42f, 0.43f, 0.44f, 0.45f, 0.46f, 0.47f, 0.48f,
+    0.49f, 0.5f, 0.51f, 0.52f, 0.53f, 0.54f, 0.55f, 0.56f,
+    0.57f, 0.58f, 0.59f, 0.6f, 0.61f, 0.62f, 0.63f, 0.64f,
+    0.65f, 0.66f, 0.67f, 0.68f, 0.69f, 0.7f, 0.71f, 0.72f,
+    0.73f, 0.74f, 0.75f, 0.76f, 0.77f, 0.78f, 0.79f, 0.8f,
+    0.81f, 0.82f, 0.83f, 0.84f, 0.85f, 0.86f, 0.87f, 0.88f,
+    0.89f, 0.9f, 0.91f, 0.92f, 0.93f, 0.94f, 0.95f, 0.96f,
+    0.97f, 0.98f, 0.99f, 1.0f
 };
 
 static constexpr float kDragCd[] = {
-    0.569051589f, 0.52605377f, 0.525615889f, 0.52519502f, 0.524791277f, 0.524404882f, 0.524035931f, 0.523684782f,
-    0.52335172f, 0.523037128f, 0.522741522f, 0.522465341f, 0.522209327f, 0.522456875f, 0.523205929f, 0.523973811f,
-    0.524761467f, 0.525570251f, 0.526401418f, 0.527256541f, 0.528137297f, 0.529045713f, 0.529983978f, 0.530954593f,
-    0.531960482f, 0.533004953f, 0.534091723f, 0.535225235f, 0.536410567f, 0.537653713f, 0.538961663f, 0.542000834f,
-    0.545086685f, 0.548261658f, 0.551540284f, 0.554940606f, 0.556660936f, 0.55832138f, 0.559975082f, 0.561622012f,
-    0.563262365f, 0.569118026f, 0.574967195f, 0.580809862f, 0.586646034f, 0.59247585f, 0.608591193f, 0.681316916f,
-    0.766198039f, 0.851079162f, 0.935960286f, 1.02084141f, 1.10572253f, 1.11061931f, 1.0567537f, 1.01881309f
+    0.569051589f, 0.52605377f, 0.525832698f, 0.525615889f, 0.5254033f, 0.52519502f, 0.524991009f, 0.524791277f,
+    0.524595889f, 0.524404882f, 0.524218202f, 0.524035931f, 0.523858126f, 0.523684782f, 0.523515978f, 0.52335172f,
+    0.523192083f, 0.523037128f, 0.522886922f, 0.522741522f, 0.522600976f, 0.522465341f, 0.522334793f, 0.522209327f,
+    0.522089082f, 0.522456875f, 0.522829131f, 0.523205929f, 0.523587459f, 0.523973811f, 0.524365069f, 0.524761467f,
+    0.525163147f, 0.525570251f, 0.525982943f, 0.526401418f, 0.526825879f, 0.527256541f, 0.527693567f, 0.528137297f,
+    0.528587922f, 0.529045713f, 0.529510946f, 0.529983978f, 0.530465078f, 0.530954593f, 0.531452951f, 0.531960482f,
+    0.532477693f, 0.533004953f, 0.533542788f, 0.534091723f, 0.534652347f, 0.535225235f, 0.535811092f, 0.536410567f,
+    0.53702454f, 0.537653713f, 0.538299096f, 0.538961663f, 0.540487449f, 0.542000834f, 0.543533427f, 0.545086685f,
+    0.546662174f, 0.548261658f, 0.54988696f, 0.551540284f, 0.553223938f, 0.554940606f, 0.555828201f, 0.556660936f,
+    0.557492007f, 0.55832138f, 0.559149071f, 0.559975082f, 0.560799396f, 0.561622012f, 0.562443031f, 0.563262365f,
+    0.566191044f, 0.569118026f, 0.572043456f, 0.574967195f, 0.577889305f, 0.580809862f, 0.583728762f, 0.586646034f,
+    0.589561727f, 0.59247585f, 0.596504685f, 0.608591193f, 0.638876354f, 0.681316916f, 0.723757477f, 0.766198039f,
+    0.808638601f, 0.851079162f, 0.893519724f, 0.935960286f
 };
 
 struct WeatherPoint {
@@ -199,7 +211,10 @@ void loadControlFreakRocketConfig(RocketConfig& cfg) {
     cfg.v_wind_y = 0.0f;
 
     for (int i = 0; i < 10; ++i) cfg.x0[i] = 0.0f;
-    cfg.x0[6] = 1.0f;
+    // Matches FV-Controls setSimParamsFromRailAngle(45 deg, nose_to_tail):
+    // launch roll angle = 360 - 45 = 315 deg.
+    cfg.x0[6] = -0.923879533f;
+    cfg.x0[9] =  0.382683432f;
 
     cfg.rem_enabled             = true;
     cfg.rem_post_burn_delay_s   = 0.25f;
@@ -283,26 +298,43 @@ float lerp(const float* xs, const float* ys, int n, float xi) {
 
 // ─── Physics constructor ──────────────────────────────────────────────────────
 Physics::Physics(const RocketConfig& c) : cfg(c) {
-    // Precompute fin roll geometry constants (from fin_roll_moment_numeric())
-    tau = (cfg.Ct > 0.0f) ? (cfg.Ct / cfg.Cr) : 0.0f;
+    // Match FV-Controls/src/dynamics/momentsforces.py roll EOM.
+    const float gamma = (cfg.Cr > 0.0f) ? (cfg.Ct / cfg.Cr) : 0.0f;
+    r_t = cfg.d * 0.5f;
+    tau = (r_t > 0.0f) ? ((cfg.s + r_t) / r_t) : 1.0f;
 
-    // Mean aerodynamic chord lateral center of pressure position
-    y_ma = (cfg.s / 3.0f) * (1.0f + 2.0f*tau) / (1.0f + tau);
+    y_ma = (cfg.s / 3.0f) * (1.0f + 2.0f*gamma) / (1.0f + gamma);
 
-    // Tip radius from rocket centreline
-    r_t = cfg.d * 0.5f + cfg.s;
+    const float tau2 = tau * tau;
+    const float tau_minus_1 = tau - 1.0f;
+    const float asin_arg = (tau2 - 1.0f) / (tau2 + 1.0f);
+    const float asin_term = asinf(fmaxf(-1.0f, fminf(1.0f, asin_arg)));
+    const float shape_f =
+        (1.0f / (M_PI * M_PI)) *
+        ((M_PI*M_PI / 4.0f) * ((tau + 1.0f)*(tau + 1.0f) / tau2)
+       + (M_PI * (tau2 + 1.0f)*(tau2 + 1.0f) / (tau2 * tau_minus_1*tau_minus_1)) * asin_term
+       - (2.0f * M_PI * (tau + 1.0f)) / (tau * tau_minus_1)
+       + ((tau2 + 1.0f)*(tau2 + 1.0f) / (tau2 * tau_minus_1*tau_minus_1)) * asin_term*asin_term
+       - (4.0f * (tau + 1.0f) / (tau * tau_minus_1)) * asin_term
+       + (8.0f / (tau_minus_1*tau_minus_1)) * logf((tau2 + 1.0f) / (2.0f * tau)));
 
-    // Roll damping coefficient (integrated over fin span using strip theory):
-    // C_ldw = integral from r_root to r_t of Cnalpha * r^2 dr normalised by v
-    float r_root = cfg.d * 0.5f;
-    // K_d encodes: N_fins * rho * Cnalpha * integral(r^2, r_root, r_t) / 2
-    // At runtime: M_roll_damp = -K_d * rho * v_mag * w3
-    C_ldw = (cfg.Cnalpha_fin / 3.0f) * (r_t*r_t*r_t - r_root*r_root*r_root);
-    K_d   = cfg.N_fins * C_ldw;          // multiply by 0.5*rho*v at runtime
+    // Runtime uses M_f_roll = K_f * q_dyn.
+    K_f = shape_f * (float)cfg.N_fins * (y_ma + r_t) * cfg.Cnalpha_fin
+          * cfg.delta_rad * cfg.A_ref;
 
-    // Fin cant forcing: K_f * q_dyn = roll moment from canted fins
-    // M_cant = N * Cnalpha * delta * A_ref * q_dyn * y_ma  (linearised in delta)
-    K_f = (float)cfg.N_fins * cfg.Cnalpha_fin * sinf(cfg.delta_rad) * cfg.A_ref * y_ma;
+    const float trap_integral = cfg.s / 12.0f *
+        ((cfg.Cr + 3.0f*cfg.Ct) * cfg.s*cfg.s
+       + 4.0f * (cfg.Cr + 2.0f*cfg.Ct) * cfg.s * r_t
+       + 6.0f * (cfg.Cr + cfg.Ct) * r_t*r_t);
+    C_ldw = 2.0f * (float)cfg.N_fins * cfg.Cnalpha_fin
+            / (cfg.A_ref * cfg.d*cfg.d) * cosf(cfg.delta_rad) * trap_integral;
+    const float shape_d = 1.0f +
+        (((tau - gamma) / tau) - ((1.0f - gamma) / tau_minus_1) * logf(tau)) /
+        (((tau + 1.0f) * (tau - gamma) / 2.0f)
+       - ((1.0f - gamma) * (tau*tau*tau - 1.0f) / (3.0f * tau_minus_1)));
+
+    // Runtime uses M_d_roll = 0.5*rho*v_mag*K_d*w3.
+    K_d = shape_d * cfg.A_ref * cfg.d * C_ldw * (cfg.d * 0.5f);
 }
 
 // ─── Time-varying parameters ──────────────────────────────────────────────────
@@ -338,6 +370,7 @@ float Physics::getCG(float t) const {
 
 float Physics::getThrust(float t) const {
     if (t < 0.0f || t > cfg.t_burnout || cfg.thrust_n == 0) return 0.0f;
+    if (t < cfg.thrust_t[0] || t > cfg.thrust_t[cfg.thrust_n - 1]) return 0.0f;
     return lerp(cfg.thrust_t, cfg.thrust_N, cfg.thrust_n, t);
 }
 
@@ -470,15 +503,28 @@ StateVec Physics::eom(float t, const StateVec& x, float u_zeta, float alt) const
     // Airspeed
     const float vmag2 = va[0]*va[0]+va[1]*va[1]+va[2]*va[2];
     const float vmag  = sqrtf(vmag2);
-    const float vtrans= sqrtf(va[0]*va[0]+va[1]*va[1]);
+    static constexpr float EPS_AOA = 1.0e-9f;
+    const float vmag_reg = sqrtf(vmag2 + EPS_AOA*EPS_AOA);
+    const float v_xy_mag = sqrtf(va[0]*va[0] + va[1]*va[1] + EPS_AOA*EPS_AOA);
 
     // Angle of attack (from axial z-body), clamped to ±15 deg
     static constexpr float AoA_MAX = 15.0f * (M_PI / 180.0f);
     float alpha = 0.0f;
     if (vmag > 0.1f)
-        alpha = atan2f(vtrans, fabsf(va[2]));
+        alpha = atan2f(v_xy_mag, va[2] + EPS_AOA);
     if (alpha >  AoA_MAX) alpha =  AoA_MAX;
     if (alpha < -AoA_MAX) alpha = -AoA_MAX;
+
+    // Directional canard-plane AoA, matching FV-Controls momentsforces.py.
+    const float canard_lat = va[0]*cfg.canard_dir_1 + va[1]*cfg.canard_dir_2;
+    const float canard_lat_mag = sqrtf(canard_lat*canard_lat + EPS_AOA*EPS_AOA);
+    const float vcan2 = canard_lat*canard_lat + va[2]*va[2];
+    const float vcan_mag = sqrtf(vcan2 + EPS_AOA*EPS_AOA);
+    float alpha_can = 0.0f;
+    if (vcan_mag > 0.1f)
+        alpha_can = atan2f(canard_lat_mag, va[2] + EPS_AOA);
+    if (alpha_can >  AoA_MAX) alpha_can =  AoA_MAX;
+    if (alpha_can < -AoA_MAX) alpha_can = -AoA_MAX;
 
     // Mach, Cd, dynamic pressure
     const float c_snd = speedOfSound(wx.temperature_K);
@@ -487,61 +533,78 @@ StateVec Physics::eom(float t, const StateVec& x, float u_zeta, float alt) const
     const float rho   = wx.rho;
     const float q_dyn = 0.5f * rho * vmag2;
 
-    // Rail: no forces/moments before release
+    // Rail: no lift/moments before release. Thrust, gravity, and drag still act,
+    // matching FV-Controls' force model.
     const bool on_rail = (t < cfg.t_rail);
 
     // ── Forces (body frame) ──────────────────────────────────────────────────
     float F[3] = {0.0f, 0.0f, 0.0f};
 
-    if (!on_rail) {
-        // Gravity: g_world = [0,0,-g]; g_body = R_BW * g_world = -g * R[:,2]
-        F[0] += m * (-wx.g * R[0][2]);
-        F[1] += m * (-wx.g * R[1][2]);
-        F[2] += m * (-wx.g * R[2][2]);
+    // Gravity: g_world = [0,0,-g]; g_body = R_BW * g_world = -g * R[:,2]
+    F[0] += m * (-wx.g * R[0][2]);
+    F[1] += m * (-wx.g * R[1][2]);
+    F[2] += m * (-wx.g * R[2][2]);
 
-        // Thrust along +z body axis
-        F[2] += Thr;
+    // Thrust along +z body axis
+    F[2] += Thr;
 
-        // Aerodynamic drag (along -v_air)
-        if (vmag > 0.1f) {
-            const float D = Cd * cfg.A_ref * q_dyn / vmag;
-            F[0] -= D * va[0];
-            F[1] -= D * va[1];
-            F[2] -= D * va[2];
-        }
+    // Aerodynamic drag (along -v_air)
+    if (vmag > 0.1f) {
+        const float D = Cd * cfg.A_ref * q_dyn / vmag_reg;
+        F[0] -= D * va[0];
+        F[1] -= D * va[1];
+        F[2] -= D * va[2];
+    }
 
-        // Base + canard Barrowman normal force (transverse, creates pitch/yaw restoring)
-        if (vmag > 0.1f && vtrans > 1e-6f) {
-            const float sin_a = sinf(alpha);
-            const float N = (cfg.base_cn + cfg.canard_cn) * sin_a * q_dyn * cfg.A_ref;
-            F[0] += N * (va[0] / vtrans);
-            F[1] += N * (va[1] / vtrans);
-        }
+    if (!on_rail && vmag > 0.1f) {
+        // Symmetric base-rocket normal force.
+        const float L_base = q_dyn * cfg.base_cn * alpha * cfg.A_ref;
+        const float cos_a = cosf(alpha);
+        F[0] += L_base * (-cos_a * va[0] / v_xy_mag);
+        F[1] += L_base * (-cos_a * va[1] / v_xy_mag);
+        F[2] += L_base * sinf(alpha);
+
+        // Two-canard normal force acts only in the configured canard plane.
+        const float q_can = 0.5f * rho * vcan2;
+        const float L_can = q_can * cfg.canard_cn * alpha_can * cfg.A_ref;
+        const float cos_a_can = cosf(alpha_can);
+        const float canard_lat_sign = canard_lat / canard_lat_mag;
+        F[0] += L_can * (-cos_a_can * canard_lat_sign * cfg.canard_dir_1);
+        F[1] += L_can * (-cos_a_can * canard_lat_sign * cfg.canard_dir_2);
+        F[2] += L_can * sinf(alpha_can);
     }
 
     // ── Moments (body frame) ─────────────────────────────────────────────────
     float M[3] = {0.0f, 0.0f, 0.0f};
 
     if (!on_rail) {
-        const float sin_a = sinf(alpha);
+        // Corrective moments: symmetric base plus directional canard plane.
+        if (vmag > 0.1f) {
+            const float cos_a = va[2] / vmag_reg;
+            const float C_raw_base = vmag2 * cfg.A_ref * cfg.base_cn * alpha
+                                   * (cfg.base_cp - xCG) * rho * 0.5f;
+            M[0] += -C_raw_base * cos_a * va[1] / v_xy_mag;
+            M[1] +=  C_raw_base * cos_a * va[0] / v_xy_mag;
 
-        // Pitch/yaw restoring moments from base and canard CP-CG separation
-        if (vmag > 0.1f && vtrans > 1e-6f) {
-            const float N_base = cfg.base_cn   * sin_a * q_dyn * cfg.A_ref;
-            const float N_can  = cfg.canard_cn * sin_a * q_dyn * cfg.A_ref;
-            const float M_base = N_base * (cfg.base_cp  - xCG);  // +ve = destabilising
-            const float M_can  = N_can  * (cfg.canard_cp - xCG);
-            const float M_tot  = M_base + M_can;
-            // Moment direction: perpendicular to axial axis, in transverse velocity plane
-            M[0] += M_tot * (-va[1] / vtrans);
-            M[1] += M_tot * ( va[0] / vtrans);
+            const float cos_a_can = va[2] / vcan_mag;
+            const float C_raw_can = vcan2 * cfg.A_ref * cfg.canard_cn * alpha_can
+                                  * (cfg.canard_cp - xCG) * rho * 0.5f;
+            const float canard_lat_sign = canard_lat / canard_lat_mag;
+            M[0] += -C_raw_can * cos_a_can * canard_lat_sign * cfg.canard_dir_2;
+            M[1] +=  C_raw_can * cos_a_can * canard_lat_sign * cfg.canard_dir_1;
         }
 
-        // Pitch/yaw aerodynamic damping (pitch rate × dynamic pressure × geometry)
-        const float Cdamp = 0.5f * (cfg.base_cn + cfg.canard_cn)
-                          * cfg.A_ref * cfg.L_ne * cfg.L_ne * q_dyn / fmaxf(vmag, 1.0f);
-        M[0] -= Cdamp * w1;
-        M[1] -= Cdamp * w2;
+        // Propulsive and aerodynamic pitch/yaw damping from FV-Controls.
+        const float mdot = (cfg.t_burnout > 0.0f) ? (cfg.m_prop / cfg.t_burnout) : 0.0f;
+        const float Cdp = (t < cfg.t_burnout)
+                        ? mdot * (cfg.L_ne - xCG) * (cfg.L_ne - xCG)
+                        : 0.0f;
+        const float Cda_base = 0.5f * rho * vmag_reg * cfg.A_ref
+                             * cfg.base_cn * (cfg.base_cp - xCG) * (cfg.base_cp - xCG);
+        const float Cda_can = 0.5f * rho * vcan_mag * cfg.A_ref
+                            * cfg.canard_cn * (cfg.canard_cp - xCG) * (cfg.canard_cp - xCG);
+        M[0] -= (Cdp + Cda_base + Cda_can * cfg.canard_dir_2 * cfg.canard_dir_2) * w1;
+        M[1] -= (Cdp + Cda_base + Cda_can * cfg.canard_dir_1 * cfg.canard_dir_1) * w2;
 
         // Fin cant roll forcing (proportional to dynamic pressure)
         M[2] += K_f * q_dyn;

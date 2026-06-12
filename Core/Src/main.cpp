@@ -305,20 +305,28 @@ extern "C" void CTRLs(void*)
             const float t = (launch_start_ms > 0U)
                 ? static_cast<float>(now_ms - launch_start_ms) * 1e-3f
                 : snap.flight_time_s;
+            const float model_alt_for_step = model_alt_m;
+            const float ekf_alt_for_step =
+                g_ctrls_test_mode ? model_alt_for_step : snap.altitude_m;
 
             // ── EKF step ─────────────────────────────────────────────────────────
             if (fresh) {
-                const float vx=ekf.xhat(3,0), vy=ekf.xhat(4,0), vz=ekf.xhat(5,0);
+                const WeatherSample wx = phys.weatherAtAltitude(ekf_alt_for_step);
+                float va[3];
+                phys.airRelativeVelocity(ekf.xhat, wx.wind_x, wx.wind_y, va);
                 ctrl.updateRollEffectivenessSign(t, snap.gyro_rad_s[2], u_last_rad,
-                                                  sqrtf(vx*vx + vy*vy + vz*vz));
+                                                  sqrtf(va[0]*va[0] + va[1]*va[1] + va[2]*va[2]));
                 MeasVec y;
                 for (int i = 0; i < 3; i++) {
                     y(i,   0) = snap.accel_g[i];
                     y(3+i, 0) = snap.gyro_rad_s[i];
                 }
-                ekf.update(t, dt, y, u_last_rad, snap.altitude_m);
+                if (g_ctrls_test_mode)
+                    ekf.updateGyroOnly(t, dt, y, u_last_rad, ekf_alt_for_step);
+                else
+                    ekf.update(t, dt, y, u_last_rad, ekf_alt_for_step);
             } else {
-                ekf.predictOnly(t, dt, u_last_rad, snap.altitude_m);
+                ekf.predictOnly(t, dt, u_last_rad, ekf_alt_for_step);
             }
 
             // ── Dynamics model altitude + apogee detection ────────────────────────
@@ -362,7 +370,11 @@ extern "C" void CTRLs(void*)
             // ── Control law ───────────────────────────────────────────────────────
             // EKF always runs above to keep the state estimate warm.
             // Output is zeroed when controls are disabled so servos hold neutral.
-            const float u_rad = g_ctrls_enabled ? ctrl.computeControl(t, ekf.xhat) : 0.0f;
+            const float control_alt =
+                g_ctrls_test_mode ? model_alt_m : snap.altitude_m;
+            const float u_rad = g_ctrls_enabled
+                ? ctrl.computeControl(t, ekf.xhat, control_alt)
+                : 0.0f;
             u_last_rad = u_rad;
             const float u_deg = u_rad * (180.0f / static_cast<float>(M_PI));
 

@@ -131,6 +131,15 @@ StateVec EKF::update(float t, float dt, const MeasVec& y_meas, float u,
     return xhat;
 }
 
+StateVec EKF::updateGyroOnly(float t, float dt, const MeasVec& y_meas, float u,
+                             float alt) {
+    StateMat A;
+    predict_(t, dt, u, alt, A);
+    correct_(t, u, y_meas, alt, A, false, true);
+    normalizeQuaternion_();
+    return xhat;
+}
+
 void EKF::predictOnly(float t, float dt, float u, float alt) {
     StateMat A;
     predict_(t, dt, u, alt, A);

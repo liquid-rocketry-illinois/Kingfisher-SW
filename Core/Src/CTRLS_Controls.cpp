@@ -39,10 +39,12 @@ void ControlLaw::reset() {
     rem_prev_w3_       = 0.0f;
 }
 
-float ControlLaw::gainSchedule_(float t, const StateVec& xhat) const {
-    // Air-relative speed
-    const float v1=xhat(3,0), v2=xhat(4,0), v3=xhat(5,0);
-    const float vmag = sqrtf(v1*v1 + v2*v2 + v3*v3);
+float ControlLaw::gainSchedule_(float t, const StateVec& xhat, float alt) const {
+    // Air-relative speed at the model/weather altitude, matching the EOM.
+    const WeatherSample wx = phys_.weatherAtAltitude(alt);
+    float va[3];
+    phys_.airRelativeVelocity(xhat, wx.wind_x, wx.wind_y, va);
+    const float vmag = sqrtf(va[0]*va[0] + va[1]*va[1] + va[2]*va[2]);
     if (vmag < cfg_.min_control_speed) return 0.0f;
 
     const float dM_dzeta = phys_.canardMomentJacobian(vmag);  // N·m/rad
@@ -52,7 +54,7 @@ float ControlLaw::gainSchedule_(float t, const StateVec& xhat) const {
     return I3 * cfg_.roll_damping_lambda / dM_dzeta;
 }
 
-float ControlLaw::computeControl(float t, const StateVec& xhat) {
+float ControlLaw::computeControl(float t, const StateVec& xhat, float alt) {
     const float dt = t - last_t_;
     last_t_ = t;
 
@@ -60,7 +62,7 @@ float ControlLaw::computeControl(float t, const StateVec& xhat) {
     const float error = xhat(2, 0);  // w3
 
     // Gain-scheduled proportional output (sign incorporates roll effectiveness)
-    const float K    = gainSchedule_(t, xhat);
+    const float K    = gainSchedule_(t, xhat, alt);
     float u_cmd = -K * rem_sign_ * error;
 
     // Rate limit
