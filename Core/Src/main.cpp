@@ -23,6 +23,13 @@ Servo_Axon_Mini_MKII Servos;
 
 static volatile bool initDone = false;
 
+static float modelVerticalVelocityMS(const StateVec& x)
+{
+    float R[3][3];
+    Physics::R_BW(x(6,0), x(7,0), x(8,0), x(9,0), R);
+    return R[0][2]*x(3,0) + R[1][2]*x(4,0) + R[2][2]*x(5,0);
+}
+
 extern "C" void FC_Init(void*) {
     MICROS_DWT_Timebase_Init();
 
@@ -37,9 +44,10 @@ extern "C" void FC_Init(void*) {
     while (Servos.Init({0,0}, TENTH_DEGREE, false) != true)
         osDelay(100);
 
-    // while (SD_Init() != 0)
-    //     osDelay(100);
-    SD_Init();
+    while (SD_Init() != 0) {
+        HAL_GPIO_TogglePin(USR_LED_GPIO_Port, USR_LED_Pin);
+        osDelay(100);
+    }
 
     initDone = true;
     HAL_GPIO_TogglePin(USR_LED_GPIO_Port, USR_LED_Pin);
@@ -105,7 +113,7 @@ extern "C" void Radio(void*)
             g_telemPrev      = g_telemNow;
             osMutexRelease(g_ctrls_sensor_mutex);
         }
-        uint8_t status = telem.Update();
+        telem.Update();
         HAL_GPIO_TogglePin(USR_LED_GPIO_Port, USR_LED_Pin);
     }
 }
@@ -235,7 +243,7 @@ extern "C" void SDLogTask(void*) {
         SD_LogNewline(ln1);
         SD_LogNewline(ln2);
 
-        osDelay(20); // 50 Hz
+        osDelay(100); // 10 Hz
     }
 }
 
@@ -255,17 +263,24 @@ extern "C" void CTRLs(void*)
 
     while (!initDone) osDelay(10);
 
+    SD_DynInit();
+
     {
         // ── Update loop ──────────────────────────────────────────────────────────
-        static uint32_t prev_ms  = 0U;
-        float u_last_rad         = 0.0f;  // previous canard command (rad) — fed back into EKF EOM
+        static uint32_t prev_ms         = 0U;
+        static uint32_t launch_start_ms = 0U;
+        static float    model_alt_m     = 0.0f;
+        static bool     apogee_latched  = false;
+        static uint32_t apogee_blink_ms = 0U;
+        static bool     apogee_blink_done = false;
+        static uint32_t dyn_log_ms      = 0U;
+
+        float u_last_rad         = 0.0f;
         CtrlsSensorSnapshot snap = {};
         snap.temperature_K       = 288.15f;
 
         for (;;)
         {
-            //if (!g_ctrls_enabled) { osDelay(10); continue; }
-
             const uint32_t now_ms = millis();
             const float dt = (prev_ms == 0U) ? 0.01f
                              : static_cast<float>(now_ms - prev_ms) * 1e-3f;
@@ -273,8 +288,6 @@ extern "C" void CTRLs(void*)
             if (dt <= 0.0f || dt > 0.5f) { osDelay(1); continue; }
 
             // ── Read sensor snapshot ─────────────────────────────────────────────
-            // snap retains last known values if no fresh data is available,
-            // so predictOnly always has a valid flight time and altitude.
             bool fresh = false;
             if (osMutexAcquire(g_ctrls_sensor_mutex, 2U) == osOK) {
                 if (g_SensorData.fresh) {
@@ -285,7 +298,13 @@ extern "C" void CTRLs(void*)
                 osMutexRelease(g_ctrls_sensor_mutex);
             }
 
-            const float t = snap.flight_time_s;
+            // Ground test: start timer the moment g_ctrls_test_mode is set.
+            // Real flight: use sensor-detected flight time.
+            if (g_ctrls_test_mode && launch_start_ms == 0U)
+                launch_start_ms = now_ms;
+            const float t = (launch_start_ms > 0U)
+                ? static_cast<float>(now_ms - launch_start_ms) * 1e-3f
+                : snap.flight_time_s;
 
             // ── EKF step ─────────────────────────────────────────────────────────
             if (fresh) {
@@ -300,6 +319,44 @@ extern "C" void CTRLs(void*)
                 ekf.update(t, dt, y, u_last_rad, snap.altitude_m);
             } else {
                 ekf.predictOnly(t, dt, u_last_rad, snap.altitude_m);
+            }
+
+            // ── Dynamics model altitude + apogee detection ────────────────────────
+            const float model_vz_ms = modelVerticalVelocityMS(ekf.xhat);
+            model_alt_m += model_vz_ms * dt;
+            if (model_alt_m < 0.0f) model_alt_m = 0.0f;
+
+            // DYN log at 2 Hz
+            if (now_ms - dyn_log_ms >= 100U) {
+                dyn_log_ms = now_ms;
+                const float vx = ekf.xhat(3,0), vy = ekf.xhat(4,0);
+                const float horiz_v   = sqrtf(vx*vx + vy*vy);
+                const float roll_rate = ekf.xhat(2,0);
+                char dyn_ln[64];
+                snprintf(dyn_ln, sizeof(dyn_ln), "%.2f,%.1f,%.2f,%.2f,%.3f",
+                    t, model_alt_m, model_vz_ms, horiz_v, roll_rate);
+                SD_LogDyn(dyn_ln);
+            }
+
+            // Apogee: vz drops below 3 m/s after burnout
+            if (!apogee_latched && t > cfg.t_burnout && model_vz_ms < 3.0f) {
+                apogee_latched  = true;
+                apogee_blink_ms = now_ms;
+                g_ctrls_enabled = false;
+                Servos.Update(0.0f, 0.0f);
+                SD_LogNewline("ModelApogee");
+            }
+
+            // Non-blocking LED strobe for 2 s on apogee
+            if (apogee_latched && !apogee_blink_done) {
+                const uint32_t elapsed = now_ms - apogee_blink_ms;
+                if (elapsed < 2000U) {
+                    HAL_GPIO_WritePin(USR_LED_GPIO_Port, USR_LED_Pin,
+                        (elapsed % 200U) < 100U ? GPIO_PIN_SET : GPIO_PIN_RESET);
+                } else {
+                    HAL_GPIO_WritePin(USR_LED_GPIO_Port, USR_LED_Pin, GPIO_PIN_RESET);
+                    apogee_blink_done = true;
+                }
             }
 
             // ── Control law ───────────────────────────────────────────────────────

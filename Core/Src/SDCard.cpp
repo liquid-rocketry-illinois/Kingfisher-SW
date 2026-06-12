@@ -11,6 +11,9 @@
 static FIL  s_file;
 static bool s_open = false;
 
+static FIL  s_dyn_file;
+static bool s_dyn_open = false;
+
 int8_t SD_Init()
 {
     if (s_open) return 0;
@@ -72,8 +75,32 @@ int8_t SD_LogGPS(double lat, double lon, double alt,
     return 0;
 }
 
+int8_t SD_DynInit()
+{
+    if (s_dyn_open) return 0;
+    if (!s_open)    return -1;
+
+    FRESULT res = f_open(&s_dyn_file, "HAL1_DYN.TXT", FA_OPEN_ALWAYS | FA_WRITE);
+    if (res != FR_OK) return (int8_t)(-100 - (int8_t)res);
+
+    f_lseek(&s_dyn_file, f_size(&s_dyn_file));
+    f_printf(&s_dyn_file, "t,alt_m,vz_ms,vh_ms,roll_rate_rads\n");
+    f_sync(&s_dyn_file);
+    s_dyn_open = true;
+    return 0;
+}
+
+int8_t SD_LogDyn(const char* msg)
+{
+    if (!s_dyn_open) return -1;
+    if (f_printf(&s_dyn_file, "%s\n", msg) < 0) return -2;
+    if (f_sync(&s_dyn_file) != FR_OK)           return -3;
+    return 0;
+}
+
 int8_t SD_Close()
 {
+    if (s_dyn_open) { f_close(&s_dyn_file); s_dyn_open = false; }
     if (!s_open) return 0;
     f_close(&s_file);
     f_mount(NULL, USERPath, 0);
