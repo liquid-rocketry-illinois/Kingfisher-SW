@@ -335,7 +335,7 @@ extern "C" void CTRLs(void*)
             if (model_alt_m < 0.0f) model_alt_m = 0.0f;
 
             // DYN log at 2 Hz
-            if (now_ms - dyn_log_ms >= 100U) {
+            if (!apogee_latched && now_ms - dyn_log_ms >= 100U) {
                 dyn_log_ms = now_ms;
                 const float vx = ekf.xhat(3,0), vy = ekf.xhat(4,0);
                 const float horiz_v   = sqrtf(vx*vx + vy*vy);
@@ -386,6 +386,7 @@ extern "C" void CTRLs(void*)
 
             // Both canards receive the same deflection command to produce roll.
             // Ground-station offsets apply the per-servo zero-point trim.
+            Servos.Update(u_deg, u_deg);
             if (osMutexAcquire(g_ctrls_sensor_mutex, 20) == osOK) {
                 g_telemNow.servoTarget1 = u_deg + g_gndData.servoOffset1;
                 g_telemNow.servoTarget2 = u_deg + g_gndData.servoOffset2;
