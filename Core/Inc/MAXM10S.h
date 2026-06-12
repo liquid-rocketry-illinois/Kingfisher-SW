@@ -63,6 +63,7 @@ private:
     static constexpr uint16_t RX_BUF_SIZE     = 1024;
 
     uint8_t  rxBuf[RX_BUF_SIZE];
+    uint8_t  availBuf[2];  // out of DTCM so DMA can reach it
 
     uint16_t getAvailableBytes();
     uint16_t readStream(uint16_t numBytes);
