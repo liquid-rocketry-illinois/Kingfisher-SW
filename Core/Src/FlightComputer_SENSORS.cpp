@@ -92,6 +92,14 @@ int8_t Sensors::Update()
     g_telemNow.latitude    = c_GPS.latitude;
     g_telemNow.longitude   = c_GPS.longitude;
     g_telemNow.GPSaltitude = c_GPS.altitude;
+    g_GPS.latitude   = c_GPS.latitude;
+    g_GPS.longitude  = c_GPS.longitude;
+    g_GPS.altitude   = c_GPS.altitude;
+    g_GPS.hour       = c_GPS.hour;
+    g_GPS.minute     = c_GPS.minute;
+    g_GPS.second     = c_GPS.second;
+    g_GPS.satellites = c_GPS.satellites;
+    g_GPS.hdop       = c_GPS.hdop;
     g_telemNow.altitude    = g_BMP.heightMeters;  // absolute height — delta computed in getVerticalVelocity
     g_telemNow.temperature = g_BMP.Temperature;
 

@@ -138,9 +138,9 @@ extern "C" void PyroTask(void*)
             g_telemNow.pyroMainDrogueFired = true;
             osMutexRelease(g_ctrls_sensor_mutex);
 
-            SD_LogNewline("FirePyroDrogueMain");
-            SD_LogNewline("FirePyroDrogueMain");
-            SD_LogNewline("FirePyroDrogueMain");
+            SD_LogNewline("EVENT,FirePyroDrogueMain");
+            SD_LogNewline("EVENT,FirePyroDrogueMain");
+            SD_LogNewline("EVENT,FirePyroDrogueMain");
         }
         if (g_pyroPending & PYRO_DROGUE_BKP_BIT) {
             g_pyroPending &= ~PYRO_DROGUE_BKP_BIT;
@@ -151,9 +151,9 @@ extern "C" void PyroTask(void*)
             g_telemNow.pyroBackupDrogueFired = true;
             osMutexRelease(g_ctrls_sensor_mutex);
 
-            SD_LogNewline("FirePyroDrogueBackup");
-            SD_LogNewline("FirePyroDrogueBackup");
-            SD_LogNewline("FirePyroDrogueBackup");
+            SD_LogNewline("EVENT,FirePyroDrogueBackup");
+            SD_LogNewline("EVENT,FirePyroDrogueBackup");
+            SD_LogNewline("EVENT,FirePyroDrogueBackup");
         }
         if (g_pyroPending & PYRO_MAIN_BIT) {
             g_pyroPending &= ~PYRO_MAIN_BIT;
@@ -164,9 +164,9 @@ extern "C" void PyroTask(void*)
             g_telemNow.pyroMainChuteFired = true;
             osMutexRelease(g_ctrls_sensor_mutex);
 
-            SD_LogNewline("FirePyroMain");
-            SD_LogNewline("FirePyroMain");
-            SD_LogNewline("FirePyroMain");
+            SD_LogNewline("EVENT,FirePyroMain");
+            SD_LogNewline("EVENT,FirePyroMain");
+            SD_LogNewline("EVENT,FirePyroMain");
         }
 
         // ── Autonomous pyro logic ────────────────────────────────────────────
@@ -183,20 +183,20 @@ extern "C" void PyroTask(void*)
         // Primary drogue at apogee: vvel below APOGEE_VEL_MS and above MIN_APOGEE_ALT_M
         if (!drogueMainFired && alt > MIN_APOGEE_ALT_M && vvel < APOGEE_VEL_MS) {
             g_pyroPending |= PYRO_DROGUE_MAIN_BIT;
-            SD_LogNewline("AutoDrogue_Primary");
+            SD_LogNewline("EVENT,AutoDrogue_Primary");
         }
 
         // Backup drogue: falling faster than BACKUP_DROGUE_VEL_MS above BACKUP_DROGUE_MIN_ALT_M
         if (!drogueBkpFired && alt > BACKUP_DROGUE_MIN_ALT_M && vvel < BACKUP_DROGUE_VEL_MS) {
             g_pyroPending |= PYRO_DROGUE_BKP_BIT;
-            SD_LogNewline("AutoDrogue_Backup");
+            SD_LogNewline("EVENT,AutoDrogue_Backup");
         }
 
         // Main chute: below MAX_MAIN_DEPLOY_ALT_M and at least one drogue has fired
         if (!g_telemNow.pyroMainChuteFired && alt < MAX_MAIN_DEPLOY_ALT_M
                 && alt > MIN_MAIN_DEPLOY_ALT_M && (drogueMainFired || drogueBkpFired)) {
             g_pyroPending |= PYRO_MAIN_BIT;
-            SD_LogNewline("AutoMain_Chute");
+            SD_LogNewline("EVENT,AutoMain_Chute");
         }
 
         osDelay(10);
@@ -204,33 +204,39 @@ extern "C" void PyroTask(void*)
 }
 
 
+extern GPS_Data g_GPS;
+
 extern "C" void SDLogTask(void*) {
     while (!initDone)
         osDelay(10);
 
-    // CSV headers — two-line schema per sample
-    SD_LogNewline("tick_ms,lat,lon,baro_alt,gps_alt,vvel_ms,temp_c");
-    SD_LogNewline("accX,accY,accZ,gyrX,gyrY,gyrZ,roll,pitch,yaw,s1cmd,s2cmd,rssi,pyro_dm,pyro_db,pyro_mc");
+    SD_LogNewline("=== HAL-1 LOG START ===");
+    SD_LogNewline("SENS1,tick_ms,lat,lon,baro_alt_m,gps_alt_m,vvel_ms,temp_c");
+    SD_LogNewline("SENS2,tick_ms,accX,accY,accZ,gyrX,gyrY,gyrZ,roll,pitch,yaw,s1cmd_deg,s2cmd_deg,rssi,pyro_dm,pyro_db,pyro_mc");
+    SD_LogNewline("GPS,tick_ms,lat,lon,alt_m,hh,mm,ss,sats,hdop");
+    SD_LogNewline("DYN,tick_ms,t_s,alt_m,vz_ms,vh_ms,roll_rate_rads");
+    SD_LogNewline("EVENT,tick_ms,description");
 
     for (;;) {
-        // Snapshot under mutex — release before slow SD write
         telemetryData s = {};
         if (osMutexAcquire(g_ctrls_sensor_mutex, 5) == osOK) {
             s = g_telemNow;
             osMutexRelease(g_ctrls_sensor_mutex);
         }
+        GPS_Data gps = g_GPS;
 
-        char ln1[100], ln2[140];
+        char ln1[112], ln2[152], ln3[96];
 
         snprintf(ln1, sizeof(ln1),
-            "%lu,%.5f,%.5f,%.1f,%.1f,%.2f,%.1f",
+            "SENS1,%lu,%.5f,%.5f,%.1f,%.1f,%.2f,%.1f",
             HAL_GetTick(),
             (double)s.latitude, (double)s.longitude,
             (double)s.altitude, (double)s.GPSaltitude,
             (double)s.verticalVelocity, (double)s.temperature);
 
         snprintf(ln2, sizeof(ln2),
-            "%.3f,%.3f,%.3f,%.3f,%.3f,%.3f,%.2f,%.2f,%.2f,%.1f,%.1f,%d,%d,%d,%d",
+            "SENS2,%lu,%.3f,%.3f,%.3f,%.3f,%.3f,%.3f,%.2f,%.2f,%.2f,%.1f,%.1f,%d,%d,%d,%d",
+            HAL_GetTick(),
             (double)s.mAccX,  (double)s.mAccY,  (double)s.mAccZ,
             (double)s.mGyrX,  (double)s.mGyrY,  (double)s.mGyrZ,
             (double)s.roll,   (double)s.pitch,   (double)s.yaw,
@@ -240,10 +246,18 @@ extern "C" void SDLogTask(void*) {
             (int)s.pyroBackupDrogueFired,
             (int)s.pyroMainChuteFired);
 
+        snprintf(ln3, sizeof(ln3),
+            "GPS,%lu,%.7f,%.7f,%.2f,%02u,%02u,%02u,%u,%.2f",
+            HAL_GetTick(),
+            gps.latitude, gps.longitude, gps.altitude,
+            (unsigned)gps.hour, (unsigned)gps.minute, (unsigned)gps.second,
+            (unsigned)gps.satellites, (double)gps.hdop);
+
         SD_LogNewline(ln1);
         SD_LogNewline(ln2);
+        SD_LogNewline(ln3);
 
-        osDelay(100); // 10 Hz
+        osDelay(10); // 100 Hz
     }
 }
 
@@ -334,16 +348,16 @@ extern "C" void CTRLs(void*)
             model_alt_m += model_vz_ms * dt;
             if (model_alt_m < 0.0f) model_alt_m = 0.0f;
 
-            // DYN log at 2 Hz
-            if (!apogee_latched && now_ms - dyn_log_ms >= 100U) {
+            // DYN log at 10 Hz
+            if (!apogee_latched && now_ms - dyn_log_ms >= 10U) {
                 dyn_log_ms = now_ms;
                 const float vx = ekf.xhat(3,0), vy = ekf.xhat(4,0);
                 const float horiz_v   = sqrtf(vx*vx + vy*vy);
                 const float roll_rate = ekf.xhat(2,0);
-                char dyn_ln[64];
-                snprintf(dyn_ln, sizeof(dyn_ln), "%.2f,%.1f,%.2f,%.2f,%.3f",
-                    t, model_alt_m, model_vz_ms, horiz_v, roll_rate);
-                SD_LogDyn(dyn_ln);
+                char dyn_ln[72];
+                snprintf(dyn_ln, sizeof(dyn_ln), "DYN,%lu,%.2f,%.1f,%.2f,%.2f,%.3f",
+                    now_ms, t, model_alt_m, model_vz_ms, horiz_v, roll_rate);
+                SD_LogNewline(dyn_ln);
             }
 
             // Apogee: vz drops below 3 m/s after burnout
@@ -352,7 +366,7 @@ extern "C" void CTRLs(void*)
                 apogee_blink_ms = now_ms;
                 g_ctrls_enabled = false;
                 Servos.Update(0.0f, 0.0f);
-                SD_LogNewline("ModelApogee");
+                SD_LogNewline("EVENT,ModelApogee");
             }
 
             // Non-blocking LED strobe for 2 s on apogee
@@ -392,8 +406,6 @@ extern "C" void CTRLs(void*)
                 g_telemNow.servoTarget2 = u_deg + g_gndData.servoOffset2;
                 osMutexRelease(g_ctrls_sensor_mutex);
             }
-
-            osDelay(5); // ~200 Hz ceiling; yields CPU between EKF iterations
         }
     }
 }
