@@ -41,7 +41,6 @@ void updateSensorTask(void*);
 void updateDataTask(void*);
 void Radio(void*);
 void CTRLs(void*);
-void PyroTask(void*);
 void SDLogTask(void*);
 extern TaskHandle_t updateDataTaskHandle;
 extern TaskHandle_t CTRLIndicationHandle;
@@ -130,12 +129,6 @@ void MX_FREERTOS_Init(void) {
     .name = "CTRLs", .stack_size = 4096 * 3, .priority = osPriorityRealtime,
   };
   CTRLIndicationHandle = osThreadNew(CTRLs, NULL, &ctrlsTask_attr);
-
-  // ── Pyrotechnics (GPIO fire + 2 s hold, non-blocking to Radio task) ───────────
-  static const osThreadAttr_t pyroTask_attr = {
-    .name = "PyroTask", .stack_size = 1024, .priority = osPriorityAboveNormal,
-  };
-  osThreadNew(PyroTask, NULL, &pyroTask_attr);
 
   // ── SD card logger (50 Hz CSV, AboveNormal so it doesn't starve flight tasks) ──
   static const osThreadAttr_t sdlogTask_attr = {

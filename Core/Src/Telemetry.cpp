@@ -61,22 +61,40 @@ uint8_t Telemetry::Init()
 }
 
 // ---------------------------------------------------------------------------
-// FC and GND alternate on a fixed cadence: FC sends TX_BURST_SIZE packets,
-// then listens for exactly one packet from GND, then repeats.  GND mirrors
-// this: it receives TX_BURST_SIZE packets, then sends one.
+// State machine:
+//
+//  FC_MASTER (default) — FC transmits TX_BURST_SIZE telemetry packets, then
+//    opens a short receive window.  If a valid GND packet is decoded the
+//    state switches to GND_MASTER.
+//
+//  GND_MASTER — FC only receives; GND is the active transmitter.  Each
+//    successful decode resets the 5-second deadline.  If the deadline
+//    expires with no valid packet, FC reverts to FC_MASTER.
 //
 // Return value:
-//   0              — RX cycle: valid GND packet decoded
-//   E22_NO_DATA    — TX cycle: packet sent, no receive attempted
+//   0              — valid GND packet decoded this cycle
+//   E22_NO_DATA    — FC-master TX cycle; no receive attempted
 //   E22_RECEIVE_ERR / E22_BAD_LENGTH / positive framing codes
-//                  — RX cycle: receive or decode failed
-//
-// Check lastRxGood after each call to see whether the last RX cycle
-// successfully decoded a GND packet.
+//                  — receive attempted but failed
 // ---------------------------------------------------------------------------
 uint8_t Telemetry::Update()
 {
-    // ── TX phase ──────────────────────────────────────────────────────────
+    uint32_t now = xTaskGetTickCount();
+
+    // ── GND-master: receive only, no TX ───────────────────────────────────
+    if (gndMasterMode) {
+        uint8_t rx_status = receiveCommands(GNDOutData);
+        lastRxGood = (rx_status == 0);
+        if (lastRxGood) {
+            gndMasterDeadline = now + pdMS_TO_TICKS(GND_MASTER_TIMEOUT_MS);
+        } else if (now >= gndMasterDeadline) {
+            gndMasterMode  = false;
+            tx_burst_count = 0;
+        }
+        return rx_status;
+    }
+
+    // ── FC-master TX burst ────────────────────────────────────────────────
     if (tx_burst_count < TX_BURST_SIZE) {
         sendData(HALOutData);
         tx_burst_count++;
@@ -84,13 +102,16 @@ uint8_t Telemetry::Update()
         return E22_NO_DATA;
     }
 
-    // ── RX phase (one cycle after TX_BURST_SIZE sends) ────────────────────
-    tx_burst_count = 0;  // reset for the next burst regardless of outcome
-
+    // ── Short receive window after TX burst ───────────────────────────────
+    // If a valid GND packet arrives, switch to GND-master mode and keep
+    // listening for up to GND_MASTER_TIMEOUT_MS before resuming TX.
+    tx_burst_count = 0;
     uint8_t rx_status = receiveCommands(GNDOutData);
-    HALOutData.RSSI =
-
     lastRxGood = (rx_status == 0);
+    if (lastRxGood) {
+        gndMasterMode     = true;
+        gndMasterDeadline = now + pdMS_TO_TICKS(GND_MASTER_TIMEOUT_MS);
+    }
     return rx_status;
 }
 
@@ -264,7 +285,6 @@ uint8_t Telemetry::receiveCommands(GndStationData &gnd)
     }
 
     processCmd(gnd.CommandByte);
-    processPyros(gnd.pyroActivation);
     return 0;
 }
 

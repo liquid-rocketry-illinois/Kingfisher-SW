@@ -357,16 +357,9 @@ int8_t transmit_e22_900t22s(uint8_t *data, size_t length)
         status = uartWrite(data, length);
     waitAux_e22_900t22s(200);
 
-    // Flush any stale RX bytes HERE — immediately after our own transmission completes,
-    // while AUX is high and the remote has not yet had time to respond.
-    // This is the only safe window: we KNOW no valid inbound packet is mid-stream.
-    // Flushing inside recieve_e22_900t22s() races with the E22 clocking bytes onto
-    // UART and silently discards the first N bytes of the incoming packet.
-    __HAL_UART_CLEAR_FLAG(e22_cfg.huart,
-                          UART_CLEAR_OREF | UART_CLEAR_NEF |
-                          UART_CLEAR_PEF  | UART_CLEAR_FEF);
-    while (__HAL_UART_GET_FLAG(e22_cfg.huart, UART_FLAG_RXNE))
-        (void)e22_cfg.huart->Instance->RDR;
+    // Do NOT flush UART RX here. In fixed-point mode the FC's E22 never
+    // echoes our own transmissions back — any bytes in the RX buffer are
+    // legitimate incoming GND packets and must be preserved.
 
     //xSemaphoreGive(e22_mutex);
 
@@ -480,12 +473,14 @@ int8_t get_rssi_e22_900t22s(void)
  */
 int16_t recieve_e22_900t22s(uint8_t *buffer, uint16_t expected_payload_len)
 {
-    const uint16_t total = 5u + expected_payload_len + 4u;  // hdr + payload + trailing sync/CRC
+    // pkt_total: the framed packet bytes [SYNC1..SYNC1].
+    // total: +1 for the hardware RSSI byte the E22 appends when R3_7_RSSI_BYTE_ENABLE is set.
+    // Reading the RSSI byte here prevents it from sitting in the UART buffer and
+    // corrupting the start of the next receive call.
+    const uint16_t pkt_total  = 5u + expected_payload_len + 4u;
+    const uint16_t total      = pkt_total + 1u;
 
-    // Tight timeout: bytes × bits-per-byte / baud-rate, converted to ms, + 25 ms margin.
-    // At 38400 baud, 8N1: each byte = 10 bits = 0.26 ms.
-    // For sizeof(GndStationData)=13 → total=22 bytes → ~5.7 ms UART + 25 ms = ~31 ms.
-    // This replaces the blanket 500 ms used by uartRead() for all packet sizes.
+    // Tight timeout derived from byte count + 25 ms wireless pipeline margin.
     const uint32_t timeout_ms = ((uint32_t)total * 10u * 1000u) / 38400u + 25u;
 
     HAL_StatusTypeDef status = HAL_UART_Receive(&huart8, buffer, total, timeout_ms);

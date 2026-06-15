@@ -97,9 +97,18 @@ inline bool operator==(const telemetryData& a, const telemetryData& b) {
 }
 inline bool operator!=(const telemetryData& a, const telemetryData& b) { return !(a == b); }
 
+// ── GND-master receive timeout ────────────────────────────────────────────────
+// Once a valid GND packet is received, FC stays in GND-master mode (only RX,
+// no TX) until no packet arrives for this many milliseconds, then reverts to
+// FC-master TX mode.
+#define GND_MASTER_TIMEOUT_MS   5000u
+
 // ── Telemetry class ─────────────────────────────────────────────────────────────
-// FC alternates: TX_BURST_SIZE send cycles, then one receive cycle.
-// GND mirrors this: it receives TX_BURST_SIZE packets, then sends one.
+// Normal operation (FC_MASTER): FC transmits TX_BURST_SIZE telemetry packets,
+// then opens a short receive window.  If a valid GND packet is decoded, FC
+// switches to GND_MASTER mode and receives continuously for up to
+// GND_MASTER_TIMEOUT_MS without transmitting.  After the timeout expires with
+// no new GND data, FC reverts to FC_MASTER and resumes transmitting.
 class Telemetry {
 
     config_e22_900t22s des_cfg = {};
@@ -108,11 +117,12 @@ class Telemetry {
     uint8_t  rx_buffer[TELEMETRY_MAX_PAYLOAD]{};
     uint16_t lastSeq = 0;
 
-    // ── Burst-counter state ────────────────────────────────────────────────
-    // Counts TX cycles in the current burst (0 … TX_BURST_SIZE-1).
-    // When it reaches TX_BURST_SIZE the next Update() call is an RX cycle,
-    // after which the counter resets to 0 for the next burst.
+    // ── FC-master TX burst counter ─────────────────────────────────────────
     uint8_t  tx_burst_count = 0;
+
+    // ── GND-master receive state ───────────────────────────────────────────
+    bool     gndMasterMode     = false;
+    uint32_t gndMasterDeadline = 0;   // FreeRTOS tick at which GND-master times out
 
     // FC → GND data path
     uint8_t sendData(const telemetryData &data);
