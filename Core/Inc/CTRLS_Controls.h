@@ -17,7 +17,7 @@ struct CtrlsSensorSnapshot {
     float    accel_g[3]     = {};   // body-frame accelerometer reading (g units)
     float    gyro_rad_s[3]  = {};   // body-frame gyro (rad/s)
     float    altitude_m     = 0.0f; // AGL altitude from barometer (m)
-    float    temperature_K  = 288.15f; // ambient temperature (K)
+    float    temperature_K  = 288.15f; // sensor temperature, telemetry/diagnostics only
     float    flight_time_s  = 0.0f; // seconds since liftoff (0 = pre-launch)
     STAGE    stage          = PREFLIGHT;
     uint32_t timestamp_ms   = 0;    // HAL_GetTick() when written
@@ -31,6 +31,7 @@ extern osMutexId_t         g_ctrls_sensor_mutex;
 extern float               g_ctrls_canard_cmd_deg;   // output: canard command (degrees)
 extern osMutexId_t         g_ctrls_output_mutex;
 extern volatile bool       g_ctrls_enabled;           // set true to activate control output
+extern volatile bool       g_ctrls_test_mode;         // bypasses flight gates for ground testing
 
 // Create RTOS resources — call once from MX_FREERTOS_Init before any task starts.
 extern "C" void ctrlsInit(void);
@@ -41,7 +42,7 @@ public:
     ControlLaw(const Physics& phys, const RocketConfig& cfg);
 
     // Returns canard deflection command (rad). Call after EKF update.
-    float computeControl(float t, const StateVec& xhat, float T_K = 288.15f);
+    float computeControl(float t, const StateVec& xhat, float alt = 0.0f);
 
     // Update roll effectiveness sign. Call once per loop with the CURRENT gyro
     // w3 reading and the command (rad) applied in the PREVIOUS step, and the
@@ -67,7 +68,7 @@ private:
     float rem_prev_w3_       =  0.0f;
 
     // Compute scalar gain K for current flight condition (incorporates rem_sign_).
-    float gainSchedule_(float t, const StateVec& xhat) const;
+    float gainSchedule_(float t, const StateVec& xhat, float alt) const;
 };
 
 // ─── FreeRTOS controls task ───────────────────────────────────────────────────

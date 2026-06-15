@@ -30,18 +30,17 @@ void EKF::reset(const RocketConfig& cfg) {
 }
 
 // ─── predict_ ─────────────────────────────────────────────────────────────────
-void EKF::predict_(float t, float dt, float u, float alt, float T_K,
-                   StateMat& A_out) {
+void EKF::predict_(float t, float dt, float u, float alt, StateMat& A_out) {
     if (dt <= 0.0f || dt > 0.5f) return;
 
     // Euler integration
-    StateVec xdot = phys_.eom(t, xhat, u, alt, T_K);
+    StateVec xdot = phys_.eom(t, xhat, u, alt);
     for (int i = 0; i < 10; i++) xhat(i,0) += xdot(i,0) * dt;
 
     normalizeQuaternion_();
 
     // Linearise at updated state
-    A_out = phys_.jacobianA(t, xhat, u, alt, T_K);
+    A_out = phys_.jacobianA(t, xhat, u, alt);
 
     // Discrete F = I + A*dt
     StateMat F = eye<10>() + dt * A_out;
@@ -52,7 +51,8 @@ void EKF::predict_(float t, float dt, float u, float alt, float T_K,
 
 // ─── correct_ ─────────────────────────────────────────────────────────────────
 void EKF::correct_(float t, float u, const MeasVec& y_meas,
-                   float alt, float T_K, const StateMat& A, bool burning) {
+                   float alt, const StateMat& A,
+                   bool burning, bool gyro_only) {
     // Build effective R (inflate accel during burn)
     Mat<6,6> R_eff = R_;
     if (burning) {
@@ -61,10 +61,17 @@ void EKF::correct_(float t, float u, const MeasVec& y_meas,
     }
 
     // Measurement Jacobian
-    MeasMat C = phys_.jacobianC(t, xhat, u, A);
+    MeasMat C;
+    if (gyro_only) {
+        C(3,0) = 1.0f;
+        C(4,1) = 1.0f;
+        C(5,2) = 1.0f;
+    } else {
+        C = phys_.jacobianC(t, xhat, u, A, alt);
+    }
 
     // Innovation: y_pred from noiseless sensor model
-    MeasVec y_pred = phys_.predictMeasurement(t, xhat, u, alt, T_K);
+    MeasVec y_pred = phys_.predictMeasurement(t, xhat, u, alt);
     MeasVec innov;
     for (int i = 0; i < 6; i++) innov(i,0) = y_meas(i,0) - y_pred(i,0);
 
@@ -100,7 +107,7 @@ void EKF::correct_(float t, float u, const MeasVec& y_meas,
 
 // ─── Public API ───────────────────────────────────────────────────────────────
 StateVec EKF::update(float t, float dt, const MeasVec& y_meas, float u,
-                     float alt, float T_K) {
+                     float alt) {
     const bool on_rail = (t < cfg_.t_rail);
     const bool burning = (t >= 0.0f && t < cfg_.t_burnout);
 
@@ -109,24 +116,33 @@ StateVec EKF::update(float t, float dt, const MeasVec& y_meas, float u,
         // On rail: only gyro rows active in C (simplified 3×10 gyro-identity block)
         // We still run predict + partial correct for gyro channels
         StateMat A;
-        predict_(t, dt, u, alt, T_K, A);
+        predict_(t, dt, u, alt, A);
         applyRailConstraint_();
         // Gyro-only correction (use only rows 3-5 of y_meas)
-        correct_(t, u, y_meas, alt, T_K, A, false);
+        correct_(t, u, y_meas, alt, A, false, true);
         applyRailConstraint_();
     } else {
         StateMat A;
-        predict_(t, dt, u, alt, T_K, A);
-        correct_(t, u, y_meas, alt, T_K, A, burning);
+        predict_(t, dt, u, alt, A);
+        correct_(t, u, y_meas, alt, A, burning);
     }
 
     normalizeQuaternion_();
     return xhat;
 }
 
-void EKF::predictOnly(float t, float dt, float u, float alt, float T_K) {
+StateVec EKF::updateGyroOnly(float t, float dt, const MeasVec& y_meas, float u,
+                             float alt) {
     StateMat A;
-    predict_(t, dt, u, alt, T_K, A);
+    predict_(t, dt, u, alt, A);
+    correct_(t, u, y_meas, alt, A, false, true);
+    normalizeQuaternion_();
+    return xhat;
+}
+
+void EKF::predictOnly(float t, float dt, float u, float alt) {
+    StateMat A;
+    predict_(t, dt, u, alt, A);
     normalizeQuaternion_();
 }
 

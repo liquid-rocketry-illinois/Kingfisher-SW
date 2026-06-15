@@ -23,6 +23,13 @@ Servo_Axon_Mini_MKII Servos;
 
 static volatile bool initDone = false;
 
+static float modelVerticalVelocityMS(const StateVec& x)
+{
+    float R[3][3];
+    Physics::R_BW(x(6,0), x(7,0), x(8,0), x(9,0), R);
+    return R[0][2]*x(3,0) + R[1][2]*x(4,0) + R[2][2]*x(5,0);
+}
+
 extern "C" void FC_Init(void*) {
     MICROS_DWT_Timebase_Init();
 
@@ -39,8 +46,10 @@ extern "C" void FC_Init(void*) {
     while (Servos.Init({0,0}, TENTH_DEGREE, false) != true)
         osDelay(100);
 
-    while (SD_Init() != 0)
+    while (SD_Init() != 0) {
+        HAL_GPIO_TogglePin(USR_LED_GPIO_Port, USR_LED_Pin);
         osDelay(100);
+    }
 
     initDone = true;
     HAL_GPIO_TogglePin(USR_LED_GPIO_Port, USR_LED_Pin);
@@ -114,33 +123,39 @@ extern "C" void Radio(void*)
 
 
 
+extern GPS_Data g_GPS;
+
 extern "C" void SDLogTask(void*) {
     while (!initDone)
         osDelay(10);
 
-    // CSV headers — two-line schema per sample
-    SD_LogNewline("tick_ms,lat,lon,baro_alt,gps_alt,vvel_ms,temp_c");
-    SD_LogNewline("accX,accY,accZ,gyrX,gyrY,gyrZ,roll,pitch,yaw,s1cmd,s2cmd,rssi,pyro_dm,pyro_db,pyro_mc");
+    SD_LogNewline("=== HAL-1 LOG START ===");
+    SD_LogNewline("SENS1,tick_ms,lat,lon,baro_alt_m,gps_alt_m,vvel_ms,temp_c");
+    SD_LogNewline("SENS2,tick_ms,accX,accY,accZ,gyrX,gyrY,gyrZ,roll,pitch,yaw,s1cmd_deg,s2cmd_deg,rssi,pyro_dm,pyro_db,pyro_mc");
+    SD_LogNewline("GPS,tick_ms,lat,lon,alt_m,hh,mm,ss,sats,hdop");
+    SD_LogNewline("DYN,tick_ms,t_s,alt_m,vz_ms,vh_ms,roll_rate_rads");
+    SD_LogNewline("EVENT,tick_ms,description");
 
     for (;;) {
-        // Snapshot under mutex — release before slow SD write
         telemetryData s = {};
         if (osMutexAcquire(g_ctrls_sensor_mutex, 5) == osOK) {
             s = g_telemNow;
             osMutexRelease(g_ctrls_sensor_mutex);
         }
+        GPS_Data gps = g_GPS;
 
-        char ln1[100], ln2[140];
+        char ln1[112], ln2[152], ln3[96];
 
         snprintf(ln1, sizeof(ln1),
-            "%lu,%.5f,%.5f,%.1f,%.1f,%.2f,%.1f",
+            "SENS1,%lu,%.5f,%.5f,%.1f,%.1f,%.2f,%.1f",
             HAL_GetTick(),
             (double)s.latitude, (double)s.longitude,
             (double)s.altitude, (double)s.GPSaltitude,
             (double)s.verticalVelocity, (double)s.temperature);
 
         snprintf(ln2, sizeof(ln2),
-            "%.3f,%.3f,%.3f,%.3f,%.3f,%.3f,%.2f,%.2f,%.2f,%.1f,%.1f,%d,%d,%d,%d",
+            "SENS2,%lu,%.3f,%.3f,%.3f,%.3f,%.3f,%.3f,%.2f,%.2f,%.2f,%.1f,%.1f,%d,%d,%d,%d",
+            HAL_GetTick(),
             (double)s.mAccX,  (double)s.mAccY,  (double)s.mAccZ,
             (double)s.mGyrX,  (double)s.mGyrY,  (double)s.mGyrZ,
             (double)s.roll,   (double)s.pitch,   (double)s.yaw,
@@ -150,187 +165,166 @@ extern "C" void SDLogTask(void*) {
             (int)s.pyroBackupDrogueFired,
             (int)s.pyroMainChuteFired);
 
+        snprintf(ln3, sizeof(ln3),
+            "GPS,%lu,%.7f,%.7f,%.2f,%02u,%02u,%02u,%u,%.2f",
+            HAL_GetTick(),
+            gps.latitude, gps.longitude, gps.altitude,
+            (unsigned)gps.hour, (unsigned)gps.minute, (unsigned)gps.second,
+            (unsigned)gps.satellites, (double)gps.hdop);
+
         SD_LogNewline(ln1);
         SD_LogNewline(ln2);
+        SD_LogNewline(ln3);
 
-        osDelay(20); // 50 Hz
+        osDelay(10); // 100 Hz
     }
 }
 
 
 extern "C" void CTRLs(void*)
 {
+    // ── Init: build algorithm objects ────────────────────────────────────────
+    // Mutexes (g_ctrls_sensor_mutex, g_ctrls_output_mutex) are created by
+    // ctrlsInit() in MX_FREERTOS_Init before the scheduler starts, so they are
+    // safe to acquire as soon as this task runs.
+    static RocketConfig cfg;
+    loadControlFreakRocketConfig(cfg);
+    cfg.computeDerived();
+    static Physics    phys(cfg);
+    static EKF        ekf(phys, cfg);
+    static ControlLaw ctrl(phys, cfg);
+
     while (!initDone) osDelay(10);
 
-    // Proportional-only roll-rate damper.
-    // Closed-loop: J*wdot = -(b + Keff*KP)*w  => exponential decay for any KP > 0.
-    // Theoretically stable regardless of gain magnitude; larger KP = faster settling
-    // at the cost of larger canard deflections.  Tune KP on the bench: spin the
-    // rocket by hand, confirm canards oppose the spin, then increase until satisfied.
-    static constexpr float KP              = 0.30f;  // deg deflection per deg/s roll rate -- TUNE
-    static constexpr float MAX_DEFLECT_DEG = 7.0f;  // canard travel limit -- verify against stops
-    // Dead-band: suppress control below 6 deg/s to avoid fighting
-    // natural spin-up and reduce servo wear at low roll rates.
-    static constexpr float ROLL_RATE_THRESHOLD_RPS = M_PI/180.0f * 1.0; // last number is deg/sec
+    SD_DynInit();
 
-    // Wait for altitude > CTRLS_MIN_ALT_M and motor burnout (accel < BURNOUT_ACCEL_G)
-    for (;;) {
-        float alt = 0.0f, ax = 0.0f, ay = 0.0f, az = 0.0f;
-        if (osMutexAcquire(g_ctrls_sensor_mutex, 5) == osOK) {
-            alt = g_telemNow.altitude;
-            ax  = g_telemNow.mAccX;
-            ay  = g_telemNow.mAccY;
-            az  = g_telemNow.mAccZ;
-            osMutexRelease(g_ctrls_sensor_mutex);
-        }
-        float accel_g = sqrtf(ax*ax + ay*ay + az*az);
-        if (alt > CTRLS_MIN_ALT_M && accel_g < BURNOUT_ACCEL_G)
-            break;
-        osDelay(10);
-    }
+    {
+        // ── Update loop ──────────────────────────────────────────────────────────
+        static uint32_t prev_ms         = 0U;
+        static uint32_t launch_start_ms = 0U;
+        static float    model_alt_m     = 0.0f;
+        static bool     apogee_latched  = false;
+        static uint32_t apogee_blink_ms = 0U;
+        static bool     apogee_blink_done = false;
+        static uint32_t dyn_log_ms      = 0U;
 
-    for (;;)
+        float u_last_rad         = 0.0f;
+        CtrlsSensorSnapshot snap = {};
+        snap.temperature_K       = 288.15f;
+
+        for (;;)
         {
-            // if (!g_ctrls_enabled) {
-            //     Servos.Update(0.0f, 0.0f);
-            //     continue;
-            // }
+            const uint32_t now_ms = millis();
+            const float dt = (prev_ms == 0U) ? 0.01f
+                             : static_cast<float>(now_ms - prev_ms) * 1e-3f;
+            prev_ms = now_ms;
+            if (dt <= 0.0f || dt > 0.5f) { osDelay(1); continue; }
 
-            // mGyrZ = BMI.ang_vel.y = rocket spin-axis rate in deg/s (after axis remap)
-            float roll_rate_dps = 0.0f;
+            // ── Read sensor snapshot ─────────────────────────────────────────────
+            bool fresh = false;
             if (osMutexAcquire(g_ctrls_sensor_mutex, 2U) == osOK) {
-                roll_rate_dps = g_telemNow.mGyrZ;
-                osMutexRelease(g_ctrls_sensor_mutex);
-            }
-
-            if (fabsf(roll_rate_dps) <= ROLL_RATE_THRESHOLD_RPS) {
-                Servos.Update(0.0f, 0.0f);
-                if (osMutexAcquire(g_ctrls_sensor_mutex, 2U) == osOK) {
-                    g_telemNow.servoTarget1 = 0.0f;
-                    g_telemNow.servoTarget2 = 0.0f;
-                    osMutexRelease(g_ctrls_sensor_mutex);
+                if (g_SensorData.fresh) {
+                    snap = g_SensorData;
+                    g_SensorData.fresh = false;
+                    fresh = true;
                 }
-                ulTaskNotifyTake(pdTRUE, pdMS_TO_TICKS(10));
-                continue;
-            }
-
-            // Oppose the roll: positive rate -> negative deflection, and vice versa.
-            // "positive angle -> positive roll moment" (servo docstring), so negating
-            // the rate produces a restoring moment.
-            float cmd = -KP * roll_rate_dps;
-
-            if (cmd >  MAX_DEFLECT_DEG) cmd =  MAX_DEFLECT_DEG;
-            if (cmd < -MAX_DEFLECT_DEG) cmd = -MAX_DEFLECT_DEG;
-
-            // AngleOffsetDEGREES (ground-station trim) is applied inside Actuate().
-            Servos.Update(cmd, cmd);
-
-            if (osMutexAcquire(g_ctrls_sensor_mutex, 2U) == osOK) {
-                g_telemNow.servoTarget1 = cmd;
-                g_telemNow.servoTarget2 = cmd;
                 osMutexRelease(g_ctrls_sensor_mutex);
             }
 
-            // Block until updateDataTask signals that a fresh sensor frame is ready.
-            // 10 ms timeout is a safety fallback only — under normal operation the
-            // notification arrives every ~2 ms (updateSensorTask rate).
-            ulTaskNotifyTake(pdTRUE, pdMS_TO_TICKS(10));
+            // Ground test: start timer the moment g_ctrls_test_mode is set.
+            // Real flight: use sensor-detected flight time.
+            if (g_ctrls_test_mode && launch_start_ms == 0U)
+                launch_start_ms = now_ms;
+            const float t = (launch_start_ms > 0U)
+                ? static_cast<float>(now_ms - launch_start_ms) * 1e-3f
+                : snap.flight_time_s;
+            const float model_alt_for_step = model_alt_m;
+            const float ekf_alt_for_step =
+                g_ctrls_test_mode ? model_alt_for_step : snap.altitude_m;
+
+            // ── EKF step ─────────────────────────────────────────────────────────
+            if (fresh) {
+                const WeatherSample wx = phys.weatherAtAltitude(ekf_alt_for_step);
+                float va[3];
+                phys.airRelativeVelocity(ekf.xhat, wx.wind_x, wx.wind_y, va);
+                ctrl.updateRollEffectivenessSign(t, snap.gyro_rad_s[2], u_last_rad,
+                                                  sqrtf(va[0]*va[0] + va[1]*va[1] + va[2]*va[2]));
+                MeasVec y;
+                for (int i = 0; i < 3; i++) {
+                    y(i,   0) = snap.accel_g[i];
+                    y(3+i, 0) = snap.gyro_rad_s[i];
+                }
+                if (g_ctrls_test_mode)
+                    ekf.updateGyroOnly(t, dt, y, u_last_rad, ekf_alt_for_step);
+                else
+                    ekf.update(t, dt, y, u_last_rad, ekf_alt_for_step);
+            } else {
+                ekf.predictOnly(t, dt, u_last_rad, ekf_alt_for_step);
+            }
+
+            // ── Dynamics model altitude + apogee detection ────────────────────────
+            const float model_vz_ms = modelVerticalVelocityMS(ekf.xhat);
+            model_alt_m += model_vz_ms * dt;
+            if (model_alt_m < 0.0f) model_alt_m = 0.0f;
+
+            // DYN log at 10 Hz
+            if (!apogee_latched && now_ms - dyn_log_ms >= 10U) {
+                dyn_log_ms = now_ms;
+                const float vx = ekf.xhat(3,0), vy = ekf.xhat(4,0);
+                const float horiz_v   = sqrtf(vx*vx + vy*vy);
+                const float roll_rate = ekf.xhat(2,0);
+                char dyn_ln[72];
+                snprintf(dyn_ln, sizeof(dyn_ln), "DYN,%lu,%.2f,%.1f,%.2f,%.2f,%.3f",
+                    now_ms, t, model_alt_m, model_vz_ms, horiz_v, roll_rate);
+                SD_LogNewline(dyn_ln);
+            }
+
+            // Apogee: vz drops below 3 m/s after burnout
+            if (!apogee_latched && t > cfg.t_burnout && model_vz_ms < 3.0f) {
+                apogee_latched  = true;
+                apogee_blink_ms = now_ms;
+                g_ctrls_enabled = false;
+                Servos.Update(0.0f, 0.0f);
+                SD_LogNewline("EVENT,ModelApogee");
+            }
+
+            // Non-blocking LED strobe for 2 s on apogee
+            if (apogee_latched && !apogee_blink_done) {
+                const uint32_t elapsed = now_ms - apogee_blink_ms;
+                if (elapsed < 2000U) {
+                    HAL_GPIO_WritePin(USR_LED_GPIO_Port, USR_LED_Pin,
+                        (elapsed % 200U) < 100U ? GPIO_PIN_SET : GPIO_PIN_RESET);
+                } else {
+                    HAL_GPIO_WritePin(USR_LED_GPIO_Port, USR_LED_Pin, GPIO_PIN_RESET);
+                    apogee_blink_done = true;
+                }
+            }
+
+            // ── Control law ───────────────────────────────────────────────────────
+            // EKF always runs above to keep the state estimate warm.
+            // Output is zeroed when controls are disabled so servos hold neutral.
+            const float control_alt =
+                g_ctrls_test_mode ? model_alt_m : snap.altitude_m;
+            const float u_rad = g_ctrls_enabled
+                ? ctrl.computeControl(t, ekf.xhat, control_alt)
+                : 0.0f;
+            u_last_rad = u_rad;
+            const float u_deg = u_rad * (180.0f / static_cast<float>(M_PI));
+
+            // ── Write outputs ─────────────────────────────────────────────────────
+            if (osMutexAcquire(g_ctrls_output_mutex, 2U) == osOK) {
+                g_ctrls_canard_cmd_deg = u_deg;
+                osMutexRelease(g_ctrls_output_mutex);
+            }
+
+            // Both canards receive the same deflection command to produce roll.
+            // Ground-station offsets apply the per-servo zero-point trim.
+            Servos.Update(u_deg, u_deg);
+            if (osMutexAcquire(g_ctrls_sensor_mutex, 20) == osOK) {
+                g_telemNow.servoTarget1 = u_deg + g_gndData.servoOffset1;
+                g_telemNow.servoTarget2 = u_deg + g_gndData.servoOffset2;
+                osMutexRelease(g_ctrls_sensor_mutex);
+            }
         }
+    }
 }
-
-
-
-
-
-
-
-
-
-// extern "C" void CTRLs(void*)
-// {
-//     // ── Init: build algorithm objects ────────────────────────────────────────
-//     // Mutexes (g_ctrls_sensor_mutex, g_ctrls_output_mutex) are created by
-//     // ctrlsInit() in MX_FREERTOS_Init before the scheduler starts, so they are
-//     // safe to acquire as soon as this task runs.
-//     static RocketConfig cfg;
-//     cfg.computeDerived();
-//     static Physics    phys(cfg);
-//     static EKF        ekf(phys, cfg);
-//     static ControlLaw ctrl(phys, cfg);
-//
-//     while (!initDone) osDelay(10);
-//
-//     {
-//         // ── Update loop ──────────────────────────────────────────────────────────
-//         static uint32_t prev_ms  = 0U;
-//         float u_last_rad         = 0.0f;  // previous canard command (rad) — fed back into EKF EOM
-//         CtrlsSensorSnapshot snap = {};
-//         snap.temperature_K       = 288.15f;
-//
-//         for (;;)
-//         {
-//             // TODO uncomment before launch. implement flight logic
-//             //if (!g_ctrls_enabled) { osDelay(10); continue; }
-//
-//             const uint32_t now_ms = millis();
-//             const float dt = (prev_ms == 0U) ? 0.01f
-//                              : static_cast<float>(now_ms - prev_ms) * 1e-3f;
-//             prev_ms = now_ms;
-//             if (dt <= 0.0f || dt > 0.5f) { osDelay(1); continue; }
-//
-//             // ── Read sensor snapshot ─────────────────────────────────────────────
-//             // snap retains last known values if no fresh data is available,
-//             // so predictOnly always has a valid flight time / temperature / altitude.
-//             bool fresh = false;
-//             if (osMutexAcquire(g_ctrls_sensor_mutex, 2U) == osOK) {
-//                 if (g_SensorData.fresh) {
-//                     snap = g_SensorData;
-//                     g_SensorData.fresh = false;
-//                     fresh = true;
-//                 }
-//                 osMutexRelease(g_ctrls_sensor_mutex);
-//             }
-//
-//             const float t   = snap.flight_time_s;
-//             const float T_K = snap.temperature_K;
-//
-//             // ── EKF step ─────────────────────────────────────────────────────────
-//             if (fresh) {
-//                 const float vx=ekf.xhat(3,0), vy=ekf.xhat(4,0), vz=ekf.xhat(5,0);
-//                 ctrl.updateRollEffectivenessSign(t, snap.gyro_rad_s[2], u_last_rad,
-//                                                   sqrtf(vx*vx + vy*vy + vz*vz));
-//                 MeasVec y;
-//                 for (int i = 0; i < 3; i++) {
-//                     y(i,   0) = snap.accel_g[i];
-//                     y(3+i, 0) = snap.gyro_rad_s[i];
-//                 }
-//                 ekf.update(t, dt, y, u_last_rad, snap.altitude_m, T_K);
-//             } else {
-//                 ekf.predictOnly(t, dt, u_last_rad, snap.altitude_m, T_K);
-//             }
-//
-//             // ── Control law ───────────────────────────────────────────────────────
-//             // EKF always runs above to keep the state estimate warm.
-//             // Output is zeroed when controls are disabled so servos hold neutral.
-//             const float u_rad = g_ctrls_enabled ? ctrl.computeControl(t, ekf.xhat, T_K) : 0.0f;
-//             u_last_rad = u_rad;
-//             const float u_deg = u_rad * (180.0f / static_cast<float>(M_PI));
-//
-//             // ── Write outputs ─────────────────────────────────────────────────────
-//             if (osMutexAcquire(g_ctrls_output_mutex, 2U) == osOK) {
-//                 g_ctrls_canard_cmd_deg = u_deg;
-//                 osMutexRelease(g_ctrls_output_mutex);
-//             }
-//
-//             // Both canards receive the same deflection command to produce roll.
-//             // Ground-station offsets apply the per-servo zero-point trim.
-//             if (osMutexAcquire(g_ctrls_sensor_mutex, 20) == osOK) {
-//                 g_telemNow.servoTarget1 = u_deg + g_gndData.servoOffset1;
-//                 g_telemNow.servoTarget2 = u_deg + g_gndData.servoOffset2;
-//                 osMutexRelease(g_ctrls_sensor_mutex);
-//             }
-//
-//             osDelay(5); // ~200 Hz ceiling; yields CPU between EKF iterations
-//         }
-//     }
-// }

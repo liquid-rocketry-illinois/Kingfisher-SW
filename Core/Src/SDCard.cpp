@@ -7,16 +7,21 @@
 #include <cstdio>
 
 #include "fatfs.h"
+#include "cmsis_os.h"
 
-static FIL  s_file;
-static bool s_open = false;
+static FIL         s_file;
+static bool        s_open  = false;
+static osMutexId_t s_mutex = nullptr;
+
+static const osMutexAttr_t k_sd_mutex_attr = {
+    "sdMtx", osMutexPrioInherit, nullptr, 0U
+};
 
 int8_t SD_Init()
 {
     if (s_open) return 0;
 
-    /* if (f_mount(&USERFatFS, USERPath, 1) != FR_OK) return -1; */
-    /* if (res != FR_OK) return -2; */
+    if (!s_mutex) s_mutex = osMutexNew(&k_sd_mutex_attr);
 
     // Guard: verify FATFS driver was linked by MX_FATFS_Init (retUSER == 0).
     // Returns -20 (not a valid FRESULT) so it is distinguishable in the debugger.
@@ -39,44 +44,58 @@ int8_t SD_Init()
 
 int8_t SD_LogNewline(const char* msg)
 {
-    if (!s_open) return -1;
-    /* f_printf(&s_file, "%s\n", msg); */
-    /* f_sync(&s_file); */
-    /* return 0; */
-    if (f_printf(&s_file, "%s\n", msg) < 0) return -2;
-    if (f_sync(&s_file) != FR_OK)           return -3;
-    return 0;
+    if (!s_open || !s_mutex) return -1;
+    if (osMutexAcquire(s_mutex, pdMS_TO_TICKS(50)) != osOK) return -4;
+    int8_t ret = 0;
+    if (f_printf(&s_file, "%s\n", msg) < 0) ret = -2;
+    else if (f_sync(&s_file) != FR_OK)      ret = -3;
+    osMutexRelease(s_mutex);
+    return ret;
 }
 
 int8_t SD_LogInline(const char* msg)
 {
-    if (!s_open) return -1;
-    /* f_printf(&s_file, "%s", msg); */
-    /* f_sync(&s_file); */
-    /* return 0; */
-    if (f_printf(&s_file, "%s", msg) < 0) return -2;
-    if (f_sync(&s_file) != FR_OK)         return -3;
-    return 0;
+    if (!s_open || !s_mutex) return -1;
+    if (osMutexAcquire(s_mutex, pdMS_TO_TICKS(50)) != osOK) return -4;
+    int8_t ret = 0;
+    if (f_printf(&s_file, "%s", msg) < 0) ret = -2;
+    else if (f_sync(&s_file) != FR_OK)    ret = -3;
+    osMutexRelease(s_mutex);
+    return ret;
 }
 
 int8_t SD_LogGPS(double lat, double lon, double alt,
                  uint8_t hour, uint8_t min, uint8_t sec)
 {
-    if (!s_open) return -1;
-    // f_printf in FatFS R0.12c does not support %f — use snprintf (newlib) instead
+    if (!s_open || !s_mutex) return -1;
     char buf[64];
     snprintf(buf, sizeof(buf), "%.7f,%.7f,%.2f,%02u,%02u,%02u\n",
              lat, lon, alt, (unsigned)hour, (unsigned)min, (unsigned)sec);
-    if (f_puts(buf, &s_file) == EOF) return -2;
-    if (f_sync(&s_file) != FR_OK)   return -3;
-    return 0;
+    if (osMutexAcquire(s_mutex, pdMS_TO_TICKS(50)) != osOK) return -4;
+    int8_t ret = 0;
+    if (f_puts(buf, &s_file) == EOF) ret = -2;
+    else if (f_sync(&s_file) != FR_OK) ret = -3;
+    osMutexRelease(s_mutex);
+    return ret;
+}
+
+int8_t SD_DynInit()
+{
+    return 0;  // no-op: dynamics lines go to the main log file
+}
+
+int8_t SD_LogDyn(const char* msg)
+{
+    return SD_LogNewline(msg);
 }
 
 int8_t SD_Close()
 {
     if (!s_open) return 0;
+    if (s_mutex) osMutexAcquire(s_mutex, pdMS_TO_TICKS(200));
     f_close(&s_file);
     f_mount(NULL, USERPath, 0);
     s_open = false;
+    if (s_mutex) osMutexRelease(s_mutex);
     return 0;
 }

@@ -16,11 +16,15 @@ public:
 
     // Full predict + correct step. Call when fresh IMU data is available.
     StateVec update(float t, float dt, const MeasVec& y_meas, float u,
-                    float alt = 0.0f, float T_K = 288.15f);
+                    float alt = 0.0f);
+
+    // Predict + gyro-only correct step. Used by dynamics bench mode so
+    // stationary accel/baro readings do not overwrite the propagated model.
+    StateVec updateGyroOnly(float t, float dt, const MeasVec& y_meas, float u,
+                            float alt = 0.0f);
 
     // Predict only — no correction. Call when no new IMU sample is available.
-    void predictOnly(float t, float dt, float u,
-                     float alt = 0.0f, float T_K = 288.15f);
+    void predictOnly(float t, float dt, float u, float alt = 0.0f);
 
     // Reset to initial conditions
     void reset(const RocketConfig& cfg);
@@ -34,12 +38,13 @@ private:
     Mat<6,6> R_;   // measurement noise (nominal)
 
     // Predict step: Euler integration + covariance propagation
-    void predict_(float t, float dt, float u,
-                  float alt, float T_K, StateMat& A_out);
+    void predict_(float t, float dt, float u, float alt, StateMat& A_out);
 
-    // Correct step: standard EKF update with gain limiting
+    // Correct step: standard EKF update with gain limiting.
+    // gyro_only keeps on-rail correction from using accel residuals.
     void correct_(float t, float u, const MeasVec& y_meas,
-                  float alt, float T_K, const StateMat& A, bool burning);
+                  float alt, const StateMat& A,
+                  bool burning, bool gyro_only = false);
 
     // Enforce rail constraints (zero pitch/yaw, lock quaternion)
     void applyRailConstraint_();

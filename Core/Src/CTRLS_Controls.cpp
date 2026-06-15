@@ -9,7 +9,8 @@ CtrlsSensorSnapshot g_SensorData           = {};
 osMutexId_t         g_ctrls_sensor_mutex   = nullptr;
 float               g_ctrls_canard_cmd_deg = 0.0f;
 osMutexId_t         g_ctrls_output_mutex   = nullptr;
-volatile bool       g_ctrls_enabled        = false;
+volatile bool       g_ctrls_enabled        = true;
+volatile bool       g_ctrls_test_mode      = true;
 
 static const osMutexAttr_t k_sensor_mutex_attr = {
     "ctrlsSensorMtx", osMutexPrioInherit, nullptr, 0U
@@ -38,10 +39,12 @@ void ControlLaw::reset() {
     rem_prev_w3_       = 0.0f;
 }
 
-float ControlLaw::gainSchedule_(float t, const StateVec& xhat) const {
-    // Air-relative speed
-    const float v1=xhat(3,0), v2=xhat(4,0), v3=xhat(5,0);
-    const float vmag = sqrtf(v1*v1 + v2*v2 + v3*v3);
+float ControlLaw::gainSchedule_(float t, const StateVec& xhat, float alt) const {
+    // Air-relative speed at the model/weather altitude, matching the EOM.
+    const WeatherSample wx = phys_.weatherAtAltitude(alt);
+    float va[3];
+    phys_.airRelativeVelocity(xhat, wx.wind_x, wx.wind_y, va);
+    const float vmag = sqrtf(va[0]*va[0] + va[1]*va[1] + va[2]*va[2]);
     if (vmag < cfg_.min_control_speed) return 0.0f;
 
     const float dM_dzeta = phys_.canardMomentJacobian(vmag);  // N·m/rad
@@ -51,7 +54,7 @@ float ControlLaw::gainSchedule_(float t, const StateVec& xhat) const {
     return I3 * cfg_.roll_damping_lambda / dM_dzeta;
 }
 
-float ControlLaw::computeControl(float t, const StateVec& xhat, float T_K) {
+float ControlLaw::computeControl(float t, const StateVec& xhat, float alt) {
     const float dt = t - last_t_;
     last_t_ = t;
 
@@ -59,7 +62,7 @@ float ControlLaw::computeControl(float t, const StateVec& xhat, float T_K) {
     const float error = xhat(2, 0);  // w3
 
     // Gain-scheduled proportional output (sign incorporates roll effectiveness)
-    const float K    = gainSchedule_(t, xhat);
+    const float K    = gainSchedule_(t, xhat, alt);
     float u_cmd = -K * rem_sign_ * error;
 
     // Rate limit
@@ -72,6 +75,9 @@ float ControlLaw::computeControl(float t, const StateVec& xhat, float T_K) {
     // Saturation
     if (u_cmd >  cfg_.max_deflection_rad) u_cmd =  cfg_.max_deflection_rad;
     if (u_cmd < -cfg_.max_deflection_rad) u_cmd = -cfg_.max_deflection_rad;
+
+    // IREC compliance: inhibit during motor burn
+    if (cfg_.irec_compliant && t < cfg_.t_burnout) u_cmd = 0.0f;
 
     // Pre-launch: no command
     if (t <= 0.0f) u_cmd = 0.0f;
@@ -120,7 +126,7 @@ void ControlLaw::updateRollEffectivenessSign(float t, float w3_meas,
     if (fabsf(expected_accel) < cfg_.rem_min_expected_accel ||
         fabsf(measured_accel) < cfg_.rem_min_measured_accel) {
         rem_mismatch_count_ = 0; return;
-    }
+        }
 
     // Accumulate or reset mismatch counter
     if (measured_accel * expected_accel < 0.0f) {
@@ -137,4 +143,3 @@ void ControlLaw::updateRollEffectivenessSign(float t, float w3_meas,
         rem_mismatch_count_ = 0;
     }
 }
-
