@@ -71,5 +71,6 @@ void reset_e22_900t22s(void);
 
 // State return
 bool e22_initialized(void);
+bool e22_aux_high(void);
 
 #endif

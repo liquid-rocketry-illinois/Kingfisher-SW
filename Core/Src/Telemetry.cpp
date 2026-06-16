@@ -42,7 +42,7 @@ uint8_t Telemetry::Init()
                    | R1_2_SOFTWARE_MODE_SWITCHING_OFF
                    | R1_10_E22_TX_POWER::E22_TX_POWER_22DBM;
 
-    des_cfg.REG2 = CH915;
+    des_cfg.REG2 = GLOBAL_RADIO_CHANNEL;
 
     des_cfg.REG3 =   R3_7_RSSI_BYTE_ENABLE
                    | R3_6_TRANSFER_METHOD_FIXED_POINT
@@ -60,6 +60,7 @@ uint8_t Telemetry::Init()
     return 0;
 }
 
+
 // ---------------------------------------------------------------------------
 // State machine:
 //
@@ -76,43 +77,33 @@ uint8_t Telemetry::Init()
 //   E22_NO_DATA    — FC-master TX cycle; no receive attempted
 //   E22_RECEIVE_ERR / E22_BAD_LENGTH / positive framing codes
 //                  — receive attempted but failed
-// ---------------------------------------------------------------------------
+// --------------------------------------------------------------------------
 uint8_t Telemetry::Update()
 {
-    uint32_t now = xTaskGetTickCount();
-
-    // ── GND-master: receive only, no TX ───────────────────────────────────
-    if (gndMasterMode) {
-        uint8_t rx_status = receiveCommands(GNDOutData);
-        lastRxGood = (rx_status == 0);
-        if (lastRxGood) {
-            gndMasterDeadline = now + pdMS_TO_TICKS(GND_MASTER_TIMEOUT_MS);
-        } else if (now >= gndMasterDeadline) {
-            gndMasterMode  = false;
-            tx_burst_count = 0;
+    // Every 5 s, open a 2-second receive window — poll AUX continuously so
+    // any incoming GND packet is caught.  If the window expires with no packet,
+    // fall through to the normal TX path.
+    static TickType_t lastWindowTick = 0u;
+    const TickType_t  nowTick        = xTaskGetTickCount();
+    if (nowTick - lastWindowTick >= pdMS_TO_TICKS(5000u)) {
+        lastWindowTick = nowTick;
+        const TickType_t deadline = nowTick + pdMS_TO_TICKS(2000u);
+        while (xTaskGetTickCount() < deadline) {
+            // If AUX is low the E22 is clocking an incoming packet onto the UART line.
+            // Receive it before transmitting so we don't overwrite the UART buffer.
+            if (!e22_aux_high()) {
+                uint8_t rx_status = receiveCommands(GNDOutData);
+                lastRxGood = (rx_status == 0);
+                if (rx_status == 0)
+                    return 0;
+            }
         }
-        return rx_status;
     }
 
-    // ── FC-master TX burst ────────────────────────────────────────────────
-    if (tx_burst_count < TX_BURST_SIZE) {
-        sendData(HALOutData);
-        tx_burst_count++;
-        lastRxGood = false;
-        return E22_NO_DATA;
-    }
-
-    // ── Short receive window after TX burst ───────────────────────────────
-    // If a valid GND packet arrives, switch to GND-master mode and keep
-    // listening for up to GND_MASTER_TIMEOUT_MS before resuming TX.
-    tx_burst_count = 0;
-    uint8_t rx_status = receiveCommands(GNDOutData);
-    lastRxGood = (rx_status == 0);
-    if (lastRxGood) {
-        gndMasterMode     = true;
-        gndMasterDeadline = now + pdMS_TO_TICKS(GND_MASTER_TIMEOUT_MS);
-    }
-    return rx_status;
+    // AUX high — module idle, transmit telemetry normally.
+    lastRxGood = false;
+    sendData(HALOutData);
+    return E22_NO_DATA;
 }
 
 // ---------------------------------------------------------------------------
@@ -140,7 +131,7 @@ uint8_t Telemetry::encodeAndSend(const T &payload)
 
     tx_buffer[0] = GND_RADIO_ADDRHIGH;
     tx_buffer[1] = GND_RADIO_ADDRLOW;
-    tx_buffer[2] = CH915;
+    tx_buffer[2] = GLOBAL_RADIO_CHANNEL;
 
     // What is actually transmitted
     tx_buffer[3] = TELEMETRY_SYNC1;
@@ -238,14 +229,6 @@ int8_t Telemetry::decodeData(T &payload, uint16_t buf_len)
 
     memcpy(&payload, &rx_buffer[sync_idx + 5], sizeof(T));
 
-    // extract appended rssi byte from radio
-    // layout: [S1][S2][len][seq_lo][seq_hi][payload x N][CRC_lo][CRC_hi][S2][S1][RSSI]
-    //           0   1   2    3       4       5..4+N      5+N     6+N    7+N 8+N  9+N
-    const uint16_t rssi_idx = static_cast<uint16_t>(sync_idx) + 9u + payload_len;
-    HALOutData.RSSI = (rssi_idx < buf_len)
-                ? static_cast<float>(rx_buffer[rssi_idx]) / -2.0F
-                : 0.0F;
-
     lastSeq = seq_rx;
     return 0;
 }
@@ -268,7 +251,9 @@ uint8_t Telemetry::receiveCommands(GndStationData &gnd)
 
     // reset rx_buffer to all zeroes in anticipation of new byte
     memset(rx_buffer, 0, sizeof(rx_buffer));
+    vTaskSuspendAll();
     int16_t len = recieve_e22_900t22s(rx_buffer, sizeof(GndStationData));
+    xTaskResumeAll();
     if(len <= 0) return E22_RECEIVE_ERR;
     if(len < 7)  return E22_BAD_LENGTH;
 
@@ -279,8 +264,10 @@ uint8_t Telemetry::receiveCommands(GndStationData &gnd)
     // The CTRLs task reads g_gndData under g_ctrls_sensor_mutex; acquire it here
     // too so the two-float update is atomic from its perspective.
     if (osMutexAcquire(g_ctrls_sensor_mutex, 5) == osOK) {
-        g_gndData.servoOffset1 = gnd.servoOffset1;
-        g_gndData.servoOffset2 = gnd.servoOffset2;
+        // Idk why but for RCI to display these properly i have to switch them
+        // im tired boss
+        g_gndData.servoOffset1 = gnd.servoOffset2;
+        g_gndData.servoOffset2 = gnd.servoOffset1;
         osMutexRelease(g_ctrls_sensor_mutex);
     }
 

@@ -42,6 +42,7 @@ void updateDataTask(void*);
 void Radio(void*);
 void CTRLs(void*);
 void SDLogTask(void*);
+void Initial_Condition_Tare(void*);
 extern TaskHandle_t updateDataTaskHandle;
 extern TaskHandle_t CTRLIndicationHandle;
 /* USER CODE END PD */
@@ -135,6 +136,12 @@ void MX_FREERTOS_Init(void) {
     .name = "SDLog", .stack_size = 2048, .priority = osPriorityAboveNormal,
   };
   osThreadNew(SDLogTask, NULL, &sdlogTask_attr);
+
+  // ── Initial condition tare (10 Hz IMU monitor; suspends itself after tare) ──
+  static const osThreadAttr_t tareTask_attr = {
+    .name = "ICTare", .stack_size = 512, .priority = osPriorityBelowNormal,
+  };
+  osThreadNew(Initial_Condition_Tare, NULL, &tareTask_attr);
 
   return;
   /* USER CODE END RTOS_QUEUES */

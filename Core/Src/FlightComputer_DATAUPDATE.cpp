@@ -3,6 +3,7 @@
 //
 
 #include "FlightComputer_DATAUPDATE.h"
+#include "constants.h"
 
 
 extern telemetryData g_telemNow;
@@ -69,13 +70,33 @@ void DataUpdate::FuseAttitude(stateestimation::AttitudeEstimator* est)
     //   eulerYaw()   = rotation about Z = spin about rocket axis  → physical roll
     //   eulerPitch() = rotation about Y = lateral tilt            → physical yaw
     //   eulerRoll()  = rotation about X = lateral tilt            → physical pitch
-    g_telemNow.roll  = static_cast<float>(est->eulerYaw()   * RAD_TO_DEG);
-    g_telemNow.yaw   = static_cast<float>(est->eulerPitch() * RAD_TO_DEG);
+    g_telemNow.roll  = static_cast<float>(est->eulerPitch() * RAD_TO_DEG);
+    g_telemNow.yaw   = static_cast<float>(est->eulerYaw()   * RAD_TO_DEG);
     g_telemNow.pitch = static_cast<float>(est->eulerRoll()  * RAD_TO_DEG);
 }
 
 float DataUpdate::getVerticalVelocity()
 {
-    if (g_dt <= 0.0f) return 0.0f;
-    return (g_telemNow.altitude - g_telemPrev.altitude) / g_dt;
+    static uint32_t lastVvelMs = 0U;
+    static float    lastAlt    = 0.0f;
+    static float    lastVvel   = 0.0f;
+
+    const uint32_t nowMs  = HAL_GetTick();
+    const float    altNow = roundf(g_telemNow.altitude); // 1 m resolution suppresses noise-driven spikes
+
+    if (lastVvelMs == 0U) {
+        lastVvelMs = nowMs;
+        lastAlt    = altNow;
+        return 0.0f;
+    }
+
+    const uint32_t elapsed = nowMs - lastVvelMs;
+    if (elapsed < VVEL_UPDATE_PERIOD_MS) {
+        return lastVvel; // not yet time; return last computed value
+    }
+
+    lastVvel   = (altNow - lastAlt) / (static_cast<float>(elapsed) * 1.0e-3f);
+    lastVvelMs = nowMs;
+    lastAlt    = altNow;
+    return lastVvel;
 }

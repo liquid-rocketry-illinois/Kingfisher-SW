@@ -29,10 +29,17 @@ SAsym<float> Servo_Axon_Mini_MKII::readRawVoltage() {
 
     HAL_ADC_Stop(&hadc3);
 
-    return {
-        (3.3f * static_cast<float>(raw1)) / 4095.0f,
-        (3.3f * static_cast<float>(raw2)) / 4095.0f
-    };
+    const float v1 = (3.3f * static_cast<float>(raw1)) / 4095.0f;
+    const float v2 = (3.3f * static_cast<float>(raw2)) / 4095.0f;
+
+    // Exponential moving average — α = 0.1 (10% new sample, 90% history).
+    // Initialised to mid-rail (1.65 V) so the first real sample blends in smoothly.
+    static float s1 = 1.65f, s2 = 1.65f;
+    constexpr float alpha = 0.5f;
+    s1 = alpha * v1 + (1.0f - alpha) * s1;
+    s2 = alpha * v2 + (1.0f - alpha) * s2;
+
+    return {s1, s2};
 }
 
 /** @brief readCurrentAngle(void);
@@ -214,6 +221,9 @@ SAsym<float> Servo_Axon_Mini_MKII::getCurrentAngle()
 
 void Servo_Axon_Mini_MKII::SetOffset(SAsym<float> offset) {
     config.AngleOffsetDEGREES = offset;
+    // Re-actuate at the last commanded target so the servo immediately moves
+    // to reflect the new trim even when the CTRLs task is not running.
+    Actuate(data.targetAngle);
 }
 
 DATA_Axon_Mini_MKII Servo_Axon_Mini_MKII::getData() const {

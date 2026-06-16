@@ -42,6 +42,8 @@ static bool auxHigh(void)
     ) == GPIO_PIN_SET;
 }
 
+bool e22_aux_high(void) { return auxHigh(); }
+
 // true if aux low -> means e22 is sending data.
 // false if ready for input
 bool e22_isBusy(void)
@@ -475,18 +477,16 @@ int16_t recieve_e22_900t22s(uint8_t *buffer, uint16_t expected_payload_len)
 {
     // pkt_total: the framed packet bytes [SYNC1..SYNC1].
     // total: +1 for the hardware RSSI byte the E22 appends when R3_7_RSSI_BYTE_ENABLE is set.
-    // Reading the RSSI byte here prevents it from sitting in the UART buffer and
-    // corrupting the start of the next receive call.
+    // +4 guard bytes: absorb up to 4 stale bytes that may be left in the UART FIFO
+    // from a previous timed-out call (typically the orphaned RSSI byte = 0xD9).
+    // decodeData() scans the whole buffer for SYNC1/SYNC2, so the offset is harmless.
     const uint16_t pkt_total  = 5u + expected_payload_len + 4u;
-    const uint16_t total      = pkt_total + 1u;
+    const uint16_t total      = pkt_total + 1u + 4u;
 
-    // Tight timeout derived from byte count + 25 ms wireless pipeline margin.
-    const uint32_t timeout_ms = ((uint32_t)total * 10u * 1000u) / 38400u + 25u;
+    // Timeout derived from byte count + 50 ms wireless pipeline margin.
+    const uint32_t timeout_ms = ((uint32_t)total * 10u * 1000u) / 38400u + 50u;
 
     HAL_StatusTypeDef status = HAL_UART_Receive(&huart8, buffer, total, timeout_ms);
-
-    // Wait for AUX to return high (E22 finished clocking bytes onto UART).
-    while (!auxHigh()) { vTaskDelay(pdMS_TO_TICKS(1)); }
 
     if (status == HAL_OK)
         return (int16_t)total;

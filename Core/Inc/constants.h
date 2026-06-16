@@ -6,6 +6,10 @@
 #define KINGFISHER_SW_CONSTANTS_H
 
 #include "stm32h7xx_hal.h"
+#include "Ebyte_E22_900T22S_defs.h"
+
+// -- MASTER RADIO FREQUENCY --
+#define GLOBAL_RADIO_CHANNEL CH909
 
 // ── Handshake / protocol bytes ────────────────────────────────────────────────
 #define HANDSHAKE_GND_BYTE      0xA1u   // GND→FC: (re)connection handshake
@@ -27,9 +31,9 @@
 #define LIFTOFF_ALT_DELTA_M     20.0f    // must gain this many metres from pad *****
 
 // ── Stage transition thresholds ───────────────────────────────────────────────
-#define BURNOUT_ACCEL_G         3.0f    // below this G = motor burnout. THIS MUST BE ABSOLUTE MAGNITUDE. Was 1.5f
-#define APOGEE_APPROACH_VEL_MS  20.0f   // < 20 m/s upward = apogee approach
-#define APOGEE_VEL_MS           5.0f    // <  5 m/s upward = near apogee
+#define BURNOUT_ACCEL_G         (-1.0f)    // below this G = motor burnout. THIS MUST BE ABSOLUTE MAGNITUDE. Was 1.5f
+#define APOGEE_APPROACH_VEL_MS  10.0f   // < 20 m/s upward = apogee approach
+#define APOGEE_VEL_MS           3.0f    // <  5 m/s upward = near apogee
 #define APOGEE_PASS_VEL_MS      (-3.0f) // < -3 m/s = confirmed past apogee
 #define DESCENT_VEL_MS          (-7.0f) // < -7 m/s = descent established
 #define FINAL_DESCENT_VEL_MS    (-9.0f) // > -9 m/s = stable under main chute
@@ -40,8 +44,26 @@
 #define MIN_MAIN_DEPLOY_ALT_M   250.0f  // safety floor for main deploy
 #define TARGET_MAIN_ALT_M       300.0f  // fire main chute at or below this altitude
 
+// ── Ignition detection ────────────────────────────────────────────────────────
+#define IGNITION_SUSTAIN_MS     300u    // vertical accel must exceed LIFTOFF_ACCEL_G for this long
+#define IGNITION_MIN_VEL_MS     5.0f    // vertical velocity must exceed this (m/s) to confirm ignition
+
+// ── Burnout detection ─────────────────────────────────────────────────────────
+#define BURNOUT_SUSTAIN_MS          200u    // total accel must stay below BURNOUT_ACCEL_G for this long
+#define MAX_ACTUATION_DURATION_MS   25000u  // disable actuation this many ms after burnout confirmed
+
 // ── Controls activation gate ──────────────────────────────────────────────────
 #define CTRLS_MIN_ALT_M         100.0f  // AGL metres before roll control arms
+#define MAX_PITCH_ANGLE_DEG     30.0f   // if pitch exceeds this, permanently disable actuation
+#define MIN_ACTUATION_VEL_MS    2.0f    // if |vertical velocity| drops below this, permanently disable actuation
+
+// ── Vertical velocity ─────────────────────────────────────────────────────────
+#define VVEL_UPDATE_PERIOD_MS   50u    // fixed interval for altitude delta sampling
+
+// ── Initial condition tare ────────────────────────────────────────────────────
+#define TARE_STABILITY_MS       (3u * 60u * 1000u)  // 3 minutes of continuous stability required
+#define TARE_ACC_DELTA_G        0.1f    // max inter-sample acceleration change (g) to count as stable
+#define TARE_GYRO_DELTA_DPS     5.0f    // max inter-sample gyro change (deg/s) to count as stable
 
 // ── Backup drogue autonomous trigger ─────────────────────────────────────────
 #define BACKUP_DROGUE_MIN_ALT_M 1000.0f // minimum altitude (m) to trigger backup
