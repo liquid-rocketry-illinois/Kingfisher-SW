@@ -24,7 +24,7 @@ uint16_t MAXM10S::getAvailableBytes()
     uint8_t buf[2] = {0};
     // 2-byte register read at 400kHz I2C takes <1ms; 20ms is a generous ceiling
     if (HAL_I2C_Mem_Read(_hi2c, I2C_ADDRESS, REG_BYTES_AVAIL,
-                         I2C_MEMADD_SIZE_8BIT, buf, 2, 20) != HAL_OK)
+                         I2C_MEMADD_SIZE_8BIT, buf, 2, 50) != HAL_OK)
         return 0;
     uint16_t n = (uint16_t)((buf[0] << 8) | buf[1]);
     return (n == 0xFFFF) ? 0 : n;  // 0xFFFF = I2C FIFO stall; treat as 0
@@ -36,7 +36,7 @@ uint16_t MAXM10S::readStream(uint16_t numBytes)
     if (numBytes > RX_BUF_SIZE) numBytes = RX_BUF_SIZE;
     // At 400kHz I2C, 1024 bytes takes ~23ms; 50ms is a safe ceiling
     if (HAL_I2C_Mem_Read(_hi2c, I2C_ADDRESS, REG_DATA_STREAM,
-                         I2C_MEMADD_SIZE_8BIT, rxBuf, numBytes, 50) != HAL_OK)
+                         I2C_MEMADD_SIZE_8BIT, rxBuf, numBytes, 100) != HAL_OK)
         return 0;
     return numBytes;
 }
