@@ -10,6 +10,9 @@
 // successful receive so the CTRLs task always has current servo offsets.
 extern GndStationData g_gndData;
 
+extern bool STATE_BACKUP_PID;
+extern bool ALLOW_ACTUATION;
+
 Telemetry::Telemetry()
 {
     lastSeq         = 0;
@@ -327,11 +330,31 @@ void Telemetry::processCmd(uint8_t cmd)
 
 void Telemetry::processPyros(uint32_t pyroActivation)
 {
-    // Set pending bits — PyroTask fires the GPIO in its own context so the
-    // Radio task is never blocked during the 2-second hold.
-    if (pyroActivation == PYROMAIN)       g_pyroPending |= PYRO_MAIN_BIT;
-    if (pyroActivation == PYRODROGUEBKP)  g_pyroPending |= PYRO_DROGUE_BKP_BIT;
-    if (pyroActivation == PYRODROGUEMAIN) g_pyroPending |= PYRO_DROGUE_MAIN_BIT;
+    switch (pyroActivation) {
+        case PYROMAIN:
+            // Activate PID roll-damper indefinitely.
+            STATE_BACKUP_PID  = true;
+            ALLOW_ACTUATION   = true;
+            g_ctrls_enabled   = true;
+            break;
+
+        case PYRODROGUEBKP:
+            // Activate state-space controller from t = 0.
+            g_ctrls_reset_time = true;   // CTRLs_STATESPACE resets launch_start_ms on next tick
+            STATE_BACKUP_PID   = false;
+            ALLOW_ACTUATION    = true;
+            g_ctrls_enabled    = true;
+            break;
+
+        case PYRODROGUEMAIN:
+            // Kill both algorithms.
+            g_ctrls_enabled  = false;
+            ALLOW_ACTUATION  = false;
+            break;
+
+        default:
+            break;
+    }
 }
 
 // ---------------------------------------------------------------------------

@@ -31,6 +31,8 @@ extern osMutexId_t         g_ctrls_sensor_mutex;
 extern float               g_ctrls_canard_cmd_deg;   // output: canard command (degrees)
 extern osMutexId_t         g_ctrls_output_mutex;
 extern volatile bool       g_ctrls_enabled;           // set true to activate control output
+extern volatile bool       g_ctrls_test_mode;         // bypasses flight gates for ground testing
+extern volatile bool       g_ctrls_reset_time;        // pulse true to reset statespace t=0
 
 // Create RTOS resources — call once from MX_FREERTOS_Init before any task starts.
 extern "C" void ctrlsInit(void);
