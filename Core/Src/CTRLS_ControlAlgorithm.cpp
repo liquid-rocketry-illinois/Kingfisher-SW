@@ -222,7 +222,7 @@ void loadControlFreakRocketConfig(RocketConfig& cfg) {
     cfg.rem_min_expected_accel  = 0.5f;
     cfg.rem_min_measured_accel  = 0.5f;
     cfg.rem_required_mismatches = 5;
-    cfg.rem_allow_flip_back     = false;
+    cfg.rem_allow_flip_back     = true;
 
     cfg.thrust_n = static_cast<int>(sizeof(kThrustT) / sizeof(kThrustT[0]));
     copyTable(cfg.thrust_t, kThrustT, cfg.thrust_n);

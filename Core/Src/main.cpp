@@ -459,6 +459,10 @@ void CTRLs_STATESPACE() {
                 g_telemNow.servoTarget2 = u_deg + g_gndData.servoOffset2;
                 osMutexRelease(g_ctrls_sensor_mutex);
             }
+
+            // Block until updateDataTask signals that a fresh sensor frame is ready.
+            // 10 ms timeout is a safety fallback only.
+            ulTaskNotifyTake(pdTRUE, pdMS_TO_TICKS(10));
         }
 }
 
