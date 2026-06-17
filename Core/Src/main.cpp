@@ -494,9 +494,9 @@ extern "C" void CTRLs(void*)
             continue;
         }
         if (STATE_BACKUP_PID) {
-            CTRLs_PID(); // returns after one iteration; loop re-checks ALLOW_ACTUATION
+            CTRLs_PID();
         } else {
-            CTRLs_STATESPACE(); // never returns; handles its own loop and disabling via g_ctrls_enabled
+            CTRLs_STATESPACE();
         }
     }
 }
