@@ -185,7 +185,7 @@ void loadControlFreakRocketConfig(RocketConfig& cfg) {
     cfg.delta_deg   = 0.0f;
     cfg.Cnalpha_fin = 2.34275f;
 
-    cfg.canard_moment_coeff_per_deg = -2.23e-6f;
+    cfg.canard_moment_coeff_per_deg = -4.23e-7f;
     cfg.roll_damping_lambda = 30.0f;
     cfg.max_deflection_rad  = 9.0f * (M_PI / 180.0f);
     cfg.max_deflection_rate = 428.571428571f * (M_PI / 180.0f);
