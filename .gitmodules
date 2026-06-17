@@ -1,0 +1,3 @@
+[submodule "attitude_estimator"]
+	path = attitude_estimator
+	url = https://github.com/AIS-Bonn/attitude_estimator.git

@@ -87,7 +87,6 @@ add_executable(${CMAKE_PROJECT_NAME}
         Core/Src/TinyGPSPlus.cpp
         Core/Src/FlightComputer_SENSORS.cpp
         Core/Src/FlightComputer_DATAUPDATE.cpp
-        Core/Inc/DataFilter.h
         Core/Src/DataFilter.cpp
         attitude_estimator/src/attitude_estimator.h
         attitude_estimator/src/attitude_estimator.cpp
