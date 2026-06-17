@@ -220,8 +220,8 @@ void loadControlFreakRocketConfig(RocketConfig& cfg) {
     cfg.rem_enabled             = true;
     cfg.rem_post_burn_delay_s   = 0.25f;
     cfg.rem_min_cmd_rad         = 2.0f * (M_PI / 180.0f);
-    cfg.rem_min_expected_accel  = 0.5f;
-    cfg.rem_min_measured_accel  = 0.5f;
+    cfg.rem_min_expected_accel  = 0.3f;
+    cfg.rem_min_measured_accel  = 0.3f;
     cfg.rem_required_mismatches = 5;
     cfg.rem_allow_flip_back     = true;
 
