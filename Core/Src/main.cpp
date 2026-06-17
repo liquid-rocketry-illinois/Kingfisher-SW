@@ -344,6 +344,7 @@ void CTRLs_STATESPACE() {
 
     // ── Update loop ──────────────────────────────────────────────────────────
     static uint32_t prev_ms         = 0U;
+    static uint32_t launch_start_ms = 0U;
     static float    model_alt_m     = 0.0f;
     static bool     apogee_latched  = false;
     static uint32_t apogee_blink_ms = 0U;
@@ -356,6 +357,18 @@ void CTRLs_STATESPACE() {
 
     for (;;)
         {
+            // Remote kill or algorithm switch — return so the task loop re-evaluates.
+            if (!g_ctrls_enabled || !ALLOW_ACTUATION || STATE_BACKUP_PID) {
+                Servos.Update(0.0f, 0.0f);
+                return;
+            }
+
+            // Reset flight clock if GND commanded state-space from t=0.
+            if (g_ctrls_reset_time) {
+                g_ctrls_reset_time = false;
+                launch_start_ms    = 0U;
+            }
+
             const uint32_t now_ms = millis();
             const float dt = (prev_ms == 0U) ? 0.01f
                              : static_cast<float>(now_ms - prev_ms) * 1e-3f;
