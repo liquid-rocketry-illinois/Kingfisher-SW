@@ -10,7 +10,6 @@ osMutexId_t         g_ctrls_sensor_mutex   = nullptr;
 float               g_ctrls_canard_cmd_deg = 0.0f;
 osMutexId_t         g_ctrls_output_mutex   = nullptr;
 volatile bool       g_ctrls_enabled        = true;
-volatile bool       g_ctrls_test_mode      = true;
 
 static const osMutexAttr_t k_sensor_mutex_attr = {
     "ctrlsSensorMtx", osMutexPrioInherit, nullptr, 0U

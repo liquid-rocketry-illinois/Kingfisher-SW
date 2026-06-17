@@ -52,7 +52,7 @@ void EKF::predict_(float t, float dt, float u, float alt, StateMat& A_out) {
 // ─── correct_ ─────────────────────────────────────────────────────────────────
 void EKF::correct_(float t, float u, const MeasVec& y_meas,
                    float alt, const StateMat& A,
-                   bool burning, bool gyro_only) {
+                   bool burning) {
     // Build effective R (inflate accel during burn)
     Mat<6,6> R_eff = R_;
     if (burning) {
@@ -61,14 +61,7 @@ void EKF::correct_(float t, float u, const MeasVec& y_meas,
     }
 
     // Measurement Jacobian
-    MeasMat C;
-    if (gyro_only) {
-        C(3,0) = 1.0f;
-        C(4,1) = 1.0f;
-        C(5,2) = 1.0f;
-    } else {
-        C = phys_.jacobianC(t, xhat, u, A, alt);
-    }
+    MeasMat C = phys_.jacobianC(t, xhat, u, A, alt);
 
     // Innovation: y_pred from noiseless sensor model
     MeasVec y_pred = phys_.predictMeasurement(t, xhat, u, alt);
@@ -113,13 +106,10 @@ StateVec EKF::update(float t, float dt, const MeasVec& y_meas, float u,
 
     if (on_rail) {
         applyRailConstraint_();
-        // On rail: only gyro rows active in C (simplified 3×10 gyro-identity block)
-        // We still run predict + partial correct for gyro channels
         StateMat A;
         predict_(t, dt, u, alt, A);
         applyRailConstraint_();
-        // Gyro-only correction (use only rows 3-5 of y_meas)
-        correct_(t, u, y_meas, alt, A, false, true);
+        correct_(t, u, y_meas, alt, A, burning);
         applyRailConstraint_();
     } else {
         StateMat A;
@@ -127,15 +117,6 @@ StateVec EKF::update(float t, float dt, const MeasVec& y_meas, float u,
         correct_(t, u, y_meas, alt, A, burning);
     }
 
-    normalizeQuaternion_();
-    return xhat;
-}
-
-StateVec EKF::updateGyroOnly(float t, float dt, const MeasVec& y_meas, float u,
-                             float alt) {
-    StateMat A;
-    predict_(t, dt, u, alt, A);
-    correct_(t, u, y_meas, alt, A, false, true);
     normalizeQuaternion_();
     return xhat;
 }

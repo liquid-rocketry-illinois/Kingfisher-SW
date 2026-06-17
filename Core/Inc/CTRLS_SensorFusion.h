@@ -18,11 +18,6 @@ public:
     StateVec update(float t, float dt, const MeasVec& y_meas, float u,
                     float alt = 0.0f);
 
-    // Predict + gyro-only correct step. Used by dynamics bench mode so
-    // stationary accel/baro readings do not overwrite the propagated model.
-    StateVec updateGyroOnly(float t, float dt, const MeasVec& y_meas, float u,
-                            float alt = 0.0f);
-
     // Predict only — no correction. Call when no new IMU sample is available.
     void predictOnly(float t, float dt, float u, float alt = 0.0f);
 
@@ -41,10 +36,9 @@ private:
     void predict_(float t, float dt, float u, float alt, StateMat& A_out);
 
     // Correct step: standard EKF update with gain limiting.
-    // gyro_only keeps on-rail correction from using accel residuals.
     void correct_(float t, float u, const MeasVec& y_meas,
                   float alt, const StateMat& A,
-                  bool burning, bool gyro_only = false);
+                  bool burning);
 
     // Enforce rail constraints (zero pitch/yaw, lock quaternion)
     void applyRailConstraint_();

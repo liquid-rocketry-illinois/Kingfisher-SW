@@ -151,29 +151,29 @@ static void copyTable(float* dst, const float* src, int n) {
 } // namespace
 
 void loadControlFreakRocketConfig(RocketConfig& cfg) {
-    // Values copied from FV-Controls/rockets/Control Freak/sim.
-    cfg.m_0    = 20.5577008f;
-    cfg.m_f    = 16.9057f;
+    // Values copied from FV-Controls/rockets/Control Freak/Rocketpy/rocketpy.ipynb.
+    cfg.m_0    = 21.8520008f;
+    cfg.m_f    = 18.2000000f;
     cfg.m_prop = 3.65200077f;
 
-    cfg.I_0   = 13.1474989f;
-    cfg.I_f   = 10.6162516f;
-    cfg.I_3_0 = 0.0628822543f;
-    cfg.I_3_f = 0.0593600000f;
+    cfg.I_0   = 12.7651156f;
+    cfg.I_f   = 10.1818760f;
+    cfg.I_3_0 = 0.0648822543f;
+    cfg.I_3_f = 0.0613600000f;
 
-    cfg.x_CG_0 = 1.89627893f;
-    cfg.x_CG_f = 1.75041641f;
+    cfg.x_CG_0 = 1.88045662f;
+    cfg.x_CG_f = 1.74179228f;
 
-    cfg.d    = 0.131f;
+    cfg.d    = 0.13081f;
     cfg.L_ne = 2.870f;
 
-    cfg.t_rail    = 0.323f;
+    cfg.t_rail    = 0.309f;
     cfg.t_burnout = 3.28f;
-    cfg.t_apogee  = 24.301f;
+    cfg.t_apogee  = 25.678f;
 
-    cfg.base_cn   = 10.559f;
+    cfg.base_cn   = 10.581f;
     cfg.base_cp   = 2.17842618f;
-    cfg.canard_cn = 0.855f;
+    cfg.canard_cn = 0.857f;
     cfg.canard_cp = 1.049f;
     cfg.canard_plane_angle_deg = 0.0f;
 
@@ -182,7 +182,7 @@ void loadControlFreakRocketConfig(RocketConfig& cfg) {
     cfg.Ct          = 0.152f;
     cfg.s           = 0.133f;
     cfg.delta_deg   = 0.1139f;
-    cfg.Cnalpha_fin = 2.3365f;
+    cfg.Cnalpha_fin = 2.34275f;
 
     cfg.canard_moment_coeff_per_deg = -2.23e-6f;
     cfg.roll_damping_lambda = 30.0f;
@@ -200,7 +200,7 @@ void loadControlFreakRocketConfig(RocketConfig& cfg) {
     for (int i = 0; i < 4; ++i) cfg.Q_quat[i] = 1.0e-5f;
 
     cfg.accel_noise_std_g = 0.5f;
-    cfg.gyro_noise_std    = 0.00378151f;
+    cfg.gyro_noise_std    = 0.05f;
     cfg.accel_model_std_g = 0.5f;
     cfg.accel_burn_std_g  = 5.0f;
     cfg.P0_scale          = 0.01f;

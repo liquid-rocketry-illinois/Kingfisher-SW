@@ -344,7 +344,6 @@ void CTRLs_STATESPACE() {
 
     // ── Update loop ──────────────────────────────────────────────────────────
     static uint32_t prev_ms         = 0U;
-    static uint32_t launch_start_ms = 0U;
     static float    model_alt_m     = 0.0f;
     static bool     apogee_latched  = false;
     static uint32_t apogee_blink_ms = 0U;
@@ -374,16 +373,9 @@ void CTRLs_STATESPACE() {
                 osMutexRelease(g_ctrls_sensor_mutex);
             }
 
-            // Ground test: start timer the moment g_ctrls_test_mode is set.
-            // Real flight: use sensor-detected flight time.
-            if (g_ctrls_test_mode && launch_start_ms == 0U)
-                launch_start_ms = now_ms;
-            const float t = (launch_start_ms > 0U)
-                ? static_cast<float>(now_ms - launch_start_ms) * 1e-3f
-                : snap.flight_time_s;
-            const float model_alt_for_step = model_alt_m;
-            const float ekf_alt_for_step =
-                g_ctrls_test_mode ? model_alt_for_step : snap.altitude_m;
+            const float t = snap.flight_time_s;
+            const float sensor_alt_m = snap.altitude_m;
+            const float ekf_alt_for_step = fresh ? sensor_alt_m : model_alt_m;
 
             // ── EKF step ─────────────────────────────────────────────────────────
             if (fresh) {
@@ -397,17 +389,17 @@ void CTRLs_STATESPACE() {
                     y(i,   0) = snap.accel_g[i];
                     y(3+i, 0) = snap.gyro_rad_s[i];
                 }
-                if (g_ctrls_test_mode)
-                    ekf.updateGyroOnly(t, dt, y, u_last_rad, ekf_alt_for_step);
-                else
-                    ekf.update(t, dt, y, u_last_rad, ekf_alt_for_step);
+                ekf.update(t, dt, y, u_last_rad, ekf_alt_for_step);
             } else {
                 ekf.predictOnly(t, dt, u_last_rad, ekf_alt_for_step);
             }
 
-            // ── Dynamics model altitude + apogee detection ────────────────────────
+            // ── Sensor-aided model altitude + apogee detection ────────────────────
             const float model_vz_ms = modelVerticalVelocityMS(ekf.xhat);
-            model_alt_m += model_vz_ms * dt;
+            if (fresh)
+                model_alt_m = sensor_alt_m;
+            else
+                model_alt_m += model_vz_ms * dt;
             if (model_alt_m < 0.0f) model_alt_m = 0.0f;
 
             // DYN log at 10 Hz — only while controls are active
@@ -446,8 +438,7 @@ void CTRLs_STATESPACE() {
             // ── Control law ───────────────────────────────────────────────────────
             // EKF always runs above to keep the state estimate warm.
             // Output is zeroed when controls are disabled so servos hold neutral.
-            const float control_alt =
-                g_ctrls_test_mode ? model_alt_m : snap.altitude_m;
+            const float control_alt = model_alt_m;
             const float u_rad = g_ctrls_enabled
                 ? ctrl.computeControl(t, ekf.xhat, control_alt)
                 : 0.0f;
