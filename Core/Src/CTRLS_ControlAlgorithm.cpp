@@ -200,10 +200,10 @@ void loadControlFreakRocketConfig(RocketConfig& cfg) {
     for (int i = 0; i < 4; ++i) cfg.Q_quat[i] = 1.0e-5f;
 
     cfg.accel_noise_std_g = 0.5f;
-    cfg.gyro_noise_std    = 0.05f;
-    cfg.accel_model_std_g = 0.5f;
-    cfg.accel_burn_std_g  = 5.0f;
-    cfg.P0_scale          = 0.01f;
+    cfg.gyro_noise_std    = 0.01f;
+    cfg.accel_model_std_g = 0.1f;
+    cfg.accel_burn_std_g  = 2.0f;
+    cfg.P0_scale          = 0.1f;
 
     cfg.rho_0    = 1.213f;
     cfg.g_0      = 9.8014f;

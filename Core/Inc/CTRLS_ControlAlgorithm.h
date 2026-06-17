@@ -143,7 +143,7 @@ struct RocketConfig {
     float gyro_noise_std     = 0.01f;   // rad/s
     float accel_model_std_g  = 0.1f;    // g units, model mismatch
     float accel_burn_std_g   = 0.5f;    // g units, inflated during burn
-    float P0_scale           = 1.0f;    // initial covariance scaling
+    float P0_scale           = 0.1f;    // initial covariance scaling
 
     // Environment
     float rho_0     = 1.225f;   // kg/m³ sea level air density
