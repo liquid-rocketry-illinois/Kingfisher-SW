@@ -106,8 +106,20 @@ extern "C" void updateDataTask(void*)
             if (g_request_tare) {
                 g_request_tare = false;
                 Est.reset(true, false); // reset attitude to identity, keep gyro bias from 3-min window
-                g_alt_pad_m = g_telemNow.altitude;           // capture pad MSL altitude
+                g_alt_pad_m = g_telemNow.altitude;
                 CTRLs_t = 0;
+
+                // Full flight state machine reset — clears any lockouts accumulated
+                // while the rocket was powered on the ground before tare.
+                STATE_IGNITION   = false;
+                STATE_BURNOUT    = false;
+                STATE_BACKUP_PID = true;   // PID on by default until ignition
+                ALLOW_ACTUATION  = false;
+                g_ctrls_enabled  = false;
+                actuation_locked = false;
+                ignDetectMs      = 0U;
+                burnDetectMs     = 0U;
+                burnoutMs        = 0U;
             }
 
             DataUpdate::ComputeDt();
@@ -157,14 +169,16 @@ extern "C" void updateDataTask(void*)
             }
         }
 
-        // Permanent actuation disable: pitch tipped too far, velocity too low, or
-        // MAX_ACTUATION_DURATION_MS has elapsed since burnout (controls no longer effective).
+        // Permanent actuation disable: pitch tipped too far, velocity too low post-burnout,
+        // or MAX_ACTUATION_DURATION_MS has elapsed since burnout.
+        // vvel check is gated on STATE_BURNOUT — vvel is 0 on the pad and must not
+        // trip the lockout before the rocket has left the rail.
         if (!actuation_locked) {
-            const bool timeout = STATE_BURNOUT &&
-                                 (nowMs - burnoutMs) >= MAX_ACTUATION_DURATION_MS;
-            if (fabsf(pitch) > MAX_PITCH_ANGLE_DEG ||
-                fabsf(vvel)  < MIN_ACTUATION_VEL_MS ||
-                timeout) {
+            const bool timeout  = STATE_BURNOUT &&
+                                  (nowMs - burnoutMs) >= MAX_ACTUATION_DURATION_MS;
+            const bool vvel_low = STATE_BURNOUT &&
+                                  fabsf(vvel) < MIN_ACTUATION_VEL_MS;
+            if (fabsf(pitch) > MAX_PITCH_ANGLE_DEG || vvel_low || timeout) {
                 actuation_locked = true;
                 ALLOW_ACTUATION  = false;
                 g_ctrls_enabled  = false;
