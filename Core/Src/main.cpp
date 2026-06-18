@@ -128,9 +128,9 @@ extern "C" void updateDataTask(void*)
         const uint32_t nowMs = osKernelGetTickCount();
 
         // Ignition: vertical-axis accel exceeds LIFTOFF_ACCEL_G for IGNITION_SUSTAIN_MS
-        // AND vertical velocity confirms launch. Latched permanently once confirmed.
+        // Latched permanently once confirmed.
         if (!STATE_IGNITION) {
-            if (az > LIFTOFF_ACCEL_G && vvel > IGNITION_MIN_VEL_MS) {
+            if (az > LIFTOFF_ACCEL_G) {
                 if (ignDetectMs == 0U) ignDetectMs = nowMs;
                 if (nowMs - ignDetectMs >= IGNITION_SUSTAIN_MS) {
                     CTRLs_t          = nowMs;

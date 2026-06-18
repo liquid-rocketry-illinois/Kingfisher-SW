@@ -293,38 +293,14 @@ void Telemetry::processCmd(uint8_t cmd)
 {
     // Echo by default — GND inspects this field to confirm delivery.
     HALOutData.CommandResponseByte = cmd;
-
-    switch (cmd) {
-        case SHUTDOWN_KEEPALIVE:          // 217  — BYTE_ABORT
-            shutdownFlag    = true;
-            g_ctrls_enabled = false;      // zero servo outputs immediately
-            break;
-
-        case HANDSHAKE_GND_BYTE:          // 0xA1 — BYTE_HANDSHAKE
-            // Override echo: reply with the dedicated ACK byte so GND can
-            // distinguish a handshake response from its own request byte.
-            HALOutData.CommandResponseByte = HANDSHAKE_FC_BYTE;  // 0xB2
-            break;
-
-        case BYTE_DEFLECT_TEST:           // 150  — BYTE_DEFLECT_TEST
-            g_ctrls_enabled = true;
-            break;
-
-        case REQUEST_DATA_BYTE:           // 0xC3 — BYTE_REQUEST_DATA
-            // FC always sends telemetry; no extra action beyond the echo.
-            break;
-
-        case SERVO_OFFSET_CMD_BYTE:       // 0xD4 — BYTE_SERVO_TARE
-            // Servo offsets already propagated in receiveCommands();
-            // the echo confirms receipt to GND.
-            break;
-
-        case 0:                           // BYTE_NO_CMD — idle / no-op
-            HALOutData.CommandResponseByte = 0;
-            break;
-
-        default:
-            break;
+    if (cmd == SHUTDOWN_KEEPALIVE) {
+        // 217  — BYTE_ABORT
+        shutdownFlag    = true;
+        g_ctrls_enabled = false;      // zero servo outputs immediately
+    }
+    else {
+        // cmd is any number, a value of E22 frequncies. values 52-78.
+        changeOpFreq_e22_900t22s((R2_E22Channel915)cmd);
     }
 }
 

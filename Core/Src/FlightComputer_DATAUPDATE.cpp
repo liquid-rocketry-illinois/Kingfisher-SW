@@ -95,6 +95,13 @@ float DataUpdate::getVerticalVelocity()
         return lastVvel;
     }
 
+    if (fabs(altNow - lastAlt) < 0.1f) { // delta v < 0.1f = m/s
+        lastVvel   = 0.0f;
+        lastVvelMs = nowMs;
+        lastAlt    = altNow;
+        return 0.0f;
+    }
+
     float vvel = (altNow - lastAlt) / (static_cast<float>(elapsed) * 1.0e-3f);
     // Clamp to physically plausible range — suppresses ADC glitches and
     // timing anomalies from producing absurd readings that could trip the

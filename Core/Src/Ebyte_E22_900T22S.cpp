@@ -256,6 +256,7 @@ int8_t writeConfig_e22_900t22s(
 
     //xSemaphoreTake(e22_mutex, portMAX_DELAY);
 
+
     if (HAL_GPIO_ReadPin(M0_Radio_GPIO_Port, M0_Radio_Pin) != GPIO_PIN_RESET ||
         HAL_GPIO_ReadPin(M1_Radio_GPIO_Port, M1_Radio_Pin) != GPIO_PIN_SET)
         changeMode(CONFIG);
@@ -517,6 +518,9 @@ uint16_t getAddress_e22_900t22s(void)
 void changeOpFreq_e22_900t22s(R2_E22Channel915 channel)
 {
     e22_cfg.REG2 = channel;
+    changeMode(EBYTE_MODE::CONFIG);
+
+    waitAux_e22_900t22s(100);
     writeConfig_e22_900t22s(&e22_cfg,false);
 }
 
