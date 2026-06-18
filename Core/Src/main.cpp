@@ -353,8 +353,6 @@ void CTRLs_STATESPACE() {
 
     while (!initDone) osDelay(10);
 
-    SD_DynInit(); // TODO check if this is needed at all
-
 
     // ── Update loop ──────────────────────────────────────────────────────────
     static uint32_t prev_ms         = 0U;

@@ -79,11 +79,6 @@ int8_t SD_LogGPS(double lat, double lon, double alt,
     return ret;
 }
 
-int8_t SD_DynInit()
-{
-    return 0;  // no-op: dynamics lines go to the main log file
-}
-
 int8_t SD_LogDyn(const char* msg)
 {
     return SD_LogNewline(msg);
