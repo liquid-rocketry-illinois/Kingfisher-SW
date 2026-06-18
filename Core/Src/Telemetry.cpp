@@ -300,7 +300,7 @@ void Telemetry::processCmd(uint8_t cmd)
     }
     else {
         // cmd is any number, a value of E22 frequncies. values 52-78.
-        changeOpFreq_e22_900t22s((R2_E22Channel915)cmd);
+        if (des_cfg.REG2 != static_cast<R2_E22Channel915>(cmd)) changeOpFreq_e22_900t22s(static_cast<R2_E22Channel915>(cmd));
     }
 }
 
