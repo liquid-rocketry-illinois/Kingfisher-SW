@@ -57,9 +57,9 @@ int8_t Sensors::Update()
     Baro.Update();
     GPS.update();
 
-    // Servos' positions are updated in control algo
-    Servos.SetOffset({g_gndData.servoOffset1, g_gndData.servoOffset2});
-
+    // Servos' positions are updated in control algo (global Servos in main.cpp).
+    // SetOffset is NOT called here — calling Actuate() from this task at 500 Hz
+    // would overwrite TIM3 CCR1/CCR2 and fight the CTRLs commands.
     SAsym<float> c_Servos = Servos.getCurrentAngle();
     MAXM10S::gpsData c_GPS = GPS.getData();
     g_BMI = IMU.getVotedBMI();

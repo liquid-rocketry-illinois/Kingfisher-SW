@@ -346,6 +346,7 @@ void CTRLs_STATESPACE() {
     static uint32_t prev_ms         = 0U;
     static uint32_t launch_start_ms = 0U;
     static float    model_alt_m     = 0.0f;
+    static float    t_zero_s        = 0.0f;  // subtracted from snap.flight_time_s to reset EKF clock
     static bool     apogee_latched  = false;
     static uint32_t apogee_blink_ms = 0U;
     static bool     apogee_blink_done = false;
@@ -364,11 +365,6 @@ void CTRLs_STATESPACE() {
             }
 
             // Reset flight clock if GND commanded state-space from t=0.
-            if (g_ctrls_reset_time) {
-                g_ctrls_reset_time = false;
-                launch_start_ms    = 0U;
-            }
-
             const uint32_t now_ms = millis();
             const float dt = (prev_ms == 0U) ? 0.01f
                              : static_cast<float>(now_ms - prev_ms) * 1e-3f;
@@ -386,7 +382,18 @@ void CTRLs_STATESPACE() {
                 osMutexRelease(g_ctrls_sensor_mutex);
             }
 
-            const float t = snap.flight_time_s;
+            // Reset flight clock if GND commanded state-space from t=0.
+            // Capture current snap.flight_time_s as the new zero so that
+            // subsequent t values are relative to the moment of the command.
+            if (g_ctrls_reset_time) {
+                g_ctrls_reset_time = false;
+                launch_start_ms    = 0U;
+                t_zero_s           = snap.flight_time_s;
+                ekf.reset(cfg);
+                ctrl.reset();
+            }
+
+            const float t = snap.flight_time_s - t_zero_s;
             const float sensor_alt_m = snap.altitude_m;
             const float ekf_alt_for_step = fresh ? sensor_alt_m : model_alt_m;
 
@@ -416,7 +423,7 @@ void CTRLs_STATESPACE() {
             if (model_alt_m < 0.0f) model_alt_m = 0.0f;
 
             // DYN log at 10 Hz — only while controls are active
-            if (g_ctrls_enabled && !apogee_latched && now_ms - dyn_log_ms >= 10U) {
+            if (g_ctrls_enabled && !apogee_latched && now_ms - dyn_log_ms >= 20U) {
                 dyn_log_ms = now_ms;
                 const float vx = ekf.xhat(3,0), vy = ekf.xhat(4,0);
                 const float horiz_v   = sqrtf(vx*vx + vy*vy);

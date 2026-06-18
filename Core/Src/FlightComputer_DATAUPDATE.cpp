@@ -82,7 +82,7 @@ float DataUpdate::getVerticalVelocity()
     static float    lastVvel   = 0.0f;
 
     const uint32_t nowMs  = HAL_GetTick();
-    const float    altNow = roundf(g_telemNow.altitude); // 1 m resolution suppresses noise-driven spikes
+    const float    altNow = g_telemNow.altitude;
 
     if (lastVvelMs == 0U) {
         lastVvelMs = nowMs;
@@ -92,10 +92,17 @@ float DataUpdate::getVerticalVelocity()
 
     const uint32_t elapsed = nowMs - lastVvelMs;
     if (elapsed < VVEL_UPDATE_PERIOD_MS) {
-        return lastVvel; // not yet time; return last computed value
+        return lastVvel;
     }
 
-    lastVvel   = (altNow - lastAlt) / (static_cast<float>(elapsed) * 1.0e-3f);
+    float vvel = (altNow - lastAlt) / (static_cast<float>(elapsed) * 1.0e-3f);
+    // Clamp to physically plausible range — suppresses ADC glitches and
+    // timing anomalies from producing absurd readings that could trip the
+    // actuation lockout or ignition state machine.
+    if (vvel >  300.0f) vvel =  300.0f;
+    if (vvel < -300.0f) vvel = -300.0f;
+
+    lastVvel   = vvel;
     lastVvelMs = nowMs;
     lastAlt    = altNow;
     return lastVvel;
